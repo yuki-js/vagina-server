@@ -70,7 +70,7 @@ dependencies {
     compileOnly 'io.swagger.core.v3:swagger-core:2.1.22'
 }
 
-group = 'app.aoki.quarkuscrud'
+group = 'app.vagina.server'
 version = '0.0.1'
 
 java {
@@ -312,8 +312,8 @@ task generateOpenApiModels(type: JavaExec) {
         '-i', inputSpec.absolutePath,
         '-g', 'jaxrs-spec',
         '-o', outputDir.absolutePath,
-        '--model-package', 'app.aoki.quarkuscrud.generated.model',
-        '--api-package', 'app.aoki.quarkuscrud.generated.api',
+        '--model-package', 'app.vagina.server.generated.model',
+        '--api-package', 'app.vagina.server.generated.api',
         '--skip-validate-spec',
         '--additional-properties',
         [
