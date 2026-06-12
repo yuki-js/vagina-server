@@ -6,7 +6,7 @@ import app.vagina.server.entity.AuthnProvider;
 import app.vagina.server.entity.User;
 import app.vagina.server.mapper.AuthnProviderMapper;
 import app.vagina.server.mapper.UserMapper;
-import app.vagina.server.service.HarigataOidcService.OidcUserInfo;
+import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcUserInfo;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;

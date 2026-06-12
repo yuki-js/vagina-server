@@ -6,12 +6,9 @@ import app.vagina.server.generated.model.AuthTokenResponse;
 import app.vagina.server.generated.model.ExchangeOidcLoginRequest;
 import app.vagina.server.generated.model.StartOidcLogin200Response;
 import app.vagina.server.generated.model.StartOidcLoginRequest;
-import app.vagina.server.service.HarigataOidcService;
-import app.vagina.server.service.JwtService;
-import app.vagina.server.service.OidcStateService;
-import app.vagina.server.service.RefreshTokenService;
+import app.vagina.server.service.AuthService;
 import app.vagina.server.service.UserService;
-import app.vagina.server.service.HarigataOidcService.OidcUserInfo;
+import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcUserInfo;
 import app.vagina.server.support.AppException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -24,32 +21,26 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @ApplicationScoped
 public class AuthUsecase {
 
-  private static final String HARIGATA_PROVIDER = "harigata";
-
   @ConfigProperty(name = "vagina.auth.access-token.lifespan")
   Long accessTokenLifespan;
 
   @Inject
   UserService userService;
+
   @Inject
-  JwtService jwtService;
-  @Inject
-  RefreshTokenService refreshTokenService;
-  @Inject
-  OidcStateService oidcStateService;
-  @Inject
-  HarigataOidcService harigataOidcService;
+  AuthService authService;
 
   public StartOidcLogin200Response startOidcLogin(String provider, StartOidcLoginRequest request) {
-    ensureSupportedProvider(provider);
-    var createdState = oidcStateService.createState(
+    authService.resolveProvider(provider); // validate early
+    var createdState = authService.createState(
         provider,
         app.vagina.server.entity.ClientType.fromValue(request.getClientType().value()),
         request.getRedirectUri().toString(),
         request.getCodeChallenge(),
         request.getCodeChallengeMethod().value());
 
-    String authorizationUrl = harigataOidcService.buildAuthorizationUrl(
+    String authorizationUrl = authService.buildAuthorizationUrl(
+        provider,
         request.getRedirectUri().toString(),
         createdState.rawState(),
         request.getCodeChallenge(),
@@ -64,22 +55,20 @@ public class AuthUsecase {
 
   @Transactional
   public AuthTokenResponse exchangeOidcLogin(String provider, ExchangeOidcLoginRequest request) {
-    ensureSupportedProvider(provider);
-
-    oidcStateService.consumeState(
+    authService.consumeState(
         provider, request.getState(), request.getRedirectUri().toString(), request.getCodeVerifier());
 
-    var tokenSet = harigataOidcService.exchangeAuthorizationCode(
-        request.getCode(), request.getRedirectUri().toString(), request.getCodeVerifier());
-    OidcUserInfo oidcUserInfo = harigataOidcService.fetchUserInfo(tokenSet.accessToken());
+    var tokenSet = authService.exchangeAuthorizationCode(
+        provider, request.getCode(), request.getRedirectUri().toString(), request.getCodeVerifier());
+    OidcUserInfo oidcUserInfo = authService.fetchUserInfo(provider, tokenSet.accessToken());
 
     User user = userService.getOrCreateOidcUser(provider, oidcUserInfo);
     AuthnProvider primaryAuthnProvider = userService
         .findPrimaryAuthnProvider(user.getId())
         .orElseThrow(() -> new IllegalStateException("User has no auth provider"));
 
-    String accessToken = jwtService.generateAccessToken(user);
-    var issuedRefreshToken = refreshTokenService.issueRefreshToken(user.getId());
+    String accessToken = authService.generateAccessToken(user);
+    var issuedRefreshToken = authService.issueRefreshToken(user.getId());
 
     AuthTokenResponse response = new AuthTokenResponse();
     response.setAccessToken(accessToken);
@@ -92,7 +81,7 @@ public class AuthUsecase {
 
   @Transactional
   public AuthTokenResponse refreshSession(String rawRefreshToken) {
-    var rotatedRefreshToken = refreshTokenService
+    var rotatedRefreshToken = authService
         .rotateRefreshToken(rawRefreshToken)
         .orElseThrow(() -> new AppException(Response.Status.UNAUTHORIZED, "Invalid refresh token"));
 
@@ -103,7 +92,7 @@ public class AuthUsecase {
         .findPrimaryAuthnProvider(user.getId())
         .orElseThrow(() -> new IllegalStateException("User has no auth provider"));
 
-    String accessToken = jwtService.generateAccessToken(user);
+    String accessToken = authService.generateAccessToken(user);
 
     AuthTokenResponse response = new AuthTokenResponse();
     response.setAccessToken(accessToken);
@@ -116,7 +105,7 @@ public class AuthUsecase {
 
   @Transactional
   public void logout(String rawRefreshToken) {
-    refreshTokenService.revokeRefreshToken(rawRefreshToken);
+    authService.revokeRefreshToken(rawRefreshToken);
   }
 
   public app.vagina.server.generated.model.User getCurrentUser(Long userId) {
@@ -125,12 +114,6 @@ public class AuthUsecase {
         .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
     AuthnProvider primaryAuthnProvider = userService.findPrimaryAuthnProvider(userId).orElse(null);
     return toGeneratedUser(user, primaryAuthnProvider);
-  }
-
-  private void ensureSupportedProvider(String provider) {
-    if (!HARIGATA_PROVIDER.equals(provider)) {
-      throw new AppException(Response.Status.BAD_REQUEST, "Unsupported OIDC provider: " + provider);
-    }
   }
 
   private app.vagina.server.generated.model.User toGeneratedUser(User user, AuthnProvider primaryAuthnProvider) {

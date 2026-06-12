@@ -1,4 +1,4 @@
-package app.vagina.server.service;
+package app.vagina.server.service.oidcprovider;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,29 +6,16 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.StringJoiner;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
-public class HarigataOidcService {
-
-  public record OidcTokenSet(String accessToken, String idToken, long expiresIn) {}
-
-  public record OidcUserInfo(
-      String subject,
-      String providerLogin,
-      String displayName,
-      String avatarUrl,
-      String email,
-      boolean emailVerified,
-      String rawProfileJson) {}
+public class HarigataOidcProvider extends OidcProviderBase {
 
   @ConfigProperty(name = "vagina.auth.oidc.harigata.client-id", defaultValue = "")
   String clientId;
@@ -50,6 +37,12 @@ public class HarigataOidcService {
 
   private final HttpClient httpClient = HttpClient.newHttpClient();
 
+  @Override
+  public String getProviderKey() {
+    return "harigata";
+  }
+
+  @Override
   public String buildAuthorizationUrl(
       String redirectUri, String state, String codeChallenge, String codeChallengeMethod) {
     requireConfigured(authorizeUrl, "authorize-url");
@@ -67,6 +60,7 @@ public class HarigataOidcService {
     return authorizeUrl + "?" + formEncode(queryParams);
   }
 
+  @Override
   public OidcTokenSet exchangeAuthorizationCode(
       String code, String redirectUri, String codeVerifier) {
     requireConfigured(tokenUrl, "token-url");
@@ -105,6 +99,7 @@ public class HarigataOidcService {
     }
   }
 
+  @Override
   public OidcUserInfo fetchUserInfo(String accessToken) {
     requireConfigured(userInfoUrl, "userinfo-url");
 
@@ -134,33 +129,6 @@ public class HarigataOidcService {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("Failed to fetch OIDC userinfo", e);
     }
-  }
-
-  private String formEncode(Map<String, String> values) {
-    StringJoiner joiner = new StringJoiner("&");
-    values.forEach(
-        (key, value) -> joiner.add(
-            URLEncoder.encode(key, StandardCharsets.UTF_8)
-                + "="
-                + URLEncoder.encode(value, StandardCharsets.UTF_8)));
-    return joiner.toString();
-  }
-
-  private String requiredText(JsonNode node, String fieldName) {
-    String value = optionalText(node, fieldName);
-    if (value == null || value.isBlank()) {
-      throw new IllegalStateException("Missing required OIDC field: " + fieldName);
-    }
-    return value;
-  }
-
-  private String optionalText(JsonNode node, String fieldName) {
-    JsonNode child = node.get(fieldName);
-    if (child == null || child.isNull()) {
-      return null;
-    }
-    String value = child.asText();
-    return value == null || value.isBlank() ? null : value;
   }
 
   private void requireConfigured(String value, String key) {

@@ -1,7 +1,7 @@
 package app.vagina.server.support;
 
 import app.vagina.server.entity.User;
-import app.vagina.server.service.AuthenticationService;
+import app.vagina.server.service.AuthService;
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Priorities;
@@ -20,7 +20,7 @@ public class AuthenticationFilter implements ContainerRequestFilter {
 
   @Context ResourceInfo resourceInfo;
 
-  @Inject AuthenticationService authenticationService;
+  @Inject AuthService authService;
   @Inject JsonWebToken jwt;
   @Inject AuthenticatedUser authenticatedUser;
 
@@ -31,7 +31,7 @@ public class AuthenticationFilter implements ContainerRequestFilter {
     }
 
     String authHeader = requestContext.getHeaderString("Authorization");
-    if (!authenticationService.hasBearerToken(authHeader)) {
+    if (!authService.hasBearerToken(authHeader)) {
       requestContext.abortWith(
           Response.status(Response.Status.UNAUTHORIZED)
               .entity(new ErrorResponse("No JWT token found"))
@@ -39,7 +39,7 @@ public class AuthenticationFilter implements ContainerRequestFilter {
       return;
     }
 
-    Optional<User> user = authenticationService.authenticateFromJwt(jwt);
+    Optional<User> user = authService.authenticateFromJwt(jwt);
     if (user.isEmpty()) {
       requestContext.abortWith(
           Response.status(Response.Status.UNAUTHORIZED)
