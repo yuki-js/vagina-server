@@ -8,6 +8,7 @@ import app.vagina.server.service.OidcStateService;
 import app.vagina.server.service.RefreshTokenService;
 import app.vagina.server.service.UserService;
 import app.vagina.server.service.model.OidcUserInfo;
+import app.vagina.server.support.AppException;
 import app.vagina.server.usecase.model.AuthSession;
 import app.vagina.server.usecase.model.AuthUserView;
 import app.vagina.server.usecase.model.OidcAuthorizationStart;
@@ -16,6 +17,7 @@ import app.vagina.server.usecase.model.OidcLoginStartRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
@@ -86,7 +88,7 @@ public class AuthUsecase {
   public AuthSession refreshSession(String rawRefreshToken) {
     var rotatedRefreshToken = refreshTokenService
         .rotateRefreshToken(rawRefreshToken)
-        .orElseThrow(InvalidRefreshTokenException::new);
+        .orElseThrow(() -> new AppException(Response.Status.UNAUTHORIZED, "Invalid refresh token"));
 
     User user = userService
         .findById(rotatedRefreshToken.persistedToken().getUserId())
@@ -119,7 +121,7 @@ public class AuthUsecase {
 
   private void ensureSupportedProvider(String provider) {
     if (!HARIGATA_PROVIDER.equals(provider)) {
-      throw new UnsupportedAuthProviderException(provider);
+      throw new AppException(Response.Status.BAD_REQUEST, "Unsupported OIDC provider: " + provider);
     }
   }
 

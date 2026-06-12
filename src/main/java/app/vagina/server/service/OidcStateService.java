@@ -4,8 +4,9 @@ import app.vagina.server.entity.AuthMethod;
 import app.vagina.server.entity.ClientType;
 import app.vagina.server.entity.OAuthLoginAttempt;
 import app.vagina.server.mapper.OAuthLoginAttemptMapper;
-import app.vagina.server.usecase.InvalidOidcAuthorizationException;
+import app.vagina.server.support.AppException;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.core.Response;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
@@ -61,29 +62,29 @@ public class OidcStateService {
     OAuthLoginAttempt attempt =
         oauthLoginAttemptMapper
             .findByStateHash(sha256(rawState))
-            .orElseThrow(() -> new InvalidOidcAuthorizationException("Unknown OIDC state"));
+            .orElseThrow(() -> new AppException(Response.Status.UNAUTHORIZED, "Unknown OIDC state"));
 
     LocalDateTime now = LocalDateTime.now();
 
     if (!providerKey.equals(attempt.getProviderKey())) {
-      throw new InvalidOidcAuthorizationException("OIDC provider mismatch");
+      throw new AppException(Response.Status.UNAUTHORIZED, "OIDC provider mismatch");
     }
     if (attempt.getConsumedAt() != null) {
-      throw new InvalidOidcAuthorizationException("OIDC state already consumed");
+      throw new AppException(Response.Status.UNAUTHORIZED, "OIDC state already consumed");
     }
     if (attempt.getExpiresAt() == null || !attempt.getExpiresAt().isAfter(now)) {
-      throw new InvalidOidcAuthorizationException("OIDC state expired");
+      throw new AppException(Response.Status.UNAUTHORIZED, "OIDC state expired");
     }
     if (!redirectUri.equals(attempt.getRedirectUri())) {
-      throw new InvalidOidcAuthorizationException("OIDC redirect URI mismatch");
+      throw new AppException(Response.Status.UNAUTHORIZED, "OIDC redirect URI mismatch");
     }
     if (!matchesPkce(codeVerifier, attempt.getCodeChallenge(), attempt.getCodeChallengeMethod())) {
-      throw new InvalidOidcAuthorizationException("OIDC PKCE verification failed");
+      throw new AppException(Response.Status.UNAUTHORIZED, "OIDC PKCE verification failed");
     }
 
     int updated = oauthLoginAttemptMapper.markConsumedIfUnused(attempt.getId(), now, now);
     if (updated != 1) {
-      throw new InvalidOidcAuthorizationException("OIDC state already consumed");
+      throw new AppException(Response.Status.UNAUTHORIZED, "OIDC state already consumed");
     }
 
     attempt.setConsumedAt(now);
@@ -93,7 +94,7 @@ public class OidcStateService {
 
   private boolean matchesPkce(String codeVerifier, String expectedCodeChallenge, String method) {
     if (!"S256".equals(method)) {
-      throw new InvalidOidcAuthorizationException("Unsupported PKCE method: " + method);
+      throw new AppException(Response.Status.UNAUTHORIZED, "Unsupported PKCE method: " + method);
     }
     return expectedCodeChallenge.equals(generateS256CodeChallenge(codeVerifier));
   }

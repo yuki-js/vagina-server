@@ -9,11 +9,7 @@ import app.vagina.server.generated.model.StartOidcLogin200Response;
 import app.vagina.server.generated.model.StartOidcLoginRequest;
 import app.vagina.server.support.Authenticated;
 import app.vagina.server.support.AuthenticatedUser;
-import app.vagina.server.support.ErrorResponse;
 import app.vagina.server.usecase.AuthUsecase;
-import app.vagina.server.usecase.InvalidOidcAuthorizationException;
-import app.vagina.server.usecase.InvalidRefreshTokenException;
-import app.vagina.server.usecase.UnsupportedAuthProviderException;
 import app.vagina.server.usecase.model.AuthSession;
 import app.vagina.server.usecase.model.AuthUserView;
 import app.vagina.server.usecase.model.OidcAuthorizationStart;
@@ -40,29 +36,15 @@ public class AuthApiImpl implements AuthApi {
   @Override
   public Response exchangeOidcLogin(
       String provider, ExchangeOidcLoginRequest exchangeOidcLoginRequest) {
-    try {
-      AuthSession session =
-          authUsecase.exchangeOidcLogin(
-              provider,
-              new OidcLoginExchangeRequest(
-                  exchangeOidcLoginRequest.getCode(),
-                  exchangeOidcLoginRequest.getState(),
-                  exchangeOidcLoginRequest.getRedirectUri().toString(),
-                  exchangeOidcLoginRequest.getCodeVerifier()));
-      return Response.ok(toAuthTokenResponse(session)).build();
-    } catch (UnsupportedAuthProviderException e) {
-      return Response.status(Response.Status.BAD_REQUEST)
-          .entity(new ErrorResponse(e.getMessage()))
-          .build();
-    } catch (InvalidOidcAuthorizationException e) {
-      return Response.status(Response.Status.UNAUTHORIZED)
-          .entity(new ErrorResponse(e.getMessage()))
-          .build();
-    } catch (Exception e) {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-          .entity(new ErrorResponse("Failed to exchange OIDC login"))
-          .build();
-    }
+    AuthSession session =
+        authUsecase.exchangeOidcLogin(
+            provider,
+            new OidcLoginExchangeRequest(
+                exchangeOidcLoginRequest.getCode(),
+                exchangeOidcLoginRequest.getState(),
+                exchangeOidcLoginRequest.getRedirectUri().toString(),
+                exchangeOidcLoginRequest.getCodeVerifier()));
+    return Response.ok(toAuthTokenResponse(session)).build();
   }
 
   @Override
@@ -81,14 +63,8 @@ public class AuthApiImpl implements AuthApi {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response logout(RefreshSessionRequest refreshSessionRequest) {
-    try {
-      authUsecase.logout(refreshSessionRequest.getRefreshToken());
-      return Response.noContent().build();
-    } catch (Exception e) {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-          .entity(new ErrorResponse("Failed to logout"))
-          .build();
-    }
+    authUsecase.logout(refreshSessionRequest.getRefreshToken());
+    return Response.noContent().build();
   }
 
   @Override
@@ -97,48 +73,28 @@ public class AuthApiImpl implements AuthApi {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response refreshSession(RefreshSessionRequest refreshSessionRequest) {
-    try {
-      return Response.ok(
-              toAuthTokenResponse(
-                  authUsecase.refreshSession(refreshSessionRequest.getRefreshToken())))
-          .build();
-    } catch (InvalidRefreshTokenException e) {
-      return Response.status(Response.Status.UNAUTHORIZED)
-          .entity(new ErrorResponse(e.getMessage()))
-          .build();
-    } catch (Exception e) {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-          .entity(new ErrorResponse("Failed to refresh session"))
-          .build();
-    }
+    return Response.ok(
+            toAuthTokenResponse(
+                authUsecase.refreshSession(refreshSessionRequest.getRefreshToken())))
+        .build();
   }
 
   @Override
   public Response startOidcLogin(String provider, StartOidcLoginRequest startOidcLoginRequest) {
-    try {
-      OidcAuthorizationStart authStart =
-          authUsecase.startOidcLogin(
-              provider,
-              new OidcLoginStartRequest(
-                  ClientType.fromValue(startOidcLoginRequest.getClientType().value()),
-                  startOidcLoginRequest.getRedirectUri().toString(),
-                  startOidcLoginRequest.getCodeChallenge(),
-                  startOidcLoginRequest.getCodeChallengeMethod().value()));
+    OidcAuthorizationStart authStart =
+        authUsecase.startOidcLogin(
+            provider,
+            new OidcLoginStartRequest(
+                ClientType.fromValue(startOidcLoginRequest.getClientType().value()),
+                startOidcLoginRequest.getRedirectUri().toString(),
+                startOidcLoginRequest.getCodeChallenge(),
+                startOidcLoginRequest.getCodeChallengeMethod().value()));
 
-      StartOidcLogin200Response response = new StartOidcLogin200Response();
-      response.setAuthorizationUrl(java.net.URI.create(authStart.authorizationUrl()));
-      response.setState(authStart.state());
-      response.setExpiresIn(authStart.expiresIn());
-      return Response.ok(response).build();
-    } catch (UnsupportedAuthProviderException e) {
-      return Response.status(Response.Status.BAD_REQUEST)
-          .entity(new ErrorResponse(e.getMessage()))
-          .build();
-    } catch (Exception e) {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-          .entity(new ErrorResponse("Failed to start OIDC login"))
-          .build();
-    }
+    StartOidcLogin200Response response = new StartOidcLogin200Response();
+    response.setAuthorizationUrl(java.net.URI.create(authStart.authorizationUrl()));
+    response.setState(authStart.state());
+    response.setExpiresIn(authStart.expiresIn());
+    return Response.ok(response).build();
   }
 
   private AuthTokenResponse toAuthTokenResponse(AuthSession session) {
