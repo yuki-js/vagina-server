@@ -11,7 +11,7 @@ import app.vagina.server.service.JwtService;
 import app.vagina.server.service.OidcStateService;
 import app.vagina.server.service.RefreshTokenService;
 import app.vagina.server.service.UserService;
-import app.vagina.server.service.model.OidcUserInfo;
+import app.vagina.server.service.HarigataOidcService.OidcUserInfo;
 import app.vagina.server.support.AppException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

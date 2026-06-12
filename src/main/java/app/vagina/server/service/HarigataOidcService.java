@@ -1,7 +1,5 @@
 package app.vagina.server.service;
 
-import app.vagina.server.service.model.OidcTokenSet;
-import app.vagina.server.service.model.OidcUserInfo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -20,6 +18,17 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
 public class HarigataOidcService {
+
+  public record OidcTokenSet(String accessToken, String idToken, long expiresIn) {}
+
+  public record OidcUserInfo(
+      String subject,
+      String providerLogin,
+      String displayName,
+      String avatarUrl,
+      String email,
+      boolean emailVerified,
+      String rawProfileJson) {}
 
   @ConfigProperty(name = "vagina.auth.oidc.harigata.client-id", defaultValue = "")
   String clientId;
