@@ -22,7 +22,9 @@ public class HelloApiImpl implements HelloApi {
   @Path("/hello")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getHello() {
-    HelloResponse response = helloUsecase.getHello();
+    String message = helloUsecase.getHello();
+    HelloResponse response = new HelloResponse();
+    response.setMessage(message);
     return Response.ok(response).build();
   }
 }

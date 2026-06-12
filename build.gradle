@@ -476,6 +476,55 @@ sourceSets {
     }
 }
 
+task checkLayeredArchitecture {
+    group = 'verification'
+    description = 'Fail when application/usecase layers depend on presentation-layer APIs or generated DTOs'
+
+    def forbiddenImportsByLayer = [
+        'src/main/java/app/vagina/server/usecase': [
+            'app.vagina.server.generated.api.',
+            'app.vagina.server.generated.model.',
+            'jakarta.ws.rs.',
+            'jakarta.servlet.',
+            'org.jboss.resteasy.'
+        ],
+        'src/main/java/app/vagina/server/service': [
+            'app.vagina.server.generated.api.',
+            'app.vagina.server.generated.model.',
+            'jakarta.ws.rs.',
+            'jakarta.servlet.',
+            'org.jboss.resteasy.'
+        ]
+    ]
+
+    inputs.files(forbiddenImportsByLayer.keySet().collect { fileTree(it) { include '**/*.java' } })
+
+    doLast {
+        def violations = []
+
+        forbiddenImportsByLayer.each { layerPath, forbiddenImports ->
+            fileTree(layerPath) {
+                include '**/*.java'
+            }.each { sourceFile ->
+                sourceFile.eachLine { line, lineNumber ->
+                    def trimmed = line.trim()
+                    forbiddenImports.each { forbiddenImport ->
+                        if (trimmed.startsWith("import ${forbiddenImport}")) {
+                            violations << "${sourceFile}:${lineNumber}: forbidden import '${trimmed}'"
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            throw new RuntimeException('Layered architecture violation detected:\n' + violations.join('\n'))
+        }
+    }
+}
+
+check.dependsOn checkLayeredArchitecture
+
 // Clean generated sources on clean
 clean {
     delete 'build/generated-src'
