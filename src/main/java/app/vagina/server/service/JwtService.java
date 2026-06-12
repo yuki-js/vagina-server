@@ -37,6 +37,7 @@ public class JwtService {
         .groups(authMethod)
         .claim("uid", user.getId())
         .claim("auth_method", authMethod)
+        .claim("provider_key", primaryAuthnProvider.getProviderKey())
         .claim("provider_subject", primaryAuthnProvider.getEffectiveSubject())
         .expiresIn(accessTokenLifespan)
         .jws()

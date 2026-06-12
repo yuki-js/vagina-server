@@ -10,6 +10,7 @@ import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
 import org.apache.ibatis.annotations.Results;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
@@ -48,4 +49,7 @@ public interface UserMapper {
           + "usermeta = #{usermeta}::jsonb, sysmeta = #{sysmeta}::jsonb, updated_at = #{updatedAt} "
           + "WHERE id = #{id}")
   void update(User user);
+
+  @Delete("DELETE FROM users WHERE id = #{id}")
+  void deleteById(@Param("id") Long id);
 }

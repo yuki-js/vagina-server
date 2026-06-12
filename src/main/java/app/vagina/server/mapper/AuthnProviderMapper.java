@@ -19,16 +19,16 @@ import org.apache.ibatis.annotations.Update;
 public interface AuthnProviderMapper {
 
   @Insert(
-      "INSERT INTO authn_providers (user_id, auth_method, auth_identifier, external_subject, "
+      "INSERT INTO authn_providers (user_id, auth_method, provider_key, auth_identifier, external_subject, "
           + "provider_login, display_name, avatar_url, email, email_verified, usermeta, sysmeta, created_at, updated_at) "
           + "VALUES (#{userId}, #{authMethod, typeHandler=app.vagina.server.mapper.type.AuthMethodTypeHandler}, "
-          + "#{authIdentifier}, #{externalSubject}, #{providerLogin}, #{displayName}, #{avatarUrl}, #{email}, #{emailVerified}, "
+          + "#{providerKey}, #{authIdentifier}, #{externalSubject}, #{providerLogin}, #{displayName}, #{avatarUrl}, #{email}, #{emailVerified}, "
           + "#{usermeta}::jsonb, #{sysmeta}::jsonb, #{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
   void insert(AuthnProvider authnProvider);
 
   @Select(
-      "SELECT id, user_id, auth_method, auth_identifier, external_subject, provider_login, display_name, "
+      "SELECT id, user_id, auth_method, provider_key, auth_identifier, external_subject, provider_login, display_name, "
           + "avatar_url, email, email_verified, usermeta::text as usermeta, sysmeta::text as sysmeta, "
           + "created_at, updated_at FROM authn_providers WHERE id = #{id}")
   @Results(
@@ -41,6 +41,7 @@ public interface AuthnProviderMapper {
             column = "auth_method",
             javaType = AuthMethod.class,
             typeHandler = AuthMethodTypeHandler.class),
+        @Result(property = "providerKey", column = "provider_key"),
         @Result(property = "authIdentifier", column = "auth_identifier"),
         @Result(property = "externalSubject", column = "external_subject"),
         @Result(property = "providerLogin", column = "provider_login"),
@@ -56,36 +57,25 @@ public interface AuthnProviderMapper {
   Optional<AuthnProvider> findById(@Param("id") Long id);
 
   @Select(
-      "SELECT id, user_id, auth_method, auth_identifier, external_subject, provider_login, display_name, "
+      "SELECT id, user_id, auth_method, provider_key, auth_identifier, external_subject, provider_login, display_name, "
           + "avatar_url, email, email_verified, usermeta::text as usermeta, sysmeta::text as sysmeta, "
           + "created_at, updated_at FROM authn_providers WHERE user_id = #{userId} ORDER BY created_at ASC")
   @ResultMap("authnProviderResultMap")
   List<AuthnProvider> findByUserId(@Param("userId") Long userId);
 
   @Select(
-      "SELECT id, user_id, auth_method, auth_identifier, external_subject, provider_login, display_name, "
+      "SELECT id, user_id, auth_method, provider_key, auth_identifier, external_subject, provider_login, display_name, "
           + "avatar_url, email, email_verified, usermeta::text as usermeta, sysmeta::text as sysmeta, "
-          + "created_at, updated_at FROM authn_providers WHERE auth_identifier = #{authIdentifier}")
+          + "created_at, updated_at FROM authn_providers WHERE provider_key = #{providerKey} AND external_subject = #{externalSubject}")
   @ResultMap("authnProviderResultMap")
-  Optional<AuthnProvider> findByAuthIdentifier(@Param("authIdentifier") String authIdentifier);
-
-  @Select(
-      "SELECT id, user_id, auth_method, auth_identifier, external_subject, provider_login, display_name, "
-          + "avatar_url, email, email_verified, usermeta::text as usermeta, sysmeta::text as sysmeta, "
-          + "created_at, updated_at FROM authn_providers "
-          + "WHERE auth_method = #{authMethod, typeHandler=app.vagina.server.mapper.type.AuthMethodTypeHandler} "
-          + "AND external_subject = #{externalSubject}")
-  @ResultMap("authnProviderResultMap")
-  Optional<AuthnProvider> findByMethodAndExternalSubject(
-      @Param("authMethod") AuthMethod authMethod,
-      @Param("externalSubject") String externalSubject);
+  Optional<AuthnProvider> findByProviderKeyAndExternalSubject(
+      @Param("providerKey") String providerKey, @Param("externalSubject") String externalSubject);
 
   @Update(
       "UPDATE authn_providers SET user_id = #{userId}, auth_method = "
-          + "#{authMethod, typeHandler=app.vagina.server.mapper.type.AuthMethodTypeHandler}, "
-          + "auth_identifier = #{authIdentifier}, external_subject = #{externalSubject}, "
-          + "provider_login = #{providerLogin}, display_name = #{displayName}, avatar_url = #{avatarUrl}, "
-          + "email = #{email}, email_verified = #{emailVerified}, usermeta = #{usermeta}::jsonb, "
-          + "sysmeta = #{sysmeta}::jsonb, updated_at = #{updatedAt} WHERE id = #{id}")
+          + "#{authMethod, typeHandler=app.vagina.server.mapper.type.AuthMethodTypeHandler}, provider_key = #{providerKey}, "
+          + "auth_identifier = #{authIdentifier}, external_subject = #{externalSubject}, provider_login = #{providerLogin}, "
+          + "display_name = #{displayName}, avatar_url = #{avatarUrl}, email = #{email}, email_verified = #{emailVerified}, "
+          + "usermeta = #{usermeta}::jsonb, sysmeta = #{sysmeta}::jsonb, updated_at = #{updatedAt} WHERE id = #{id}")
   void update(AuthnProvider authnProvider);
 }

@@ -1,11 +1,7 @@
 package app.vagina.server.entity;
 
 public enum AuthMethod {
-  ANONYMOUS("anonymous"),
-  GITHUB("github"),
-  GOOGLE("google"),
-  APPLE("apple"),
-  TWITTER("twitter");
+  OIDC("oidc");
 
   private final String value;
 

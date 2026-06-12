@@ -2,10 +2,13 @@ package app.vagina.server;
 
 import static io.restassured.RestAssured.given;
 
+import app.vagina.server.service.OidcStateService;
+import app.vagina.server.support.HarikataOidcMockServerResource;
 import com.atlassian.oai.validator.OpenApiInteractionValidator;
 import com.atlassian.oai.validator.report.LevelResolver;
 import com.atlassian.oai.validator.report.ValidationReport;
 import com.atlassian.oai.validator.restassured.OpenApiValidationFilter;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
@@ -20,13 +23,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusTest
+@QuarkusTestResource(HarikataOidcMockServerResource.class)
 @TestMethodOrder(OrderAnnotation.class)
 public class OpenApiContractTest {
+
+  private static final String REDIRECT_URI = "https://example.com/callback";
+  private static final String CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  private static final String CODE_CHALLENGE =
+      OidcStateService.generateS256CodeChallenge(CODE_VERIFIER);
 
   private static OpenApiValidationFilter validationFilter;
   private static String accessToken;
   private static String refreshToken;
-  private static String userId;
+  private static String state;
 
   @BeforeAll
   public static void setupValidationFilter() throws IOException {
@@ -48,13 +57,46 @@ public class OpenApiContractTest {
 
   @Test
   @Order(1)
-  public void testCreateGuestSessionContract() {
+  public void testStartOidcLoginContract() {
     Response response =
         given()
             .filter(validationFilter)
             .contentType(ContentType.JSON)
+            .body(
+                Map.of(
+                    "clientType",
+                    "web",
+                    "redirectUri",
+                    REDIRECT_URI,
+                    "codeChallenge",
+                    CODE_CHALLENGE,
+                    "codeChallengeMethod",
+                    "S256"))
             .when()
-            .post("/api/auth/guest")
+            .post("/api/auth/oidc/harikata/start")
+            .then()
+            .statusCode(200)
+            .extract()
+            .response();
+
+    state = response.jsonPath().getString("state");
+  }
+
+  @Test
+  @Order(2)
+  public void testExchangeOidcLoginContract() {
+    Response response =
+        given()
+            .filter(validationFilter)
+            .contentType(ContentType.JSON)
+            .body(
+                Map.of(
+                    "code", HarikataOidcMockServerResource.DEFAULT_AUTHORIZATION_CODE,
+                    "state", state,
+                    "redirectUri", REDIRECT_URI,
+                    "codeVerifier", CODE_VERIFIER))
+            .when()
+            .post("/api/auth/oidc/harikata/exchange")
             .then()
             .statusCode(200)
             .extract()
@@ -62,11 +104,10 @@ public class OpenApiContractTest {
 
     accessToken = response.jsonPath().getString("accessToken");
     refreshToken = response.jsonPath().getString("refreshToken");
-    userId = response.jsonPath().getString("user.id");
   }
 
   @Test
-  @Order(2)
+  @Order(3)
   public void testGetCurrentUserContract() {
     given()
         .filter(validationFilter)
@@ -78,7 +119,7 @@ public class OpenApiContractTest {
   }
 
   @Test
-  @Order(3)
+  @Order(4)
   public void testRefreshSessionContract() {
     Response response =
         given()
@@ -97,7 +138,7 @@ public class OpenApiContractTest {
   }
 
   @Test
-  @Order(4)
+  @Order(5)
   public void testLogoutContract() {
     given()
         .filter(validationFilter)

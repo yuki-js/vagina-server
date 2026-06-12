@@ -8,6 +8,7 @@ public class AuthnProvider {
   private Long id;
   private Long userId;
   private AuthMethod authMethod;
+  private String providerKey;
   private String authIdentifier;
   private String externalSubject;
   private String providerLogin;
@@ -42,6 +43,14 @@ public class AuthnProvider {
 
   public void setAuthMethod(AuthMethod authMethod) {
     this.authMethod = authMethod;
+  }
+
+  public String getProviderKey() {
+    return providerKey;
+  }
+
+  public void setProviderKey(String providerKey) {
+    this.providerKey = providerKey;
   }
 
   public String getAuthIdentifier() {
@@ -133,6 +142,6 @@ public class AuthnProvider {
   }
 
   public String getEffectiveSubject() {
-    return authMethod == AuthMethod.ANONYMOUS ? authIdentifier : externalSubject;
+    return externalSubject;
   }
 }

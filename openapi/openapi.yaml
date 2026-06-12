@@ -9,8 +9,10 @@ servers:
 paths:
   /hello:
     $ref: './paths/hello.yaml#/paths/~1hello'
-  /auth/guest:
-    $ref: './paths/auth.yaml#/paths/~1auth~1guest'
+  /auth/oidc/{provider}/start:
+    $ref: './paths/auth.yaml#/paths/~1auth~1oidc~1{provider}~1start'
+  /auth/oidc/{provider}/exchange:
+    $ref: './paths/auth.yaml#/paths/~1auth~1oidc~1{provider}~1exchange'
   /auth/refresh:
     $ref: './paths/auth.yaml#/paths/~1auth~1refresh'
   /auth/logout:

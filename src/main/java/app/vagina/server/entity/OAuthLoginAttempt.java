@@ -8,6 +8,7 @@ public class OAuthLoginAttempt {
   private Long id;
   private String stateHash;
   private AuthMethod authMethod;
+  private String providerKey;
   private ClientType clientType;
   private String redirectUri;
   private String codeChallenge;
@@ -40,6 +41,14 @@ public class OAuthLoginAttempt {
 
   public void setAuthMethod(AuthMethod authMethod) {
     this.authMethod = authMethod;
+  }
+
+  public String getProviderKey() {
+    return providerKey;
+  }
+
+  public void setProviderKey(String providerKey) {
+    this.providerKey = providerKey;
   }
 
   public ClientType getClientType() {

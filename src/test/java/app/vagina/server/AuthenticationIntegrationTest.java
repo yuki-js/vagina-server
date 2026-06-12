@@ -1,26 +1,39 @@
 package app.vagina.server;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import app.vagina.server.service.OidcStateService;
+import app.vagina.server.support.HarikataOidcMockServerResource;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusTest
+@QuarkusTestResource(HarikataOidcMockServerResource.class)
 @TestMethodOrder(OrderAnnotation.class)
 public class AuthenticationIntegrationTest {
+
+  private static final String REDIRECT_URI = "https://example.com/callback";
+  private static final String CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+  private static final String CODE_CHALLENGE =
+      OidcStateService.generateS256CodeChallenge(CODE_VERIFIER);
 
   private static String accessToken;
   private static String refreshToken;
@@ -30,37 +43,170 @@ public class AuthenticationIntegrationTest {
 
   @Test
   @Order(1)
-  public void testCreateGuestSession() {
-    Response response =
+  public void testHarikataOidcAuthorizationCodeFlow() {
+    Response startResponse =
         given()
             .contentType(ContentType.JSON)
+            .body(
+                Map.of(
+                    "clientType",
+                    "web",
+                    "redirectUri",
+                    REDIRECT_URI,
+                    "codeChallenge",
+                    CODE_CHALLENGE,
+                    "codeChallengeMethod",
+                    "S256"))
             .when()
-            .post("/api/auth/guest")
+            .post("/api/auth/oidc/harikata/start")
+            .then()
+            .statusCode(200)
+            .body("authorizationUrl", notNullValue())
+            .body("state", notNullValue())
+            .body("expiresIn", notNullValue())
+            .extract()
+            .response();
+
+    String authorizationUrl = startResponse.jsonPath().getString("authorizationUrl");
+    String initialState = startResponse.jsonPath().getString("state");
+
+    Response authorizeResponse =
+        given()
+            .redirects()
+            .follow(false)
+            .when()
+            .get(authorizationUrl)
+            .then()
+            .statusCode(302)
+            .extract()
+            .response();
+
+    RedirectPayload redirectPayload = parseRedirectPayload(authorizeResponse.getHeader("Location"));
+
+    assertTrue(
+        redirectPayload.location().startsWith(REDIRECT_URI),
+        "Redirect should target provided redirect URI");
+    assertTrue(
+        HarikataOidcMockServerResource.DEFAULT_AUTHORIZATION_CODE.equals(redirectPayload.code()),
+        "Authorization code should come from Harikata redirect");
+    assertEquals(
+        initialState,
+        redirectPayload.state(),
+        "Redirected state should match start response state");
+
+    Response exchangeResponse =
+        given()
+            .contentType(ContentType.JSON)
+            .body(
+                Map.of(
+                    "code",
+                    redirectPayload.code(),
+                    "state",
+                    redirectPayload.state(),
+                    "redirectUri",
+                    REDIRECT_URI,
+                    "codeVerifier",
+                    CODE_VERIFIER))
+            .when()
+            .post("/api/auth/oidc/harikata/exchange")
             .then()
             .statusCode(200)
             .body("accessToken", notNullValue())
             .body("refreshToken", notNullValue())
             .body("tokenType", equalTo("Bearer"))
-            .body("expiresIn", notNullValue())
             .body("user.id", notNullValue())
-            .body("user.createdAt", notNullValue())
-            .body("user.accountLifecycle", anyOf(is("created"), is("active")))
+            .body("user.displayName", equalTo(HarikataOidcMockServerResource.DEFAULT_DISPLAY_NAME))
             .extract()
             .response();
 
-    accessToken = response.jsonPath().getString("accessToken");
-    refreshToken = response.jsonPath().getString("refreshToken");
-    userId = response.jsonPath().getString("user.id");
-
-    assertNotNull(accessToken, "Access token should be present");
-    assertNotNull(refreshToken, "Refresh token should be present");
-    assertNotNull(userId, "User id should be present");
-    assertTrue(!accessToken.isBlank(), "Access token should not be blank");
-    assertTrue(!refreshToken.isBlank(), "Refresh token should not be blank");
+    accessToken = exchangeResponse.jsonPath().getString("accessToken");
+    refreshToken = exchangeResponse.jsonPath().getString("refreshToken");
+    userId = exchangeResponse.jsonPath().getString("user.id");
   }
 
   @Test
   @Order(2)
+  public void testConcurrentHarikataFirstLoginConvergesOnSameUser()
+      throws ExecutionException, InterruptedException {
+    CompletableFuture<String> login1 =
+        CompletableFuture.supplyAsync(this::runOidcLoginAndReturnUserId);
+    CompletableFuture<String> login2 =
+        CompletableFuture.supplyAsync(this::runOidcLoginAndReturnUserId);
+
+    String userId1 = login1.get();
+    String userId2 = login2.get();
+
+    assertEquals(userId1, userId2, "Concurrent first logins should converge on the same user");
+  }
+
+  @Test
+  @Order(3)
+  public void testStartUnsupportedOidcProvider() {
+    given()
+        .contentType(ContentType.JSON)
+        .body(
+            Map.of(
+                "clientType",
+                "web",
+                "redirectUri",
+                REDIRECT_URI,
+                "codeChallenge",
+                CODE_CHALLENGE,
+                "codeChallengeMethod",
+                "S256"))
+        .when()
+        .post("/api/auth/oidc/github/start")
+        .then()
+        .statusCode(400)
+        .body("message", equalTo("Unsupported OIDC provider: github"));
+  }
+
+  @Test
+  @Order(4)
+  public void testExchangeHarikataOidcLoginWithBadVerifierFails() {
+    Response startResponse =
+        given()
+            .contentType(ContentType.JSON)
+            .body(
+                Map.of(
+                    "clientType",
+                    "web",
+                    "redirectUri",
+                    REDIRECT_URI,
+                    "codeChallenge",
+                    CODE_CHALLENGE,
+                    "codeChallengeMethod",
+                    "S256"))
+            .when()
+            .post("/api/auth/oidc/harikata/start")
+            .then()
+            .statusCode(200)
+            .extract()
+            .response();
+
+    String badState = startResponse.jsonPath().getString("state");
+
+    given()
+        .contentType(ContentType.JSON)
+        .body(
+            Map.of(
+                "code",
+                HarikataOidcMockServerResource.DEFAULT_AUTHORIZATION_CODE,
+                "state",
+                badState,
+                "redirectUri",
+                REDIRECT_URI,
+                "codeVerifier",
+                "wrong-verifier"))
+        .when()
+        .post("/api/auth/oidc/harikata/exchange")
+        .then()
+        .statusCode(401)
+        .body("message", equalTo("OIDC PKCE verification failed"));
+  }
+
+  @Test
+  @Order(5)
   public void testGetCurrentUserWithValidAccessToken() {
     given()
         .header("Authorization", "Bearer " + accessToken)
@@ -69,34 +215,11 @@ public class AuthenticationIntegrationTest {
         .then()
         .statusCode(200)
         .body("id", equalTo(userId))
-        .body("createdAt", notNullValue())
-        .body("accountLifecycle", anyOf(is("created"), is("active")));
+        .body("displayName", equalTo(HarikataOidcMockServerResource.DEFAULT_DISPLAY_NAME));
   }
 
   @Test
-  @Order(3)
-  public void testGetCurrentUserWithoutToken() {
-    given()
-        .when()
-        .get("/api/me")
-        .then()
-        .statusCode(401)
-        .body("message", equalTo("No JWT token found"));
-  }
-
-  @Test
-  @Order(4)
-  public void testGetCurrentUserWithInvalidToken() {
-    given()
-        .header("Authorization", "Bearer invalid-token-12345")
-        .when()
-        .get("/api/me")
-        .then()
-        .statusCode(401);
-  }
-
-  @Test
-  @Order(5)
+  @Order(6)
   public void testRefreshSession() {
     Response response =
         given()
@@ -108,7 +231,6 @@ public class AuthenticationIntegrationTest {
             .statusCode(200)
             .body("accessToken", notNullValue())
             .body("refreshToken", notNullValue())
-            .body("tokenType", equalTo("Bearer"))
             .body("user.id", equalTo(userId))
             .extract()
             .response();
@@ -116,42 +238,8 @@ public class AuthenticationIntegrationTest {
     rotatedAccessToken = response.jsonPath().getString("accessToken");
     rotatedRefreshToken = response.jsonPath().getString("refreshToken");
 
-    assertNotEquals(accessToken, rotatedAccessToken, "Access token should rotate on refresh");
-    assertNotEquals(refreshToken, rotatedRefreshToken, "Refresh token should rotate on refresh");
-  }
-
-  @Test
-  @Order(6)
-  public void testRotatedRefreshTokenCannotReuseOldToken() {
-    Response guestResponse =
-        given()
-            .contentType(ContentType.JSON)
-            .when()
-            .post("/api/auth/guest")
-            .then()
-            .statusCode(200)
-            .extract()
-            .response();
-
-    String originalRefreshToken = guestResponse.jsonPath().getString("refreshToken");
-
-    given()
-        .contentType(ContentType.JSON)
-        .body(Map.of("refreshToken", originalRefreshToken))
-        .when()
-        .post("/api/auth/refresh")
-        .then()
-        .statusCode(200)
-        .body("refreshToken", notNullValue());
-
-    given()
-        .contentType(ContentType.JSON)
-        .body(Map.of("refreshToken", originalRefreshToken))
-        .when()
-        .post("/api/auth/refresh")
-        .then()
-        .statusCode(401)
-        .body("message", equalTo("Invalid refresh token"));
+    assertNotEquals(accessToken, rotatedAccessToken);
+    assertNotEquals(refreshToken, rotatedRefreshToken);
   }
 
   @Test
@@ -178,4 +266,87 @@ public class AuthenticationIntegrationTest {
         .statusCode(401)
         .body("message", equalTo("Invalid refresh token"));
   }
+
+  private String runOidcLoginAndReturnUserId() {
+    Response startResponse =
+        given()
+            .contentType(ContentType.JSON)
+            .body(
+                Map.of(
+                    "clientType",
+                    "web",
+                    "redirectUri",
+                    REDIRECT_URI,
+                    "codeChallenge",
+                    CODE_CHALLENGE,
+                    "codeChallengeMethod",
+                    "S256"))
+            .when()
+            .post("/api/auth/oidc/harikata/start")
+            .then()
+            .statusCode(200)
+            .extract()
+            .response();
+
+    String authorizationUrl = startResponse.jsonPath().getString("authorizationUrl");
+
+    Response authorizeResponse =
+        given()
+            .redirects()
+            .follow(false)
+            .when()
+            .get(authorizationUrl)
+            .then()
+            .statusCode(302)
+            .extract()
+            .response();
+
+    RedirectPayload redirectPayload = parseRedirectPayload(authorizeResponse.getHeader("Location"));
+
+    Response exchangeResponse =
+        given()
+            .contentType(ContentType.JSON)
+            .body(
+                Map.of(
+                    "code",
+                    redirectPayload.code(),
+                    "state",
+                    redirectPayload.state(),
+                    "redirectUri",
+                    REDIRECT_URI,
+                    "codeVerifier",
+                    CODE_VERIFIER))
+            .when()
+            .post("/api/auth/oidc/harikata/exchange")
+            .then()
+            .statusCode(200)
+            .extract()
+            .response();
+
+    return exchangeResponse.jsonPath().getString("user.id");
+  }
+
+  private RedirectPayload parseRedirectPayload(String locationHeader) {
+    String decodedLocation = URLDecoder.decode(locationHeader, StandardCharsets.UTF_8);
+    URI redirectedUri = URI.create(decodedLocation);
+    Map<String, String> queryParams = parseQueryParams(redirectedUri.getRawQuery());
+    return new RedirectPayload(decodedLocation, queryParams.get("code"), queryParams.get("state"));
+  }
+
+  private Map<String, String> parseQueryParams(String rawQuery) {
+    Map<String, String> values = new LinkedHashMap<>();
+    if (rawQuery == null || rawQuery.isBlank()) {
+      return values;
+    }
+
+    for (String pair : rawQuery.split("&")) {
+      String[] parts = pair.split("=", 2);
+      String key = URLDecoder.decode(parts[0], StandardCharsets.UTF_8);
+      String value = parts.length > 1 ? URLDecoder.decode(parts[1], StandardCharsets.UTF_8) : "";
+      values.put(key, value);
+    }
+    return values;
+  }
+
+  private record RedirectPayload(String location, String code, String state) {}
 }

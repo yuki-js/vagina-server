@@ -1,21 +1,139 @@
 paths:
-  /auth/guest:
+  /auth/oidc/{provider}/start:
+    parameters:
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+        description: OIDC provider key. Currently only harikata is planned for implementation.
     post:
       tags:
         - auth
-      operationId: createGuestSession
-      summary: Create guest session
-      description: Create an anonymous guest user and issue Vagina server tokens.
+      operationId: startOidcLogin
+      summary: Start OIDC login
+      description: Create an OIDC authorization request for the selected provider. Currently only harikata is planned for implementation.
       security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - clientType
+                - redirectUri
+                - codeChallenge
+                - codeChallengeMethod
+              properties:
+                clientType:
+                  type: string
+                  enum:
+                    - web
+                    - mobile
+                    - desktop
+                redirectUri:
+                  type: string
+                  format: uri
+                codeChallenge:
+                  type: string
+                  minLength: 1
+                codeChallengeMethod:
+                  type: string
+                  enum:
+                    - S256
       responses:
         '200':
-          description: Guest session created.
+          description: OIDC authorization request created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - authorizationUrl
+                  - state
+                  - expiresIn
+                properties:
+                  authorizationUrl:
+                    type: string
+                    format: uri
+                  state:
+                    type: string
+                  expiresIn:
+                    type: integer
+                    format: int64
+        '400':
+          description: Invalid request or unsupported provider.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '501':
+          description: Provider not implemented.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  /auth/oidc/{provider}/exchange:
+    parameters:
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+        description: OIDC provider key. Currently only harikata is planned for implementation.
+    post:
+      tags:
+        - auth
+      operationId: exchangeOidcLogin
+      summary: Exchange OIDC authorization code
+      description: Exchange an OIDC authorization code for Vagina server tokens. Currently only harikata is planned for implementation.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - state
+                - redirectUri
+                - codeVerifier
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+                state:
+                  type: string
+                  minLength: 1
+                redirectUri:
+                  type: string
+                  format: uri
+                codeVerifier:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: OIDC login exchanged for Vagina server tokens.
           content:
             application/json:
               schema:
                 $ref: '../components/schemas/auth.yaml#/AuthTokenResponse'
-        '500':
-          description: Unexpected error.
+        '400':
+          description: Invalid request or unsupported provider.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '401':
+          description: OIDC authorization failed.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '501':
+          description: Provider not implemented.
           content:
             application/json:
               schema:

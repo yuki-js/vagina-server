@@ -1,6 +1,7 @@
 package app.vagina.server.mapper;
 
 import app.vagina.server.entity.RefreshToken;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Insert;
@@ -71,4 +72,13 @@ public interface RefreshTokenMapper {
           + "issued_at = #{issuedAt}, expires_at = #{expiresAt}, rotated_at = #{rotatedAt}, revoked_at = #{revokedAt}, "
           + "last_used_at = #{lastUsedAt}, sysmeta = #{sysmeta}::jsonb, updated_at = #{updatedAt} WHERE id = #{id}")
   void update(RefreshToken refreshToken);
+
+  @Update(
+      "UPDATE refresh_tokens SET rotated_at = #{rotatedAt}, last_used_at = #{lastUsedAt}, updated_at = #{updatedAt} "
+          + "WHERE id = #{id} AND rotated_at IS NULL AND revoked_at IS NULL")
+  int markRotatedIfActive(
+      @Param("id") Long id,
+      @Param("rotatedAt") LocalDateTime rotatedAt,
+      @Param("lastUsedAt") LocalDateTime lastUsedAt,
+      @Param("updatedAt") LocalDateTime updatedAt);
 }

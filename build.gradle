@@ -288,7 +288,9 @@ task compileOpenApi(type: JavaExec) {
     def inputSpec = file('openapi/openapi.yaml')
     def outputSpec = file("$buildDir/openapi-compiled/openapi.yaml")
 
-    inputs.file(inputSpec)
+    inputs.files(fileTree('openapi') {
+        include '**/*.yaml'
+    })
     outputs.file(outputSpec)
 
     args inputSpec.absolutePath, outputSpec.absolutePath

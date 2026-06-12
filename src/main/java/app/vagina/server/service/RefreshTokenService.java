@@ -69,10 +69,11 @@ public class RefreshTokenService {
       return Optional.empty();
     }
 
-    current.setRotatedAt(now);
-    current.setLastUsedAt(now);
-    current.setUpdatedAt(now);
-    refreshTokenMapper.update(current);
+    int updated = refreshTokenMapper.markRotatedIfActive(current.getId(), now, now, now);
+    if (updated != 1) {
+      revokeTokenFamily(current.getTokenFamily(), now, "rotated_token_reuse_detected");
+      return Optional.empty();
+    }
 
     String newRawToken = randomOpaqueToken();
     RefreshToken replacement = new RefreshToken();
@@ -104,18 +105,6 @@ public class RefreshTokenService {
     refreshToken.setRevokedAt(now);
     refreshToken.setUpdatedAt(now);
     refreshTokenMapper.update(refreshToken);
-  }
-
-  public boolean isRefreshTokenValid(String rawToken) {
-    Optional<RefreshToken> refreshTokenOpt = refreshTokenMapper.findByTokenHash(sha256(rawToken));
-    if (refreshTokenOpt.isEmpty()) {
-      return false;
-    }
-
-    RefreshToken refreshToken = refreshTokenOpt.get();
-    return !isRevoked(refreshToken)
-        && !isExpired(refreshToken)
-        && refreshToken.getRotatedAt() == null;
   }
 
   private void revokeTokenFamily(String tokenFamily, LocalDateTime now, String reason) {
