@@ -2,6 +2,10 @@ package app.vagina.server.usecase;
 
 import app.vagina.server.entity.AuthnProvider;
 import app.vagina.server.entity.User;
+import app.vagina.server.generated.model.AuthTokenResponse;
+import app.vagina.server.generated.model.ExchangeOidcLoginRequest;
+import app.vagina.server.generated.model.StartOidcLogin200Response;
+import app.vagina.server.generated.model.StartOidcLoginRequest;
 import app.vagina.server.service.HarigataOidcService;
 import app.vagina.server.service.JwtService;
 import app.vagina.server.service.OidcStateService;
@@ -9,15 +13,12 @@ import app.vagina.server.service.RefreshTokenService;
 import app.vagina.server.service.UserService;
 import app.vagina.server.service.model.OidcUserInfo;
 import app.vagina.server.support.AppException;
-import app.vagina.server.usecase.model.AuthSession;
-import app.vagina.server.usecase.model.AuthUserView;
-import app.vagina.server.usecase.model.OidcAuthorizationStart;
-import app.vagina.server.usecase.model.OidcLoginExchangeRequest;
-import app.vagina.server.usecase.model.OidcLoginStartRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.Response;
+import java.net.URI;
+import java.time.ZoneOffset;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
@@ -39,34 +40,37 @@ public class AuthUsecase {
   @Inject
   HarigataOidcService harigataOidcService;
 
-  public OidcAuthorizationStart startOidcLogin(String provider, OidcLoginStartRequest request) {
+  public StartOidcLogin200Response startOidcLogin(String provider, StartOidcLoginRequest request) {
     ensureSupportedProvider(provider);
     var createdState = oidcStateService.createState(
         provider,
-        request.clientType(),
-        request.redirectUri(),
-        request.codeChallenge(),
-        request.codeChallengeMethod());
+        app.vagina.server.entity.ClientType.fromValue(request.getClientType().value()),
+        request.getRedirectUri().toString(),
+        request.getCodeChallenge(),
+        request.getCodeChallengeMethod().value());
 
     String authorizationUrl = harigataOidcService.buildAuthorizationUrl(
-        request.redirectUri(),
+        request.getRedirectUri().toString(),
         createdState.rawState(),
-        request.codeChallenge(),
-        request.codeChallengeMethod());
+        request.getCodeChallenge(),
+        request.getCodeChallengeMethod().value());
 
-    return new OidcAuthorizationStart(
-        authorizationUrl, createdState.rawState(), createdState.expiresIn());
+    StartOidcLogin200Response response = new StartOidcLogin200Response();
+    response.setAuthorizationUrl(URI.create(authorizationUrl));
+    response.setState(createdState.rawState());
+    response.setExpiresIn(createdState.expiresIn());
+    return response;
   }
 
   @Transactional
-  public AuthSession exchangeOidcLogin(String provider, OidcLoginExchangeRequest request) {
+  public AuthTokenResponse exchangeOidcLogin(String provider, ExchangeOidcLoginRequest request) {
     ensureSupportedProvider(provider);
 
     oidcStateService.consumeState(
-        provider, request.state(), request.redirectUri(), request.codeVerifier());
+        provider, request.getState(), request.getRedirectUri().toString(), request.getCodeVerifier());
 
     var tokenSet = harigataOidcService.exchangeAuthorizationCode(
-        request.code(), request.redirectUri(), request.codeVerifier());
+        request.getCode(), request.getRedirectUri().toString(), request.getCodeVerifier());
     OidcUserInfo oidcUserInfo = harigataOidcService.fetchUserInfo(tokenSet.accessToken());
 
     User user = userService.getOrCreateOidcUser(provider, oidcUserInfo);
@@ -77,15 +81,17 @@ public class AuthUsecase {
     String accessToken = jwtService.generateAccessToken(user);
     var issuedRefreshToken = refreshTokenService.issueRefreshToken(user.getId());
 
-    return new AuthSession(
-        toAuthUserView(user, primaryAuthnProvider),
-        accessToken,
-        issuedRefreshToken.rawToken(),
-        accessTokenLifespan);
+    AuthTokenResponse response = new AuthTokenResponse();
+    response.setAccessToken(accessToken);
+    response.setRefreshToken(issuedRefreshToken.rawToken());
+    response.setTokenType("Bearer");
+    response.setExpiresIn(accessTokenLifespan);
+    response.setUser(toGeneratedUser(user, primaryAuthnProvider));
+    return response;
   }
 
   @Transactional
-  public AuthSession refreshSession(String rawRefreshToken) {
+  public AuthTokenResponse refreshSession(String rawRefreshToken) {
     var rotatedRefreshToken = refreshTokenService
         .rotateRefreshToken(rawRefreshToken)
         .orElseThrow(() -> new AppException(Response.Status.UNAUTHORIZED, "Invalid refresh token"));
@@ -99,11 +105,13 @@ public class AuthUsecase {
 
     String accessToken = jwtService.generateAccessToken(user);
 
-    return new AuthSession(
-        toAuthUserView(user, primaryAuthnProvider),
-        accessToken,
-        rotatedRefreshToken.rawToken(),
-        accessTokenLifespan);
+    AuthTokenResponse response = new AuthTokenResponse();
+    response.setAccessToken(accessToken);
+    response.setRefreshToken(rotatedRefreshToken.rawToken());
+    response.setTokenType("Bearer");
+    response.setExpiresIn(accessTokenLifespan);
+    response.setUser(toGeneratedUser(user, primaryAuthnProvider));
+    return response;
   }
 
   @Transactional
@@ -111,12 +119,12 @@ public class AuthUsecase {
     refreshTokenService.revokeRefreshToken(rawRefreshToken);
   }
 
-  public AuthUserView getCurrentUser(Long userId) {
+  public app.vagina.server.generated.model.User getCurrentUser(Long userId) {
     User user = userService
         .findById(userId)
         .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
     AuthnProvider primaryAuthnProvider = userService.findPrimaryAuthnProvider(userId).orElse(null);
-    return toAuthUserView(user, primaryAuthnProvider);
+    return toGeneratedUser(user, primaryAuthnProvider);
   }
 
   private void ensureSupportedProvider(String provider) {
@@ -125,7 +133,7 @@ public class AuthUsecase {
     }
   }
 
-  private AuthUserView toAuthUserView(User user, AuthnProvider primaryAuthnProvider) {
+  private app.vagina.server.generated.model.User toGeneratedUser(User user, AuthnProvider primaryAuthnProvider) {
     String displayName = null;
     String avatarUrl = null;
 
@@ -137,8 +145,17 @@ public class AuthUsecase {
       avatarUrl = blankToNull(primaryAuthnProvider.getAvatarUrl());
     }
 
-    return new AuthUserView(
-        user.getId(), user.getAccountLifecycle(), displayName, avatarUrl, user.getCreatedAt());
+    app.vagina.server.generated.model.User response = new app.vagina.server.generated.model.User();
+    response.setId(String.valueOf(user.getId()));
+    if (user.getAccountLifecycle() != null) {
+      response.setAccountLifecycle(
+          app.vagina.server.generated.model.User.AccountLifecycleEnum.fromValue(
+              user.getAccountLifecycle().getValue()));
+    }
+    response.setDisplayName(displayName);
+    response.setAvatarUrl(avatarUrl);
+    response.setCreatedAt(user.getCreatedAt().atOffset(ZoneOffset.UTC));
+    return response;
   }
 
   private String blankToNull(String value) {
