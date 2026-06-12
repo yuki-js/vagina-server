@@ -6,13 +6,13 @@ paths:
         required: true
         schema:
           type: string
-        description: OIDC provider key. Currently only harikata is planned for implementation.
+        description: OIDC provider key. Currently only harigata is planned for implementation.
     post:
       tags:
         - auth
       operationId: startOidcLogin
       summary: Start OIDC login
-      description: Create an OIDC authorization request for the selected provider. Currently only harikata is planned for implementation.
+      description: Create an OIDC authorization request for the selected provider. Currently only harigata is planned for implementation.
       security: []
       requestBody:
         required: true
@@ -43,7 +43,7 @@ paths:
                   enum:
                     - S256
       responses:
-        '200':
+        "200":
           description: OIDC authorization request created.
           content:
             application/json:
@@ -62,18 +62,18 @@ paths:
                   expiresIn:
                     type: integer
                     format: int64
-        '400':
+        "400":
           description: Invalid request or unsupported provider.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/common.yaml#/ErrorResponse'
-        '501':
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "501":
           description: Provider not implemented.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
   /auth/oidc/{provider}/exchange:
     parameters:
       - name: provider
@@ -81,13 +81,13 @@ paths:
         required: true
         schema:
           type: string
-        description: OIDC provider key. Currently only harikata is planned for implementation.
+        description: OIDC provider key. Currently only harigata is planned for implementation.
     post:
       tags:
         - auth
       operationId: exchangeOidcLogin
       summary: Exchange OIDC authorization code
-      description: Exchange an OIDC authorization code for Vagina server tokens. Currently only harikata is planned for implementation.
+      description: Exchange an OIDC authorization code for Vagina server tokens. Currently only harigata is planned for implementation.
       security: []
       requestBody:
         required: true
@@ -114,30 +114,30 @@ paths:
                   type: string
                   minLength: 1
       responses:
-        '200':
+        "200":
           description: OIDC login exchanged for Vagina server tokens.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/auth.yaml#/AuthTokenResponse'
-        '400':
+                $ref: "../components/schemas/auth.yaml#/AuthTokenResponse"
+        "400":
           description: Invalid request or unsupported provider.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/common.yaml#/ErrorResponse'
-        '401':
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "401":
           description: OIDC authorization failed.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/common.yaml#/ErrorResponse'
-        '501':
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "501":
           description: Provider not implemented.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
   /auth/refresh:
     post:
       tags:
@@ -159,24 +159,24 @@ paths:
                   type: string
                   minLength: 1
       responses:
-        '200':
+        "200":
           description: Session refreshed.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/auth.yaml#/AuthTokenResponse'
-        '401':
+                $ref: "../components/schemas/auth.yaml#/AuthTokenResponse"
+        "401":
           description: Invalid refresh token.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/common.yaml#/ErrorResponse'
-        '500':
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
           description: Unexpected error.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
   /auth/logout:
     post:
       tags:
@@ -198,14 +198,14 @@ paths:
                   type: string
                   minLength: 1
       responses:
-        '204':
+        "204":
           description: Logged out.
-        '500':
+        "500":
           description: Unexpected error.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
   /me:
     get:
       tags:
@@ -216,21 +216,21 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Current user.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/user.yaml#/User'
-        '401':
+                $ref: "../components/schemas/user.yaml#/User"
+        "401":
           description: Authentication required.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/common.yaml#/ErrorResponse'
-        '500':
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
           description: Unexpected error.
           content:
             application/json:
               schema:
-                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"

@@ -13,39 +13,38 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 import java.util.Map;
 
-public class HarikataOidcMockServerResource implements QuarkusTestResourceLifecycleManager {
+public class HarigataOidcMockServerResource implements QuarkusTestResourceLifecycleManager {
 
-  public static final String PROVIDER_KEY = "harikata";
-  public static final String DEFAULT_CLIENT_ID = "harikata-client-id";
-  public static final String DEFAULT_CLIENT_SECRET = "harikata-client-secret";
-  public static final String DEFAULT_AUTHORIZATION_CODE = "harikata-auth-code";
-  public static final String DEFAULT_ACCESS_TOKEN = "harikata-access-token";
-  public static final String DEFAULT_ID_TOKEN = "harikata-id-token";
-  public static final String DEFAULT_SUBJECT = "harikata-user-123";
-  public static final String DEFAULT_LOGIN = "harikata-user";
-  public static final String DEFAULT_DISPLAY_NAME = "Harikata Test User";
-  public static final String DEFAULT_AVATAR_URL = "https://harikata.example.test/avatar.png";
-  public static final String DEFAULT_EMAIL = "harikata@example.test";
+  public static final String PROVIDER_KEY = "harigata";
+  public static final String DEFAULT_CLIENT_ID = "harigata-client-id";
+  public static final String DEFAULT_CLIENT_SECRET = "harigata-client-secret";
+  public static final String DEFAULT_AUTHORIZATION_CODE = "harigata-auth-code";
+  public static final String DEFAULT_ACCESS_TOKEN = "harigata-access-token";
+  public static final String DEFAULT_ID_TOKEN = "harigata-id-token";
+  public static final String DEFAULT_SUBJECT = "harigata-user-123";
+  public static final String DEFAULT_LOGIN = "harigata-user";
+  public static final String DEFAULT_DISPLAY_NAME = "Harigata Test User";
+  public static final String DEFAULT_AVATAR_URL = "https://harigata.example.test/avatar.png";
+  public static final String DEFAULT_EMAIL = "harigata@example.test";
 
   private WireMockServer wireMockServer;
 
   @Override
   public Map<String, String> start() {
-    wireMockServer =
-        new WireMockServer(WireMockConfiguration.options().dynamicPort().globalTemplating(true));
+    wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort().globalTemplating(true));
     wireMockServer.start();
     setupDefaultStubs();
 
     String issuer = issuerBaseUrl();
     return Map.of(
-        "vagina.auth.oidc.harikata.issuer", issuer,
-        "vagina.auth.oidc.harikata.discovery-url", issuer + "/.well-known/openid-configuration",
-        "vagina.auth.oidc.harikata.client-id", DEFAULT_CLIENT_ID,
-        "vagina.auth.oidc.harikata.client-secret", DEFAULT_CLIENT_SECRET,
-        "vagina.auth.oidc.harikata.authorize-url", issuer + "/authorize",
-        "vagina.auth.oidc.harikata.token-url", issuer + "/token",
-        "vagina.auth.oidc.harikata.userinfo-url", issuer + "/userinfo",
-        "vagina.auth.oidc.harikata.jwks-url", issuer + "/jwks");
+        "vagina.auth.oidc.harigata.issuer", issuer,
+        "vagina.auth.oidc.harigata.discovery-url", issuer + "/.well-known/openid-configuration",
+        "vagina.auth.oidc.harigata.client-id", DEFAULT_CLIENT_ID,
+        "vagina.auth.oidc.harigata.client-secret", DEFAULT_CLIENT_SECRET,
+        "vagina.auth.oidc.harigata.authorize-url", issuer + "/authorize",
+        "vagina.auth.oidc.harigata.token-url", issuer + "/token",
+        "vagina.auth.oidc.harigata.userinfo-url", issuer + "/userinfo",
+        "vagina.auth.oidc.harigata.jwks-url", issuer + "/jwks");
   }
 
   @Override
@@ -57,7 +56,7 @@ public class HarikataOidcMockServerResource implements QuarkusTestResourceLifecy
 
   @Override
   public void inject(Object testInstance) {
-    if (testInstance instanceof HarikataOidcMockServerAware aware) {
+    if (testInstance instanceof HarigataOidcMockServerAware aware) {
       aware.setWireMockServer(wireMockServer);
     }
   }
@@ -168,7 +167,7 @@ public class HarikataOidcMockServerResource implements QuarkusTestResourceLifecy
             DEFAULT_EMAIL);
   }
 
-  public interface HarikataOidcMockServerAware {
+  public interface HarigataOidcMockServerAware {
     void setWireMockServer(WireMockServer wireMockServer);
   }
 }

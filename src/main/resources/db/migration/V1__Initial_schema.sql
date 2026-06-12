@@ -48,7 +48,7 @@ CREATE TABLE authn_providers (
 
 COMMENT ON TABLE authn_providers IS 'OIDC provider identities linked to users';
 COMMENT ON COLUMN authn_providers.auth_method IS 'Authentication method: oidc';
-COMMENT ON COLUMN authn_providers.provider_key IS 'Provider key: harikata, github, google, apple, twitter';
+COMMENT ON COLUMN authn_providers.provider_key IS 'Provider key: harigata, github, google, apple, twitter';
 COMMENT ON COLUMN authn_providers.auth_identifier IS 'Internal stable identifier for provider-link bookkeeping if needed';
 COMMENT ON COLUMN authn_providers.external_subject IS 'Stable subject identifier returned by the external OIDC provider';
 COMMENT ON COLUMN authn_providers.provider_login IS 'Provider-specific login or handle used for display and diagnostics';
@@ -121,7 +121,7 @@ CREATE TABLE oauth_login_attempts (
 COMMENT ON TABLE oauth_login_attempts IS 'Short-lived persisted OIDC transaction state. Avoids server-memory session dependence.';
 COMMENT ON COLUMN oauth_login_attempts.state_hash IS 'SHA-256 hash of the raw OAuth state value';
 COMMENT ON COLUMN oauth_login_attempts.auth_method IS 'Authentication method: oidc';
-COMMENT ON COLUMN oauth_login_attempts.provider_key IS 'Provider key: harikata, github, google, apple, twitter';
+COMMENT ON COLUMN oauth_login_attempts.provider_key IS 'Provider key: harigata, github, google, apple, twitter';
 COMMENT ON COLUMN oauth_login_attempts.client_type IS 'Client type: web, mobile, desktop';
 COMMENT ON COLUMN oauth_login_attempts.sysmeta IS 'System/admin-only auxiliary metadata such as request diagnostics';
 

@@ -19,24 +19,25 @@ import java.util.StringJoiner;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
-public class HarikataOidcService {
+public class HarigataOidcService {
 
-  @ConfigProperty(name = "vagina.auth.oidc.harikata.client-id", defaultValue = "")
+  @ConfigProperty(name = "vagina.auth.oidc.harigata.client-id", defaultValue = "")
   String clientId;
 
-  @ConfigProperty(name = "vagina.auth.oidc.harikata.client-secret", defaultValue = "")
+  @ConfigProperty(name = "vagina.auth.oidc.harigata.client-secret", defaultValue = "")
   String clientSecret;
 
-  @ConfigProperty(name = "vagina.auth.oidc.harikata.authorize-url", defaultValue = "")
+  @ConfigProperty(name = "vagina.auth.oidc.harigata.authorize-url", defaultValue = "")
   String authorizeUrl;
 
-  @ConfigProperty(name = "vagina.auth.oidc.harikata.token-url", defaultValue = "")
+  @ConfigProperty(name = "vagina.auth.oidc.harigata.token-url", defaultValue = "")
   String tokenUrl;
 
-  @ConfigProperty(name = "vagina.auth.oidc.harikata.userinfo-url", defaultValue = "")
+  @ConfigProperty(name = "vagina.auth.oidc.harigata.userinfo-url", defaultValue = "")
   String userInfoUrl;
 
-  @Inject ObjectMapper objectMapper;
+  @Inject
+  ObjectMapper objectMapper;
 
   private final HttpClient httpClient = HttpClient.newHttpClient();
 
@@ -71,15 +72,14 @@ public class HarikataOidcService {
     form.put("redirect_uri", redirectUri);
     form.put("code_verifier", codeVerifier);
 
-    HttpRequest request =
-        HttpRequest.newBuilder(URI.create(tokenUrl))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .POST(HttpRequest.BodyPublishers.ofString(formEncode(form)))
-            .build();
+    HttpRequest request = HttpRequest.newBuilder(URI.create(tokenUrl))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .POST(HttpRequest.BodyPublishers.ofString(formEncode(form)))
+        .build();
 
     try {
-      HttpResponse<String> response =
-          httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      HttpResponse<String> response = httpClient.send(request,
+          HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() != 200) {
         throw new IllegalStateException(
             "OIDC token endpoint returned status " + response.statusCode());
@@ -99,15 +99,14 @@ public class HarikataOidcService {
   public OidcUserInfo fetchUserInfo(String accessToken) {
     requireConfigured(userInfoUrl, "userinfo-url");
 
-    HttpRequest request =
-        HttpRequest.newBuilder(URI.create(userInfoUrl))
-            .header("Authorization", "Bearer " + accessToken)
-            .GET()
-            .build();
+    HttpRequest request = HttpRequest.newBuilder(URI.create(userInfoUrl))
+        .header("Authorization", "Bearer " + accessToken)
+        .GET()
+        .build();
 
     try {
-      HttpResponse<String> response =
-          httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      HttpResponse<String> response = httpClient.send(request,
+          HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() != 200) {
         throw new IllegalStateException(
             "OIDC userinfo endpoint returned status " + response.statusCode());
@@ -131,11 +130,10 @@ public class HarikataOidcService {
   private String formEncode(Map<String, String> values) {
     StringJoiner joiner = new StringJoiner("&");
     values.forEach(
-        (key, value) ->
-            joiner.add(
-                URLEncoder.encode(key, StandardCharsets.UTF_8)
-                    + "="
-                    + URLEncoder.encode(value, StandardCharsets.UTF_8)));
+        (key, value) -> joiner.add(
+            URLEncoder.encode(key, StandardCharsets.UTF_8)
+                + "="
+                + URLEncoder.encode(value, StandardCharsets.UTF_8)));
     return joiner.toString();
   }
 
@@ -158,7 +156,7 @@ public class HarikataOidcService {
 
   private void requireConfigured(String value, String key) {
     if (value == null || value.isBlank()) {
-      throw new IllegalStateException("Missing Harikata OIDC configuration: " + key);
+      throw new IllegalStateException("Missing Harigata OIDC configuration: " + key);
     }
   }
 }
