@@ -7,7 +7,6 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
       app.vagina.server.generated.model.AuthTokenResponse.class,
       app.vagina.server.generated.model.ErrorResponse.class,
       app.vagina.server.generated.model.ExchangeOidcLoginRequest.class,
-      app.vagina.server.generated.model.GetHello200Response.class,
       app.vagina.server.generated.model.RefreshSessionRequest.class,
       app.vagina.server.generated.model.StartOidcLogin200Response.class,
       app.vagina.server.generated.model.StartOidcLoginRequest.class,
