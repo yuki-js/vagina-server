@@ -9,6 +9,8 @@ servers:
 paths:
   /hello:
     get:
+      tags:
+        - hello
       operationId: getHello
       summary: Hello World
       responses:
@@ -17,12 +19,17 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Hello, World!
+                $ref: '#/components/schemas/HelloResponse'
 components:
+  schemas:
+    HelloResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          example: Hello, World!
   securitySchemes:
     bearerAuth:
       type: http
