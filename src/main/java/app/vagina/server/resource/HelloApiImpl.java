@@ -1,7 +1,7 @@
 package app.vagina.server.resource;
 
 import app.vagina.server.generated.api.HelloApi;
-import app.vagina.server.generated.model.HelloResponse;
+import app.vagina.server.generated.model.GetHello200Response;
 import app.vagina.server.usecase.HelloUsecase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -23,7 +23,7 @@ public class HelloApiImpl implements HelloApi {
   @Produces(MediaType.APPLICATION_JSON)
   public Response getHello() {
     String message = helloUsecase.getHello();
-    HelloResponse response = new HelloResponse();
+    GetHello200Response response = new GetHello200Response();
     response.setMessage(message);
     return Response.ok(response).build();
   }

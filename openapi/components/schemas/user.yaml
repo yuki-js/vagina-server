@@ -1,0 +1,28 @@
+User:
+  type: object
+  required:
+    - id
+    - accountLifecycle
+    - createdAt
+  properties:
+    id:
+      type: string
+      example: '123'
+    accountLifecycle:
+      type: string
+      enum:
+        - created
+        - active
+        - paused
+        - deleted
+    displayName:
+      type: string
+      nullable: true
+      example: Alice
+    avatarUrl:
+      type: string
+      nullable: true
+      example: https://avatars.githubusercontent.com/u/1?v=4
+    createdAt:
+      type: string
+      format: date-time

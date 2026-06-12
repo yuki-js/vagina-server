@@ -1,0 +1,20 @@
+paths:
+  /hello:
+    get:
+      tags:
+        - hello
+      operationId: getHello
+      summary: Hello World
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    type: string
+                    example: Hello, World!

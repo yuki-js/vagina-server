@@ -8,28 +8,23 @@ servers:
     description: API base path
 paths:
   /hello:
-    get:
-      tags:
-        - hello
-      operationId: getHello
-      summary: Hello World
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HelloResponse'
+    $ref: './paths/hello.yaml#/paths/~1hello'
+  /auth/guest:
+    $ref: './paths/auth.yaml#/paths/~1auth~1guest'
+  /auth/refresh:
+    $ref: './paths/auth.yaml#/paths/~1auth~1refresh'
+  /auth/logout:
+    $ref: './paths/auth.yaml#/paths/~1auth~1logout'
+  /me:
+    $ref: './paths/auth.yaml#/paths/~1me'
 components:
   schemas:
-    HelloResponse:
-      type: object
-      required:
-        - message
-      properties:
-        message:
-          type: string
-          example: Hello, World!
+    User:
+      $ref: './components/schemas/user.yaml#/User'
+    AuthTokenResponse:
+      $ref: './components/schemas/auth.yaml#/AuthTokenResponse'
+    ErrorResponse:
+      $ref: './components/schemas/common.yaml#/ErrorResponse'
   securitySchemes:
     bearerAuth:
       type: http
