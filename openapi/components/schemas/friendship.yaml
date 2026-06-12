@@ -1,0 +1,40 @@
+Friendship:
+  type: object
+  description: Record of a profile card exchange between two users. When a friendship is created, both directions (sender→recipient and recipient→sender) are established automatically, creating a mutual relationship.
+  required:
+    - id
+    - senderUserId
+    - recipientUserId
+    - createdAt
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the friendship record.
+      example: 512
+    senderUserId:
+      type: integer
+      format: int64
+      description: User who sent their profile card.
+      example: 7
+    recipientUserId:
+      type: integer
+      format: int64
+      description: User who received the profile card.
+      example: 42
+    meta:
+      type: object
+      description: Free-form metadata captured for the exchange.
+      additionalProperties: true
+    createdAt:
+      $ref: './common.yaml#/LocalDateTime'
+    updatedAt:
+      oneOf:
+        - $ref: './common.yaml#/LocalDateTime'
+        - type: 'null'
+      description: Timestamp when the friendship was last updated.
+    senderProfile:
+      oneOf:
+        - $ref: './profile.yaml#/UserProfile'
+        - type: 'null'
+      description: Optional snapshot of the sender's profile at the time of exchange.

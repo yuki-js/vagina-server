@@ -1,0 +1,20 @@
+extends: [[spectral:oas, recommended]]
+
+rules:
+  # Ensure info section has required fields
+  info-contact: warn
+  info-description: error
+  info-license: warn
+  
+  # Ensure operations have required fields
+  operation-description: warn
+  operation-operationId: error
+  operation-tags: warn
+  operation-success-response: error
+  
+  # Path rules
+  path-keys-no-trailing-slash: error
+  
+  # Tag rules
+  openapi-tags: warn
+  tag-description: warn

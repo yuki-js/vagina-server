@@ -1,0 +1,506 @@
+plugins {
+    id 'java'
+    id 'io.quarkus'
+    id 'com.google.cloud.tools.jib' version '3.4.4'
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'checkstyle'
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+    implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+    implementation 'io.quarkus:quarkus-rest'
+    implementation 'io.quarkus:quarkus-rest-jackson'
+    implementation 'io.quarkiverse.mybatis:quarkus-mybatis:2.4.1'
+    implementation 'io.quarkus:quarkus-jdbc-postgresql'
+    implementation 'io.quarkus:quarkus-flyway'
+    implementation 'io.quarkus:quarkus-arc'
+    
+    // CORS support via Vert.x HTTP
+    implementation 'io.quarkus:quarkus-vertx-http'
+    
+    // OpenAPI and Swagger UI support
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
+    implementation 'io.quarkus:quarkus-swagger-ui'
+    
+    // Validation support for generated models
+    implementation 'io.quarkus:quarkus-hibernate-validator'
+    
+    // Health checks
+    implementation 'io.quarkus:quarkus-smallrye-health'
+    
+    // JWT authentication for guest users
+    implementation 'io.quarkus:quarkus-smallrye-jwt'
+    implementation 'io.quarkus:quarkus-smallrye-jwt-build'
+    
+    // Observability: JSON structured logging
+    implementation 'io.quarkus:quarkus-logging-json'
+    
+    // Observability: Metrics (Micrometer + Prometheus)
+    implementation 'io.quarkus:quarkus-micrometer-registry-prometheus'
+    
+    // LangChain4j for LLM integration (Azure OpenAI)
+    implementation 'io.quarkiverse.langchain4j:quarkus-langchain4j-azure-openai:0.21.0'
+    
+    // Swagger annotations for generated API code
+    implementation 'io.swagger:swagger-annotations:1.6.14'
+    
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.quarkus:quarkus-junit5-mockito'
+    testImplementation 'io.rest-assured:rest-assured'
+    
+    // OpenAPI contract validation for tests
+    testImplementation 'com.atlassian.oai:swagger-request-validator-restassured:2.41.0'
+    
+    // WireMock for mocking OpenAI API
+    testImplementation 'org.wiremock:wiremock-standalone:3.9.2'
+    
+    // Dev Services - provides automatic containerized PostgreSQL for dev mode
+    // This enables Quarkus to start a PostgreSQL container automatically when running in dev mode
+    implementation 'io.quarkus:quarkus-devservices-postgresql'
+    
+    // Dev UI extensions - enhances the Quarkus Dev UI with additional features
+    implementation 'io.quarkus:quarkus-info'
+
+    compileOnly 'io.swagger.parser.v3:swagger-parser-v3:2.1.22'
+    compileOnly 'io.swagger.core.v3:swagger-core:2.1.22'
+}
+
+group = 'app.aoki.quarkuscrud'
+version = '0.0.1'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+// Configure parallel test execution
+// With clean-at-start disabled, we can use higher parallelism without database race conditions  
+// Each test class gets its own PostgreSQL container, providing complete isolation
+def testParallelForks = Runtime.runtime.availableProcessors()
+
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    
+    // Enable parallel test execution for better performance
+    // Run test classes in separate JVM processes for isolation
+    maxParallelForks = testParallelForks
+    
+    // Use JUnit Platform test framework
+    useJUnitPlatform()
+}
+
+// Configure testNative to run IT tests against native binary
+tasks.named('testNative') {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    
+    // Enable parallel test execution for native tests as well
+    // Run test classes in separate JVM processes for isolation
+    maxParallelForks = testParallelForks
+    
+    // Use JUnit Platform test framework
+    useJUnitPlatform()
+}
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+}
+
+// Jib configuration for containerization
+jib {
+    // Check if this is a native build
+    def isNativeBuild = project.hasProperty('nativeBuild')
+    
+    // Default base images
+    def normalBaseImage = System.getProperty('jib.from.image') ?: 'gcr.io/distroless/java21-debian12'
+    def debugBaseImage = 'debian:bookworm-slim'
+    
+    from {
+        image = normalBaseImage
+    }
+    
+    to {
+        image = System.getProperty('jib.to.image') ?: "ghcr.io/yuki-js/quarkus-crud:${version}"
+        auth {
+            username = System.getProperty('jib.to.auth.username') ?: System.getenv('REGISTRY_USERNAME') ?: ''
+            password = System.getProperty('jib.to.auth.password') ?: System.getenv('REGISTRY_PASSWORD') ?: ''
+        }
+    }
+    
+    container {
+        if (isNativeBuild) {
+            // Native executable configuration
+            entrypoint = ['/quarkus-run']
+            workingDirectory = '/'
+            ports = ['8080']
+            
+            // Labels for native image
+            labels = [
+                'org.opencontainers.image.title': 'quarkus-crud-native',
+                'org.opencontainers.image.description': 'Quarkus CRUD application (native)',
+                'org.opencontainers.image.version': "${version}",
+                'org.opencontainers.image.source': 'https://github.com/yuki-js/quarkus-crud'
+            ]
+        } else {
+            // JVM configuration
+            jvmFlags = [
+                '-Djava.util.logging.manager=org.jboss.logmanager.LogManager',
+                '-Dquarkus.http.host=0.0.0.0',
+                '-Dquarkus.http.port=8080'
+            ]
+            mainClass = 'io.quarkus.bootstrap.runner.QuarkusEntryPoint'
+            ports = ['8080']
+            
+            // Labels for JVM image
+            labels = [
+                'org.opencontainers.image.title': 'quarkus-crud-jvm',
+                'org.opencontainers.image.description': 'Quarkus CRUD application (JVM)',
+                'org.opencontainers.image.version': "${version}",
+                'org.opencontainers.image.source': 'https://github.com/yuki-js/quarkus-crud'
+            ]
+        }
+        
+        // Common settings
+        creationTime = 'USE_CURRENT_TIMESTAMP'
+        format = 'Docker'
+    }
+    
+    // For JVM builds, copy the quarkus-app directory
+    if (!isNativeBuild) {
+        extraDirectories {
+            paths {
+                path {
+                    from = file('build/quarkus-app')
+                    into = '/app'
+                }
+            }
+            permissions = [
+                '/app/quarkus-run.jar': '755'
+            ]
+        }
+        
+        container {
+            appRoot = '/app'
+            entrypoint = ['java']
+            args = [
+                '-Djava.util.logging.manager=org.jboss.logmanager.LogManager',
+                '-jar',
+                '/app/quarkus-run.jar'
+            ]
+        }
+    } else {
+        // For native builds, copy the native executable
+        extraDirectories {
+            paths {
+                path {
+                    from = file('build/jib-native')
+                    into = '/'
+                }
+            }
+            permissions = [
+                '/quarkus-run': '755'
+            ]
+        }
+    }
+}
+
+// Spotless configuration for code formatting
+spotless {
+    java {
+        // Use Google Java Format for formatting
+        googleJavaFormat('1.19.2')
+        
+        // Apply formatting to all Java source files except Mapper files
+        // (Mapper files contain SQL annotations that benefit from single-line formatting)
+        target 'src/**/*.java'
+        targetExclude 'src/**/mapper/*Mapper.java'
+        
+        // Add license header (optional - remove if not needed)
+        // licenseHeader '/* Copyright (c) 2024 */'
+        
+        // Format imports
+        importOrder()
+        removeUnusedImports()
+        
+        // Trim trailing whitespace
+        trimTrailingWhitespace()
+        
+        // Ensure files end with a newline
+        endWithNewline()
+    }
+}
+
+// Checkstyle configuration for code quality checks (linting)
+checkstyle {
+    toolVersion = '10.12.5'
+    configFile = file('config/checkstyle/checkstyle.xml')
+    // Don't fail build on violations initially (show warnings only)
+    ignoreFailures = true
+    showViolations = true
+}
+
+// Configure checkstyle tasks to work independently
+tasks.withType(Checkstyle) {
+    // Remove dependency on compilation
+    classpath = files()
+    
+    // Generate HTML reports
+    reports {
+        html.required = true
+        xml.required = false
+    }
+    
+    // Ignore generated sources under build/
+    exclude { fileTreeElement ->
+        fileTreeElement.file.toPath().startsWith(buildDir.toPath())
+    }
+}
+
+// OpenAPI Generator configuration
+configurations {
+    openApiGenerator
+    openApiCompilerRuntime
+}
+
+dependencies {
+    openApiGenerator 'org.openapitools:openapi-generator-cli:7.10.0'
+    openApiCompilerRuntime 'io.swagger.parser.v3:swagger-parser-v3:2.1.22'
+    openApiCompilerRuntime 'io.swagger.core.v3:swagger-core:2.1.22'
+}
+
+task compileOpenApi(type: JavaExec) {
+    group = 'openapi'
+    description = 'Compile modular OpenAPI sources in openapi/ into build/openapi-compiled/openapi.yaml'
+
+    classpath = files("$rootDir/buildSrc/build/libs/buildSrc.jar") + configurations.openApiCompilerRuntime
+
+    mainClass = 'buildutil.OpenApiCompiler'
+
+    def inputSpec = file('openapi/openapi.yaml')
+    def outputSpec = file("$buildDir/openapi-compiled/openapi.yaml")
+
+    inputs.file(inputSpec)
+    outputs.file(outputSpec)
+
+    args inputSpec.absolutePath, outputSpec.absolutePath
+}
+
+task generateOpenApiModels(type: JavaExec) {
+    group = 'openapi'
+    description = 'Generate Java models from OpenAPI specification'
+    
+    classpath = configurations.openApiGenerator
+    mainClass = 'org.openapitools.codegen.OpenAPIGenerator'
+    
+    def inputSpec = file("$buildDir/openapi-compiled/openapi.yaml")
+    def outputDir = file('build/generated-src/openapi')
+    
+    inputs.file(inputSpec)
+    outputs.dir(outputDir)
+    
+    args = [
+        'generate',
+        '-i', inputSpec.absolutePath,
+        '-g', 'jaxrs-spec',
+        '-o', outputDir.absolutePath,
+        '--model-package', 'app.aoki.quarkuscrud.generated.model',
+        '--api-package', 'app.aoki.quarkuscrud.generated.api',
+        '--skip-validate-spec',
+        '--additional-properties',
+        [
+            'useBeanValidation=true',
+            'dateLibrary=java8',
+            'openApiNullable=false',
+            'hideGenerationTimestamp=true',
+            'useJakartaEe=true',
+            'generateApiTests=false',
+            'generateModelTests=false',
+            'generateApiDocumentation=false',
+            'generateModelDocumentation=false',
+            'generateSupportingFiles=false',
+            'interfaceOnly=true',
+            'returnResponse=true',
+            'useTags=true'
+        ].join(',')
+    ]
+    
+    doFirst {
+        outputDir.mkdirs()
+    }
+}
+
+generateOpenApiModels.dependsOn compileOpenApi
+
+def javascriptFetchClientDir = file("$buildDir/generated/openapi-clients/javascript-fetch")
+def npmPackedClientFileName = "yuki-js-quarkus-crud-js-fetch-client-${version}.tgz"
+def npmPackedClientFile = file("$buildDir/distributions/${npmPackedClientFileName}")
+
+task generateJavascriptFetchClient(type: JavaExec) {
+    group = 'openapi'
+    description = 'Generate JavaScript fetch client from OpenAPI specification'
+
+    classpath = configurations.openApiGenerator
+    mainClass = 'org.openapitools.codegen.OpenAPIGenerator'
+
+    def inputSpec = file("$buildDir/openapi-compiled/openapi.yaml")
+
+    inputs.file(inputSpec)
+    outputs.dir(javascriptFetchClientDir)
+
+    args = [
+        'generate',
+        '-i', inputSpec.absolutePath,
+        '-g', 'typescript-fetch',
+        '-o', javascriptFetchClientDir.absolutePath,
+        '--skip-validate-spec',
+        '--additional-properties', [
+            'supportsES6=true',
+            'modelPropertyNaming=original',
+            'withInterfaces=true',
+            'useSingleRequestParameter=true',
+            'apiPackage=apis',
+            'modelPackage=models',
+            'typescriptThreePlus=true',
+            'npmName=@yuki-js/quarkus-crud-js-fetch-client',
+            "npmVersion=${version}",
+            'npmRepository=https://npm.pkg.github.com',
+            'snapshot=false',
+            'hideGenerationTimestamp=true'
+        ].join(',')
+    ]
+
+    dependsOn compileOpenApi
+
+    doFirst {
+        project.delete(javascriptFetchClientDir)
+        javascriptFetchClientDir.mkdirs()
+    }
+    
+    doLast {
+        // Fix index.ts to remove MetaApi export which causes duplicate exports
+        def indexFile = file("${javascriptFetchClientDir}/src/apis/index.ts")
+        if (indexFile.exists()) {
+            def content = indexFile.text
+            content = content.replaceAll(/export \* from '\.\/MetaApi';\n?/, '')
+            indexFile.text = content
+            logger.lifecycle('Fixed index.ts - removed MetaApi export to avoid duplicate exports')
+        }
+    }
+}
+
+def npmInstallJavascriptFetchClient = tasks.register('npmInstallJavascriptFetchClient', Exec) {
+    group = 'openapi'
+    description = 'Install npm dependencies for the generated fetch client'
+
+    dependsOn generateJavascriptFetchClient
+
+    workingDir = javascriptFetchClientDir
+    commandLine = ["npm", "install"]
+
+    inputs.files(fileTree(javascriptFetchClientDir) {
+        include 'package.json'
+        include 'package-lock.json'
+    })
+    outputs.dir(new File(javascriptFetchClientDir, 'node_modules'))
+}
+
+def npmBuildJavascriptFetchClient = tasks.register('npmBuildJavascriptFetchClient', Exec) {
+    group = 'openapi'
+    description = 'Build the generated fetch client so it is ready for npm consumers'
+
+    dependsOn npmInstallJavascriptFetchClient
+
+    workingDir = javascriptFetchClientDir
+    commandLine = ["npm", "run", "build"]
+
+    inputs.dir(new File(javascriptFetchClientDir, 'src'))
+    inputs.file(new File(javascriptFetchClientDir, 'tsconfig.json'))
+    outputs.dir(new File(javascriptFetchClientDir, 'dist'))
+}
+
+def packageJavascriptFetchClient = tasks.register('packageJavascriptFetchClient', Exec) {
+    group = 'openapi'
+    description = 'npm pack the generated JavaScript fetch client for distribution'
+
+    dependsOn npmBuildJavascriptFetchClient
+
+    def distributionsDir = npmPackedClientFile.parentFile
+    inputs.dir(javascriptFetchClientDir)
+    outputs.file(npmPackedClientFile)
+
+    doFirst {
+        distributionsDir.mkdirs()
+        // Remove stale archives to ensure npm pack output lands at known path
+        project.delete(npmPackedClientFile)
+    }
+
+    workingDir = javascriptFetchClientDir
+    commandLine = [
+        'npm',
+        'pack',
+        '--pack-destination',
+        distributionsDir.absolutePath,
+        '--json'
+    ]
+
+    // npm pack emits JSON; discard in favor of Gradle logging
+    ignoreExitValue = false
+}
+
+// Copy compiled OpenAPI spec to resources for SmallRye to pick up at runtime
+task copyOpenApiToResources(type: Copy) {
+    group = 'openapi'
+    description = 'Copy compiled OpenAPI specification to build resources for runtime access'
+    
+    from "$buildDir/openapi-compiled/openapi.yaml"
+    into "$buildDir/resources/main/META-INF"
+    
+    dependsOn compileOpenApi
+}
+
+// Add generated sources to source sets
+sourceSets {
+    main {
+        java {
+            srcDir 'build/generated-src/openapi/src/gen/java'
+        }
+    }
+}
+
+// Clean generated sources on clean
+clean {
+    delete 'build/generated-src'
+    delete "$buildDir/openapi-compiled"
+}
+
+ // Make compileJava depend on generateOpenApiModels for automatic generation
+compileJava.dependsOn generateOpenApiModels
+
+// Ensure generateOpenApiModels runs before main lifecycle and containerization tasks
+['build', 'test', 'quarkusDev', 'quarkusBuild', 'jib', 'jibDockerBuild', "checkstyleMain"].each { taskName ->
+    tasks.matching { it.name == taskName }.configureEach {
+        dependsOn generateOpenApiModels
+    }
+}
+
+tasks.named('processResources') {
+    dependsOn copyOpenApiToResources
+    dependsOn packageJavascriptFetchClient
+
+    from(npmPackedClientFile) {
+        into 'META-INF/resources/clients'
+    }
+}
+
+tasks.named('quarkusDev') {
+    dependsOn packageJavascriptFetchClient
+}

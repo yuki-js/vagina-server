@@ -1,0 +1,152 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: quarkus-crud
+  labels:
+    app: quarkus-crud
+    component: backend
+    name: backend
+    environment: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quarkus-crud
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: quarkus-crud
+        component: backend
+        name: backend
+        environment: production
+    spec:
+      imagePullSecrets:
+        - name: github-registry-secret
+      initContainers:
+        - name: derive-jwt-public-key
+          image: frapsoft/openssl:latest
+          command: ["openssl"]
+          args:
+            [
+              "pkey",
+              "-in",
+              "/keys-src/privateKey.pem",
+              "-pubout",
+              "-out",
+              "/keys/publicKey.pem",
+            ]
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /keys-src
+              readOnly: true
+            - name: keys
+              mountPath: /keys
+      containers:
+        - name: backend
+          image: ghcr.io/yuki-js/quarkus-crud:latest-native
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: common-secret
+          env:
+            - name: QUARKUS_CONFIG_LOCATIONS
+              value: /deployments/config/application.properties
+            - name: MP_JWT_VERIFY_PUBLICKEY_LOCATION
+              value: /keys/publicKey.pem
+            - name: SMALLRYE_JWT_SIGN_KEY_LOCATION
+              value: /keys-src/privateKey.pem
+            # JWT token lifespan configuration
+            - name: SMALLRYE_JWT_NEW_TOKEN_LIFESPAN_ANONYMOUS
+              value: "31536000"  # 365 days for anonymous users
+            - name: SMALLRYE_JWT_NEW_TOKEN_LIFESPAN_OIDC
+              value: "3600"  # 1 hour for OIDC users
+            # Observability environment variables
+            - name: DEPLOYMENT_ENVIRONMENT
+              value: production
+          volumeMounts:
+            - name: config
+              mountPath: /deployments/config
+              readOnly: true
+            - name: jwt-keys
+              mountPath: /keys-src
+              readOnly: true
+            - name: keys
+              mountPath: /keys
+              readOnly: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /healthz/live
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz/ready
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /healthz/started
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 30
+      volumes:
+        - name: config
+          configMap:
+            name: backend-config
+        - name: jwt-keys
+          secret:
+            secretName: jwt-keys
+            optional: true
+        - name: keys
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: quarkus-crud
+  labels:
+    app: quarkus-crud
+    component: backend
+    name: backend
+    environment: production
+  annotations:
+    # Prometheus scraping annotations
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/q/metrics"
+    prometheus.io/scheme: "http"
+spec:
+  type: ClusterIP
+  selector:
+    app: quarkus-crud
+    component: backend
+  ports:
+    - port: 80
+      targetPort: 8080

@@ -1,0 +1,89 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps`
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js (for Spectral / JS tools)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Cache npm global modules (Spectral)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm-global
+          key: ${{ runner.os }}-npm-global-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Spectral CLI (global)
+        run: |
+          npm install -g @stoplight/spectral-cli
+
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Setup Gradle toolchain
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Cache Gradle wrapper & caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/build.gradle*','**/settings.gradle*') }}
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Pre-download Gradle dependencies
+        run: ./gradlew --no-daemon dependencies || true
+        # exit code ignored in case project has conditional deps; purpose is to warm caches
+
+      - name: (Optional) Enable Git LFS
+        if: ${{ env.ENABLE_GIT_LFS == 'true' }}
+        run: |
+          git lfs install --local
+
+      - name: Cache OpenAPI Generator CLI
+        id: cache-openapi-generator
+        uses: actions/cache@v4
+        with:
+          path: ~/openapi-generator-cli.jar
+          key: ${{ runner.os }}-openapi-generator-7.10.0
+
+      - name: Download OpenAPI Generator CLI
+        if: steps.cache-openapi-generator.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/7.10.0/openapi-generator-cli-7.10.0.jar -O ~/openapi-generator-cli.jar
+
+      - name: Verify OpenAPI Generator
+        run: |
+          java -jar ~/openapi-generator-cli.jar version || true
+
+      - name: List prepared artifacts
+        run: |
+          echo "Prepared tools:"
+          java -jar ~/openapi-generator-cli.jar version || true
+          spectral --version || true
+          ./gradlew -v || true

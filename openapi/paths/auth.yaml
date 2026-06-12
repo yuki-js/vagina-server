@@ -1,0 +1,54 @@
+paths:
+  /api/auth/guest:
+    post:
+      tags:
+        - Authentication
+      summary: Create a guest user
+      description: Create an anonymous guest user and return a JWT bearer token.
+      operationId: createGuestUser
+      security: []
+      responses:
+        '200':
+          description: Guest user created successfully.
+          headers:
+            Authorization:
+              description: JWT bearer token for subsequent authenticated requests.
+              schema:
+                type: string
+                example: Bearer eyJhbGciOi...
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/user.yaml#/User'
+        '500':
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  /api/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user
+      description: Retrieve the authenticated user associated with the bearer token.
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Current user.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/user.yaml#/User'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '500':
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'

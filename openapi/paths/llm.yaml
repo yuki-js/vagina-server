@@ -1,0 +1,45 @@
+paths:
+  /api/llm/fake-names:
+    post:
+      tags:
+        - LLM
+      summary: Generate fake names
+      description: Generate fake names similar to the input name using LLM.
+      operationId: generateFakeNames
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/llm.yaml#/FakeNamesRequest'
+      responses:
+        '200':
+          description: Fake names generated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/llm.yaml#/FakeNamesResponse'
+        '400':
+          description: Invalid request parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '429':
+          description: Rate limit exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '500':
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'

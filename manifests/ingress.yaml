@@ -1,0 +1,27 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: quarkus-crud
+  namespace: quarkus-crud
+  labels:
+    environment: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-cloudflare
+spec:
+  tls:
+    - hosts:
+        - "*.ouchiserver.aokiapp.com"
+      secretName: service-tls
+  rules:
+    - host: quarkus-crud.ouchiserver.aokiapp.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 80

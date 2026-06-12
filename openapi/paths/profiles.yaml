@@ -1,0 +1,122 @@
+paths:
+  /api/users/{userId}/profile:
+    get:
+      tags:
+        - Profiles
+      summary: Get user profile
+      description: Retrieve the current profile card for the specified user.
+      operationId: getUserProfile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Identifier of the user whose profile is requested.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Profile found.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/profile.yaml#/UserProfile'
+        '404':
+          description: The user exists but has not created a profile yet, or the user does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ProfileMissing'
+              example:
+                type: about:blank
+                title: Profile Not Created
+                status: 404
+                code: PROFILE_MISSING
+                detail: The user has not created a profile yet.
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '500':
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+  /api/me/profile:
+    get:
+      tags:
+        - Profiles
+      summary: Get my profile
+      description: Retrieve the current profile card for the authenticated user.
+      operationId: getMyProfile
+      responses:
+        '200':
+          description: Profile found.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/profile.yaml#/UserProfile'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '404':
+          description: The authenticated user has not created a profile yet.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ProfileMissing'
+              example:
+                type: about:blank
+                title: Profile Not Created
+                status: 404
+                code: PROFILE_MISSING
+                detail: The user has not created a profile yet.
+        '500':
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+    put:
+      tags:
+        - Profiles
+      summary: Update my profile
+      description: Replace the authenticated user's current profile with a new revision.
+      operationId: updateMyProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../components/schemas/profile.yaml#/UserProfileUpdateRequest'
+      responses:
+        '200':
+          description: Profile updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/profile.yaml#/UserProfile'
+        '400':
+          description: Invalid profile data supplied.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'
+        '500':
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '../components/schemas/common.yaml#/ErrorResponse'

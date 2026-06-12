@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-keys
+  namespace: quarkus-crud
+  labels:
+    app: quarkus-crud
+    environment: production
+  annotations:
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+    argocd.argoproj.io/sync-options: Prune=false
+type: Opaque
+data: {}
+# stringData:
+#   privateKey.pem: |
+#     -----BEGIN PRIVATE KEY-----
+#     ...
+#     -----END PRIVATE KEY-----
+# publicKey は initContainer で privateKey から /keys/publicKey.pem に導出します

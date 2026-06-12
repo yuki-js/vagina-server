@@ -1,0 +1,65 @@
+User:
+  type: object
+  description: Full representation of an authenticated user account.
+  required:
+    - id
+    - accountLifecycle
+    - createdAt
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the user.
+      example: 42
+    accountLifecycle:
+      type: string
+      description: Lifecycle state of the user account.
+      enum:
+        - created
+        - provisioned
+        - active
+        - paused
+        - deleted
+      example: active
+    meta:
+      type: object
+      description: Flexible metadata associated with the user.
+      additionalProperties: true
+      example:
+        locale: ja-JP
+    createdAt:
+      $ref: './common.yaml#/LocalDateTime'
+    updatedAt:
+      $ref: './common.yaml#/LocalDateTime'
+      nullable: true
+UserPublic:
+  type: object
+  description: Public information available for any user lookup.
+  required:
+    - id
+    - accountLifecycle
+    - createdAt
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the user.
+      example: 42
+    accountLifecycle:
+      type: string
+      description: Lifecycle state of the user account.
+      enum:
+        - created
+        - provisioned
+        - active
+        - paused
+        - deleted
+      example: active
+    createdAt:
+      $ref: './common.yaml#/LocalDateTime'
+    profileSummary:
+      type: object
+      description: Optional summary of the most recent profile.
+      additionalProperties: true
+      example:
+        displayName: Quiz Master

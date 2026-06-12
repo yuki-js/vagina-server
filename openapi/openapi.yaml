@@ -1,0 +1,122 @@
+openapi: 3.0.3
+info:
+  title: Quarkus CRUD API
+  description: >-
+    REST API for quiz events, user profiles, friendships, and authentication.
+    Guests authenticate with JWT bearer tokens and interact with events in
+    real time via Server-Sent Events.
+  version: 0.0.1
+  contact:
+    name: API Support
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://quarkus-crud.ouchiserver.aokiapp.com
+    description: Production server
+tags:
+  - name: Authentication
+    description: Guest user authentication and identity endpoints
+  - name: Users
+    description: User lookups and self-service endpoints
+  - name: Profiles
+    description: User profile retrieval and updates
+  - name: Friendships
+    description: Profile card exchanges between users
+  - name: Events
+    description: Event management, attendees, and live updates
+  - name: LLM
+    description: LLM-powered features and endpoints
+paths:
+  /api/auth/guest:
+    $ref: './paths/auth.yaml#/paths/~1api~1auth~1guest'
+  /api/me:
+    $ref: './paths/auth.yaml#/paths/~1api~1me'
+  /api/users/{userId}:
+    $ref: './paths/users.yaml#/paths/~1api~1users~1{userId}'
+  /api/users/{userId}/profile:
+    $ref: './paths/profiles.yaml#/paths/~1api~1users~1{userId}~1profile'
+  /api/me/profile:
+    $ref: './paths/profiles.yaml#/paths/~1api~1me~1profile'
+  /api/friendships/{otherUserId}:
+    $ref: './paths/friendships.yaml#/paths/~1api~1friendships~1{otherUserId}'
+  /api/users/{userId}/friendship:
+    $ref: './paths/friendships.yaml#/paths/~1api~1users~1{userId}~1friendship'
+  /api/me/friendships/received:
+    $ref: './paths/friendships.yaml#/paths/~1api~1me~1friendships~1received'
+  /api/events:
+    $ref: './paths/events.yaml#/paths/~1api~1events'
+  /api/events/{eventId}:
+    $ref: './paths/events.yaml#/paths/~1api~1events~1{eventId}'
+  /api/users/{userId}/events:
+    $ref: './paths/events.yaml#/paths/~1api~1users~1{userId}~1events'
+  /api/me/attended-events:
+    $ref: './paths/events.yaml#/paths/~1api~1me~1attended-events'
+  /api/events/join-by-code:
+    $ref: './paths/events.yaml#/paths/~1api~1events~1join-by-code'
+  /api/events/{eventId}/attendees:
+    $ref: './paths/events.yaml#/paths/~1api~1events~1{eventId}~1attendees'
+  /api/events/{eventId}/live:
+    $ref: './paths/events.yaml#/paths/~1api~1events~1{eventId}~1live'
+  /api/events/{eventId}/users/{userId}:
+    $ref: './paths/events.yaml#/paths/~1api~1events~1{eventId}~1users~1{userId}'
+  /api/llm/fake-names:
+    $ref: './paths/llm.yaml#/paths/~1api~1llm~1fake-names'
+  /api/users/{userId}/meta:
+    $ref: './paths/meta.yaml#/paths/~1api~1users~1{userId}~1meta'
+  /api/events/{eventId}/meta:
+    $ref: './paths/meta.yaml#/paths/~1api~1events~1{eventId}~1meta'
+  /api/friendships/{otherUserId}/meta:
+    $ref: './paths/meta.yaml#/paths/~1api~1friendships~1{otherUserId}~1meta'
+  /api/users/{userId}/profile/meta:
+    $ref: './paths/meta.yaml#/paths/~1api~1users~1{userId}~1profile~1meta'
+  /api/events/{eventId}/users/{userId}/meta:
+    $ref: './paths/meta.yaml#/paths/~1api~1events~1{eventId}~1users~1{userId}~1meta'
+  /api/events/{eventId}/attendees/{attendeeUserId}/meta:
+    $ref: './paths/meta.yaml#/paths/~1api~1events~1{eventId}~1attendees~1{attendeeUserId}~1meta'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      $ref: './components/schemas/user.yaml#/User'
+    UserPublic:
+      $ref: './components/schemas/user.yaml#/UserPublic'
+    UserProfile:
+      $ref: './components/schemas/profile.yaml#/UserProfile'
+    UserProfileUpdateRequest:
+      $ref: './components/schemas/profile.yaml#/UserProfileUpdateRequest'
+    Friendship:
+      $ref: './components/schemas/friendship.yaml#/Friendship'
+    Event:
+      $ref: './components/schemas/event.yaml#/Event'
+    EventCreateRequest:
+      $ref: './components/schemas/event.yaml#/EventCreateRequest'
+    EventUpdateRequest:
+      $ref: './components/schemas/event.yaml#/EventUpdateRequest'
+    EventJoinByCodeRequest:
+      $ref: './components/schemas/event.yaml#/EventJoinByCodeRequest'
+    EventLiveEvent:
+      $ref: './components/schemas/event.yaml#/EventLiveEvent'
+    EventAttendee:
+      $ref: './components/schemas/eventAttendee.yaml#/EventAttendee'
+    EventUserData:
+      $ref: './components/schemas/eventUserData.yaml#/EventUserData'
+    EventUserDataUpdateRequest:
+      $ref: './components/schemas/eventUserData.yaml#/EventUserDataUpdateRequest'
+    FakeNamesRequest:
+      $ref: './components/schemas/llm.yaml#/FakeNamesRequest'
+    FakeNamesResponse:
+      $ref: './components/schemas/llm.yaml#/FakeNamesResponse'
+    UserMeta:
+      $ref: './components/schemas/meta.yaml#/UserMeta'
+    UsermetaUpdateRequest:
+      $ref: './components/schemas/meta.yaml#/UsermetaUpdateRequest'
+    ErrorResponse:
+      $ref: './components/schemas/common.yaml#/ErrorResponse'
+    LocalDateTime:
+      $ref: './components/schemas/common.yaml#/LocalDateTime'
+security:
+  - bearerAuth: []

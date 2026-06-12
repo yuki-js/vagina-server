@@ -1,0 +1,64 @@
+EventUserData:
+  type: object
+  description: User-specific data stored for an event. Similar to profile but scoped to an event.
+  required:
+    - id
+    - eventId
+    - userId
+    - userData
+    - createdAt
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Identifier of this user data revision.
+      example: 501
+    eventId:
+      type: integer
+      format: int64
+      description: Event this data belongs to.
+      example: 123
+    userId:
+      type: integer
+      format: int64
+      description: User this data belongs to.
+      example: 456
+    userData:
+      type: object
+      description: User's event-specific data.
+      additionalProperties: true
+      example:
+        score: 100
+        team: alpha
+    revisionMeta:
+      type: object
+      description: Metadata recorded for this data revision.
+      additionalProperties: true
+      example:
+        source: api
+      nullable: true
+    createdAt:
+      $ref: './common.yaml#/LocalDateTime'
+    updatedAt:
+      $ref: './common.yaml#/LocalDateTime'
+      nullable: true
+EventUserDataUpdateRequest:
+  type: object
+  description: Payload used to create a new user data revision for an event.
+  required:
+    - userData
+  properties:
+    userData:
+      type: object
+      description: User data that will become the new revision.
+      additionalProperties: true
+      example:
+        score: 150
+        team: beta
+    revisionMeta:
+      type: object
+      description: Optional metadata about this data revision.
+      additionalProperties: true
+      example:
+        source: mobile-app
+      nullable: true

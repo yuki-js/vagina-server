@@ -1,0 +1,27 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // IMPORTANT: These dependencies MUST be compileOnly, NOT implementation.
+    // They are only needed at compile time for the OpenApiCompiler class in buildSrc.
+    // At runtime, these dependencies are provided via configurations.openApiCompilerRuntime
+    // in the main build.gradle file. Changing these to 'implementation' will bundle them
+    // into buildSrc.jar, causing classpath conflicts during the Jib build process.
+    compileOnly 'io.swagger.parser.v3:swagger-parser-v3:2.1.22'
+    compileOnly 'io.swagger.core.v3:swagger-core:2.1.22'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+}

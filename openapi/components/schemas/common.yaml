@@ -1,0 +1,53 @@
+ErrorResponse:
+  type: object
+  description: Error payload returned by the API.
+  required:
+    - error
+  properties:
+    error:
+      type: string
+      description: Human-readable description of the error.
+      example: Authentication required
+    details:
+      type: object
+      description: Optional structured details about the error.
+      additionalProperties: true
+LocalDateTime:
+  type: string
+  format: date-time
+  description: ISO-8601 timestamp with timezone information.
+  example: 2025-01-01T10:15:30Z
+ProfileMissing:
+  type: object
+  description: >
+    Semi-normal response indicating that a profile has not been created yet.
+    This is not an error condition - the account exists but the profile is simply missing.
+    Clients should treat this as a normal "profile not created" state (e.g., return null).
+  required:
+    - type
+    - title
+    - status
+    - code
+  properties:
+    type:
+      type: string
+      description: URI reference identifying the problem type.
+      example: about:blank
+    title:
+      type: string
+      description: Short, human-readable summary of the problem.
+      example: Profile Not Created
+    status:
+      type: integer
+      description: HTTP status code.
+      example: 404
+    code:
+      type: string
+      description: Machine-readable code to distinguish semi-normal from error cases.
+      enum:
+        - PROFILE_MISSING
+      example: PROFILE_MISSING
+    detail:
+      type: string
+      description: Human-readable explanation specific to this occurrence.
+      example: The user has not created a profile yet.
