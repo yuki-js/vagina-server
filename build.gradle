@@ -43,9 +43,6 @@ dependencies {
     // Observability: Metrics (Micrometer + Prometheus)
     implementation 'io.quarkus:quarkus-micrometer-registry-prometheus'
     
-    // LangChain4j for LLM integration (Azure OpenAI)
-    implementation 'io.quarkiverse.langchain4j:quarkus-langchain4j-azure-openai:0.21.0'
-    
     // Swagger annotations for generated API code
     implementation 'io.swagger:swagger-annotations:1.6.14'
     
