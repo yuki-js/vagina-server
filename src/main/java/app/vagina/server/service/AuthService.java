@@ -63,7 +63,8 @@ public class AuthService {
   @Inject AuthnProviderMapper authnProviderMapper;
   @Inject UserService userService;
 
-  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+  private static final ThreadLocal<SecureRandom> SECURE_RANDOM =
+      ThreadLocal.withInitial(SecureRandom::new);
   private static final HexFormat HEX_FORMAT = HexFormat.of();
 
   // ========================
@@ -359,7 +360,7 @@ public class AuthService {
 
   private String randomToken() {
     byte[] randomBytes = new byte[32];
-    SECURE_RANDOM.nextBytes(randomBytes);
+    SECURE_RANDOM.get().nextBytes(randomBytes);
     return HEX_FORMAT.formatHex(randomBytes);
   }
 
