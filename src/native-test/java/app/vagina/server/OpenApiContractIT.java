@@ -6,4 +6,4 @@ import io.quarkus.test.junit.QuarkusIntegrationTest;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(HarigataOidcMockServerResource.class)
-public class AuthenticationIT extends AuthenticationIntegrationTest {}
+public class OpenApiContractIT extends OpenApiContractTest {}
