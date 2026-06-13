@@ -31,7 +31,8 @@ public class HarigataOidcMockServerResource implements QuarkusTestResourceLifecy
 
   @Override
   public Map<String, String> start() {
-    wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort().globalTemplating(true));
+    wireMockServer =
+        new WireMockServer(WireMockConfiguration.options().dynamicPort().globalTemplating(true));
     wireMockServer.start();
     setupDefaultStubs();
 

@@ -35,8 +35,7 @@ public class GitHubOidcProvider extends OidcProviderBase {
   @ConfigProperty(name = "vagina.auth.oidc.github.emails-url", defaultValue = "UNCONFIGURED")
   String emailsUrl;
 
-  @Inject
-  ObjectMapper objectMapper;
+  @Inject ObjectMapper objectMapper;
 
   private final HttpClient httpClient = HttpClient.newHttpClient();
 
@@ -73,15 +72,16 @@ public class GitHubOidcProvider extends OidcProviderBase {
     form.put("code", code);
     form.put("redirect_uri", redirectUri);
 
-    HttpRequest request = HttpRequest.newBuilder(URI.create(tokenUrl))
-        .header("Accept", "application/json")
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .POST(HttpRequest.BodyPublishers.ofString(formEncode(form)))
-        .build();
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create(tokenUrl))
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .POST(HttpRequest.BodyPublishers.ofString(formEncode(form)))
+            .build();
 
     try {
-      HttpResponse<String> response = httpClient.send(request,
-          HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() != 200) {
         throw new IllegalStateException(
             "GitHub token endpoint returned status " + response.statusCode());
@@ -101,15 +101,16 @@ public class GitHubOidcProvider extends OidcProviderBase {
   public OidcUserInfo fetchUserInfo(String accessToken) {
     requireConfigured(userInfoUrl, "userinfo-url");
 
-    HttpRequest request = HttpRequest.newBuilder(URI.create(userInfoUrl))
-        .header("Authorization", "Bearer " + accessToken)
-        .header("Accept", "application/json")
-        .GET()
-        .build();
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create(userInfoUrl))
+            .header("Authorization", "Bearer " + accessToken)
+            .header("Accept", "application/json")
+            .GET()
+            .build();
 
     try {
-      HttpResponse<String> response = httpClient.send(request,
-          HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() != 200) {
         throw new IllegalStateException(
             "GitHub userinfo endpoint returned status " + response.statusCode());
@@ -134,13 +135,7 @@ public class GitHubOidcProvider extends OidcProviderBase {
       }
 
       return new OidcUserInfo(
-          subject,
-          providerLogin,
-          displayName,
-          avatarUrl,
-          email,
-          emailVerified,
-          response.body());
+          subject, providerLogin, displayName, avatarUrl, email, emailVerified, response.body());
     } catch (IOException | InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("Failed to fetch GitHub userinfo", e);
@@ -148,15 +143,16 @@ public class GitHubOidcProvider extends OidcProviderBase {
   }
 
   private EmailInfo fetchPrimaryVerifiedEmail(String accessToken) {
-    HttpRequest request = HttpRequest.newBuilder(URI.create(emailsUrl))
-        .header("Authorization", "Bearer " + accessToken)
-        .header("Accept", "application/json")
-        .GET()
-        .build();
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create(emailsUrl))
+            .header("Authorization", "Bearer " + accessToken)
+            .header("Accept", "application/json")
+            .GET()
+            .build();
 
     try {
-      HttpResponse<String> response = httpClient.send(request,
-          HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() != 200) {
         return null;
       }

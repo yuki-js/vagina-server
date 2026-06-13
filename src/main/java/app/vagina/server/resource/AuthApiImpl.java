@@ -60,13 +60,15 @@ public class AuthApiImpl implements AuthApi {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response refreshSession(RefreshSessionRequest refreshSessionRequest) {
-    AuthTokenResponse response = authUsecase.refreshSession(refreshSessionRequest.getRefreshToken());
+    AuthTokenResponse response =
+        authUsecase.refreshSession(refreshSessionRequest.getRefreshToken());
     return Response.ok(response).build();
   }
 
   @Override
   public Response startOidcLogin(String provider, StartOidcLoginRequest startOidcLoginRequest) {
-    StartOidcLogin200Response response = authUsecase.startOidcLogin(provider, startOidcLoginRequest);
+    StartOidcLogin200Response response =
+        authUsecase.startOidcLogin(provider, startOidcLoginRequest);
     return Response.ok(response).build();
   }
 }

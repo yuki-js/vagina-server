@@ -32,10 +32,11 @@ public abstract class OidcProviderBase {
   protected String formEncode(Map<String, String> values) {
     StringJoiner joiner = new StringJoiner("&");
     values.forEach(
-        (key, value) -> joiner.add(
-            URLEncoder.encode(key, StandardCharsets.UTF_8)
-                + "="
-                + URLEncoder.encode(value, StandardCharsets.UTF_8)));
+        (key, value) ->
+            joiner.add(
+                URLEncoder.encode(key, StandardCharsets.UTF_8)
+                    + "="
+                    + URLEncoder.encode(value, StandardCharsets.UTF_8)));
     return joiner.toString();
   }
 

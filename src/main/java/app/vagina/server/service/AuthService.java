@@ -20,11 +20,11 @@ import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.Response;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -76,12 +76,18 @@ public class AuthService {
         return provider;
       }
     }
-    throw new AppException(Response.Status.BAD_REQUEST, "Unsupported OIDC provider: " + providerKey);
+    throw new AppException(
+        Response.Status.BAD_REQUEST, "Unsupported OIDC provider: " + providerKey);
   }
 
   public String buildAuthorizationUrl(
-      String providerKey, String redirectUri, String state, String codeChallenge, String codeChallengeMethod) {
-    return resolveProvider(providerKey).buildAuthorizationUrl(redirectUri, state, codeChallenge, codeChallengeMethod);
+      String providerKey,
+      String redirectUri,
+      String state,
+      String codeChallenge,
+      String codeChallengeMethod) {
+    return resolveProvider(providerKey)
+        .buildAuthorizationUrl(redirectUri, state, codeChallenge, codeChallengeMethod);
   }
 
   public OidcTokenSet exchangeAuthorizationCode(
@@ -131,7 +137,8 @@ public class AuthService {
     OAuthLoginAttempt attempt =
         oauthLoginAttemptMapper
             .findByStateHash(sha256(rawState))
-            .orElseThrow(() -> new AppException(Response.Status.UNAUTHORIZED, "Unknown OIDC state"));
+            .orElseThrow(
+                () -> new AppException(Response.Status.UNAUTHORIZED, "Unknown OIDC state"));
 
     LocalDateTime now = LocalDateTime.now();
 

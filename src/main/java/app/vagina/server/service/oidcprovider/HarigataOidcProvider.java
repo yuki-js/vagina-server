@@ -32,8 +32,7 @@ public class HarigataOidcProvider extends OidcProviderBase {
   @ConfigProperty(name = "vagina.auth.oidc.harigata.userinfo-url", defaultValue = "")
   String userInfoUrl;
 
-  @Inject
-  ObjectMapper objectMapper;
+  @Inject ObjectMapper objectMapper;
 
   private final HttpClient httpClient = HttpClient.newHttpClient();
 
@@ -75,14 +74,15 @@ public class HarigataOidcProvider extends OidcProviderBase {
     form.put("redirect_uri", redirectUri);
     form.put("code_verifier", codeVerifier);
 
-    HttpRequest request = HttpRequest.newBuilder(URI.create(tokenUrl))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .POST(HttpRequest.BodyPublishers.ofString(formEncode(form)))
-        .build();
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create(tokenUrl))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .POST(HttpRequest.BodyPublishers.ofString(formEncode(form)))
+            .build();
 
     try {
-      HttpResponse<String> response = httpClient.send(request,
-          HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() != 200) {
         throw new IllegalStateException(
             "OIDC token endpoint returned status " + response.statusCode());
@@ -103,14 +103,15 @@ public class HarigataOidcProvider extends OidcProviderBase {
   public OidcUserInfo fetchUserInfo(String accessToken) {
     requireConfigured(userInfoUrl, "userinfo-url");
 
-    HttpRequest request = HttpRequest.newBuilder(URI.create(userInfoUrl))
-        .header("Authorization", "Bearer " + accessToken)
-        .GET()
-        .build();
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create(userInfoUrl))
+            .header("Authorization", "Bearer " + accessToken)
+            .GET()
+            .build();
 
     try {
-      HttpResponse<String> response = httpClient.send(request,
-          HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
       if (response.statusCode() != 200) {
         throw new IllegalStateException(
             "OIDC userinfo endpoint returned status " + response.statusCode());

@@ -24,27 +24,27 @@ public class AuthUsecase {
   @ConfigProperty(name = "vagina.auth.access-token.lifespan")
   Long accessTokenLifespan;
 
-  @Inject
-  UserService userService;
+  @Inject UserService userService;
 
-  @Inject
-  AuthService authService;
+  @Inject AuthService authService;
 
   public StartOidcLogin200Response startOidcLogin(String provider, StartOidcLoginRequest request) {
     authService.resolveProvider(provider); // validate early
-    var createdState = authService.createState(
-        provider,
-        app.vagina.server.entity.ClientType.fromValue(request.getClientType().value()),
-        request.getRedirectUri().toString(),
-        request.getCodeChallenge(),
-        request.getCodeChallengeMethod().value());
+    var createdState =
+        authService.createState(
+            provider,
+            app.vagina.server.entity.ClientType.fromValue(request.getClientType().value()),
+            request.getRedirectUri().toString(),
+            request.getCodeChallenge(),
+            request.getCodeChallengeMethod().value());
 
-    String authorizationUrl = authService.buildAuthorizationUrl(
-        provider,
-        request.getRedirectUri().toString(),
-        createdState.rawState(),
-        request.getCodeChallenge(),
-        request.getCodeChallengeMethod().value());
+    String authorizationUrl =
+        authService.buildAuthorizationUrl(
+            provider,
+            request.getRedirectUri().toString(),
+            createdState.rawState(),
+            request.getCodeChallenge(),
+            request.getCodeChallengeMethod().value());
 
     StartOidcLogin200Response response = new StartOidcLogin200Response();
     response.setAuthorizationUrl(URI.create(authorizationUrl));
@@ -56,16 +56,24 @@ public class AuthUsecase {
   @Transactional
   public AuthTokenResponse exchangeOidcLogin(String provider, ExchangeOidcLoginRequest request) {
     authService.consumeState(
-        provider, request.getState(), request.getRedirectUri().toString(), request.getCodeVerifier());
+        provider,
+        request.getState(),
+        request.getRedirectUri().toString(),
+        request.getCodeVerifier());
 
-    var tokenSet = authService.exchangeAuthorizationCode(
-        provider, request.getCode(), request.getRedirectUri().toString(), request.getCodeVerifier());
+    var tokenSet =
+        authService.exchangeAuthorizationCode(
+            provider,
+            request.getCode(),
+            request.getRedirectUri().toString(),
+            request.getCodeVerifier());
     OidcUserInfo oidcUserInfo = authService.fetchUserInfo(provider, tokenSet.accessToken());
 
     User user = userService.getOrCreateOidcUser(provider, oidcUserInfo);
-    AuthnProvider primaryAuthnProvider = userService
-        .findPrimaryAuthnProvider(user.getId())
-        .orElseThrow(() -> new IllegalStateException("User has no auth provider"));
+    AuthnProvider primaryAuthnProvider =
+        userService
+            .findPrimaryAuthnProvider(user.getId())
+            .orElseThrow(() -> new IllegalStateException("User has no auth provider"));
 
     String accessToken = authService.generateAccessToken(user);
     var issuedRefreshToken = authService.issueRefreshToken(user.getId());
@@ -81,16 +89,20 @@ public class AuthUsecase {
 
   @Transactional
   public AuthTokenResponse refreshSession(String rawRefreshToken) {
-    var rotatedRefreshToken = authService
-        .rotateRefreshToken(rawRefreshToken)
-        .orElseThrow(() -> new AppException(Response.Status.UNAUTHORIZED, "Invalid refresh token"));
+    var rotatedRefreshToken =
+        authService
+            .rotateRefreshToken(rawRefreshToken)
+            .orElseThrow(
+                () -> new AppException(Response.Status.UNAUTHORIZED, "Invalid refresh token"));
 
-    User user = userService
-        .findById(rotatedRefreshToken.persistedToken().getUserId())
-        .orElseThrow(() -> new IllegalStateException("User not found for refresh token"));
-    AuthnProvider primaryAuthnProvider = userService
-        .findPrimaryAuthnProvider(user.getId())
-        .orElseThrow(() -> new IllegalStateException("User has no auth provider"));
+    User user =
+        userService
+            .findById(rotatedRefreshToken.persistedToken().getUserId())
+            .orElseThrow(() -> new IllegalStateException("User not found for refresh token"));
+    AuthnProvider primaryAuthnProvider =
+        userService
+            .findPrimaryAuthnProvider(user.getId())
+            .orElseThrow(() -> new IllegalStateException("User has no auth provider"));
 
     String accessToken = authService.generateAccessToken(user);
 
@@ -109,14 +121,16 @@ public class AuthUsecase {
   }
 
   public app.vagina.server.generated.model.User getCurrentUser(Long userId) {
-    User user = userService
-        .findById(userId)
-        .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
+    User user =
+        userService
+            .findById(userId)
+            .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
     AuthnProvider primaryAuthnProvider = userService.findPrimaryAuthnProvider(userId).orElse(null);
     return toGeneratedUser(user, primaryAuthnProvider);
   }
 
-  private app.vagina.server.generated.model.User toGeneratedUser(User user, AuthnProvider primaryAuthnProvider) {
+  private app.vagina.server.generated.model.User toGeneratedUser(
+      User user, AuthnProvider primaryAuthnProvider) {
     String displayName = null;
     String avatarUrl = null;
 

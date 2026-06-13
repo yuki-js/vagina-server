@@ -44,37 +44,39 @@ public class OpenApiContractTest {
     }
 
     String specContent = new String(specUrl.openStream().readAllBytes(), StandardCharsets.UTF_8);
-    OpenApiInteractionValidator validator = OpenApiInteractionValidator.createForInlineApiSpecification(specContent)
-        .withLevelResolver(
-            LevelResolver.create()
-                .withLevel("validation.request.security.missing", ValidationReport.Level.IGNORE)
-                .build())
-        .build();
+    OpenApiInteractionValidator validator =
+        OpenApiInteractionValidator.createForInlineApiSpecification(specContent)
+            .withLevelResolver(
+                LevelResolver.create()
+                    .withLevel("validation.request.security.missing", ValidationReport.Level.IGNORE)
+                    .build())
+            .build();
     validationFilter = new OpenApiValidationFilter(validator);
   }
 
   @Test
   @Order(1)
   public void testStartOidcLoginContract() {
-    Response response = given()
-        .filter(validationFilter)
-        .contentType(ContentType.JSON)
-        .body(
-            Map.of(
-                "clientType",
-                "web",
-                "redirectUri",
-                REDIRECT_URI,
-                "codeChallenge",
-                CODE_CHALLENGE,
-                "codeChallengeMethod",
-                "S256"))
-        .when()
-        .post("/api/auth/oidc/harigata/start")
-        .then()
-        .statusCode(200)
-        .extract()
-        .response();
+    Response response =
+        given()
+            .filter(validationFilter)
+            .contentType(ContentType.JSON)
+            .body(
+                Map.of(
+                    "clientType",
+                    "web",
+                    "redirectUri",
+                    REDIRECT_URI,
+                    "codeChallenge",
+                    CODE_CHALLENGE,
+                    "codeChallengeMethod",
+                    "S256"))
+            .when()
+            .post("/api/auth/oidc/harigata/start")
+            .then()
+            .statusCode(200)
+            .extract()
+            .response();
 
     state = response.jsonPath().getString("state");
   }
@@ -82,21 +84,22 @@ public class OpenApiContractTest {
   @Test
   @Order(2)
   public void testExchangeOidcLoginContract() {
-    Response response = given()
-        .filter(validationFilter)
-        .contentType(ContentType.JSON)
-        .body(
-            Map.of(
-                "code", HarigataOidcMockServerResource.DEFAULT_AUTHORIZATION_CODE,
-                "state", state,
-                "redirectUri", REDIRECT_URI,
-                "codeVerifier", CODE_VERIFIER))
-        .when()
-        .post("/api/auth/oidc/harigata/exchange")
-        .then()
-        .statusCode(200)
-        .extract()
-        .response();
+    Response response =
+        given()
+            .filter(validationFilter)
+            .contentType(ContentType.JSON)
+            .body(
+                Map.of(
+                    "code", HarigataOidcMockServerResource.DEFAULT_AUTHORIZATION_CODE,
+                    "state", state,
+                    "redirectUri", REDIRECT_URI,
+                    "codeVerifier", CODE_VERIFIER))
+            .when()
+            .post("/api/auth/oidc/harigata/exchange")
+            .then()
+            .statusCode(200)
+            .extract()
+            .response();
 
     accessToken = response.jsonPath().getString("accessToken");
     refreshToken = response.jsonPath().getString("refreshToken");
@@ -117,16 +120,17 @@ public class OpenApiContractTest {
   @Test
   @Order(4)
   public void testRefreshSessionContract() {
-    Response response = given()
-        .filter(validationFilter)
-        .contentType(ContentType.JSON)
-        .body(Map.of("refreshToken", refreshToken))
-        .when()
-        .post("/api/auth/refresh")
-        .then()
-        .statusCode(200)
-        .extract()
-        .response();
+    Response response =
+        given()
+            .filter(validationFilter)
+            .contentType(ContentType.JSON)
+            .body(Map.of("refreshToken", refreshToken))
+            .when()
+            .post("/api/auth/refresh")
+            .then()
+            .statusCode(200)
+            .extract()
+            .response();
 
     accessToken = response.jsonPath().getString("accessToken");
     refreshToken = response.jsonPath().getString("refreshToken");
