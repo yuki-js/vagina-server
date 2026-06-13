@@ -2,8 +2,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: quarkus-crud
-  namespace: quarkus-crud
+  name: vagina-server
+  namespace: vagina-server
   labels:
     environment: production
   annotations:
@@ -12,10 +12,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - "*.ouchiserver.aokiapp.com"
+        - "api.vagina.app"
       secretName: service-tls
   rules:
-    - host: quarkus-crud.ouchiserver.aokiapp.com
+    - host: api.vagina.app
       http:
         paths:
           - path: /

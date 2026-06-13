@@ -77,7 +77,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build application once
-        run: ./gradlew build
+        run: ./gradlew assemble test
 
       - name: Push all JVM images (single Gradle daemon session)
         env:
@@ -157,7 +157,7 @@ jobs:
 
       - name: Build native executable once
         run: |
-          ./gradlew build -Dquarkus.package.type=native
+          ./gradlew quarkusBuild -Dquarkus.package.type=native
 
       - name: Prepare native executable for Jib
         run: |

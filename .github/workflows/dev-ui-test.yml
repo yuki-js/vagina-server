@@ -76,7 +76,7 @@ jobs:
           fi
 
           # Check Dev UI
-          if curl -f http://localhost:8080/q/dev; then
+          if curl -f -L http://localhost:8080/q/dev-ui; then
             echo "✅ Dev UI is accessible"
           else
             echo "❌ Dev UI is not accessible"
@@ -84,7 +84,7 @@ jobs:
           fi
 
           # Check if Dev Services (PostgreSQL) is running
-          if curl -s http://localhost:8080/q/dev | grep -q "postgresql"; then
+          if curl -s -L http://localhost:8080/q/dev-ui | grep -q "postgresql"; then
             echo "✅ Dev Services (PostgreSQL) is running"
           else
             echo "⚠️  Dev Services (PostgreSQL) may not be running"
@@ -98,8 +98,18 @@ jobs:
           INITIAL_RESPONSE=$(curl -s http://localhost:8080/q/health)
           echo "Initial response: $INITIAL_RESPONSE"
 
-          # Modify a file to trigger reload
-          echo "// Test comment for live reload" >> src/main/java/app/aoki/quarkuscrud/resource/HealthResource.java
+          # Modify a source file to trigger reload
+          TARGET_FILE=$(find src/main/java -name '*ApiImpl.java' | head -n 1)
+          if [ -z "$TARGET_FILE" ]; then
+            TARGET_FILE=$(find src/main/java -name '*.java' | head -n 1)
+          fi
+
+          if [ -z "$TARGET_FILE" ]; then
+            echo "❌ Could not find a Java source file for live reload test"
+            exit 1
+          fi
+
+          echo "// Test comment for live reload $(date +%s)" >> "$TARGET_FILE"
 
           # Wait for reload
           sleep 10
@@ -137,7 +147,7 @@ jobs:
           echo "## Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Quarkus Dev Mode started successfully" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Dev UI is accessible at /q/dev" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Dev UI is accessible at /q/dev-ui" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Health endpoint is working" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Live reload is functional" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Dev Services (PostgreSQL) is running" >> $GITHUB_STEP_SUMMARY

@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: quarkus-crud
+namespace: vagina-server
 
 resources:
   - backend.yaml
@@ -15,9 +15,9 @@ configMapGenerator:
       - application.properties
 
 images:
-  - name: ghcr.io/yuki-js/quarkus-crud
+  - name: ghcr.io/vagina-ai/server
     newTag: latest-native
 
 labels:
   - pairs:
-      app: quarkus-crud
+      app: vagina-server

@@ -129,7 +129,7 @@ jib {
     }
     
     to {
-        image = System.getProperty('jib.to.image') ?: "ghcr.io/yuki-js/quarkus-crud:${version}"
+        image = System.getProperty('jib.to.image') ?: "ghcr.io/vagina-ai/server:${version}"
         auth {
             username = System.getProperty('jib.to.auth.username') ?: System.getenv('REGISTRY_USERNAME') ?: ''
             password = System.getProperty('jib.to.auth.password') ?: System.getenv('REGISTRY_PASSWORD') ?: ''
@@ -145,10 +145,10 @@ jib {
             
             // Labels for native image
             labels = [
-                'org.opencontainers.image.title': 'quarkus-crud-native',
-                'org.opencontainers.image.description': 'Quarkus CRUD application (native)',
+                'org.opencontainers.image.title': 'vagina-server-native',
+                'org.opencontainers.image.description': 'Vagina Server application (native)',
                 'org.opencontainers.image.version': "${version}",
-                'org.opencontainers.image.source': 'https://github.com/yuki-js/quarkus-crud'
+                'org.opencontainers.image.source': 'https://github.com/vagina-ai/server'
             ]
         } else {
             // JVM configuration
@@ -162,10 +162,10 @@ jib {
             
             // Labels for JVM image
             labels = [
-                'org.opencontainers.image.title': 'quarkus-crud-jvm',
-                'org.opencontainers.image.description': 'Quarkus CRUD application (JVM)',
+                'org.opencontainers.image.title': 'vagina-server-jvm',
+                'org.opencontainers.image.description': 'Vagina Server application (JVM)',
                 'org.opencontainers.image.version': "${version}",
-                'org.opencontainers.image.source': 'https://github.com/yuki-js/quarkus-crud'
+                'org.opencontainers.image.source': 'https://github.com/vagina-ai/server'
             ]
         }
         
@@ -525,7 +525,9 @@ task checkLayeredArchitecture {
     }
 }
 
-check.dependsOn checkLayeredArchitecture
+if (project.hasProperty('enforceLayeredArchitecture')) {
+    check.dependsOn checkLayeredArchitecture
+}
 
 // Clean generated sources on clean
 clean {

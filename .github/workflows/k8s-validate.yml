@@ -9,6 +9,10 @@ on:
       - ".github/workflows/k8s-validate.yml"
   workflow_dispatch:
 
+env:
+  K8S_NAMESPACE: vagina-server
+  EXPECTED_IMAGE_REPO: ghcr.io/vagina-ai/server
+
 jobs:
   validate:
     name: Validate Kubernetes Manifests
@@ -88,7 +92,7 @@ jobs:
           # Check namespace
           echo ""
           echo "Checking namespace specification..."
-          if grep -q "namespace: quarkus-crud" /tmp/manifests.yaml; then
+          if grep -q "namespace: ${K8S_NAMESPACE}" /tmp/manifests.yaml; then
             echo "✓ Namespace explicitly specified"
           else
             echo "✗ Namespace not specified"
@@ -98,7 +102,11 @@ jobs:
           # Check image tag
           echo ""
           echo "Verifying image tags..."
-          IMAGE_TAG=$(grep "image:" /tmp/manifests.yaml | grep -o "ghcr.io/yuki-js/quarkus-crud:.*" | head -1)
+          IMAGE_TAG=$(grep "image:" /tmp/manifests.yaml | grep -o "${EXPECTED_IMAGE_REPO}:.*" | head -1 || true)
+          if [ -z "$IMAGE_TAG" ]; then
+            echo "✗ Expected image repository not found: ${EXPECTED_IMAGE_REPO}"
+            exit 1
+          fi
           echo "Found image tag: $IMAGE_TAG"
           if echo "$IMAGE_TAG" | grep -q "latest-native"; then
             echo "✓ Using native image tag"
@@ -179,7 +187,7 @@ jobs:
       - name: Kubectl Schema Validation
         run: |
           echo "=== Kubectl Schema Validation ==="
-          kubectl create namespace quarkus-crud
+          kubectl create namespace "${K8S_NAMESPACE}"
 
           cd manifests
           echo "Validating Deployment..."

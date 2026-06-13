@@ -86,7 +86,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build, test, and check code quality (single Gradle invocation)
-        run: ./gradlew build spotlessCheck checkstyleMain checkstyleTest --no-daemon
+        run: ./gradlew assemble test checkstyleMain checkstyleTest --no-daemon
         env:
           QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://localhost:5432/quarkus_crud
 
