@@ -2,7 +2,7 @@ package app.vagina.server;
 
 import static io.restassured.RestAssured.given;
 
-import app.vagina.server.service.OidcStateService;
+import app.vagina.server.service.AuthService;
 import app.vagina.server.support.HarigataOidcMockServerResource;
 import com.atlassian.oai.validator.OpenApiInteractionValidator;
 import com.atlassian.oai.validator.report.LevelResolver;
@@ -29,7 +29,7 @@ public class OpenApiContractTest {
 
   private static final String REDIRECT_URI = "https://example.com/callback";
   private static final String CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-  private static final String CODE_CHALLENGE = OidcStateService.generateS256CodeChallenge(CODE_VERIFIER);
+  private static final String CODE_CHALLENGE = AuthService.generateS256CodeChallenge(CODE_VERIFIER);
 
   private static OpenApiValidationFilter validationFilter;
   private static String accessToken;

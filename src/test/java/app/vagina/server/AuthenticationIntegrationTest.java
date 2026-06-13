@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import app.vagina.server.service.OidcStateService;
+import app.vagina.server.service.AuthService;
 import app.vagina.server.support.HarigataOidcMockServerResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -32,7 +32,7 @@ public class AuthenticationIntegrationTest {
 
         private static final String REDIRECT_URI = "https://example.com/callback";
         private static final String CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-        private static final String CODE_CHALLENGE = OidcStateService.generateS256CodeChallenge(CODE_VERIFIER);
+        private static final String CODE_CHALLENGE = AuthService.generateS256CodeChallenge(CODE_VERIFIER);
 
         private static String accessToken;
         private static String refreshToken;
@@ -137,23 +137,23 @@ public class AuthenticationIntegrationTest {
         @Test
         @Order(3)
         public void testStartUnsupportedOidcProvider() {
-                given()
-                                .contentType(ContentType.JSON)
-                                .body(
-                                                Map.of(
-                                                                "clientType",
-                                                                "web",
-                                                                "redirectUri",
-                                                                REDIRECT_URI,
-                                                                "codeChallenge",
-                                                                CODE_CHALLENGE,
-                                                                "codeChallengeMethod",
-                                                                "S256"))
-                                .when()
-                                .post("/api/auth/oidc/github/start")
-                                .then()
-                                .statusCode(400)
-                                .body("message", equalTo("Unsupported OIDC provider: github"));
+        	given()
+        					.contentType(ContentType.JSON)
+        					.body(
+        								Map.of(
+        											"clientType",
+        											"web",
+        											"redirectUri",
+        											REDIRECT_URI,
+        											"codeChallenge",
+        											CODE_CHALLENGE,
+        											"codeChallengeMethod",
+        											"S256"))
+        					.when()
+        					.post("/api/auth/oidc/unsupported/start")
+        					.then()
+        					.statusCode(400)
+        					.body("message", equalTo("Unsupported OIDC provider: unsupported"));
         }
 
         @Test
