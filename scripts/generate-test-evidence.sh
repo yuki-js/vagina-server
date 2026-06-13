@@ -118,7 +118,7 @@ fi
 echo "## 🎯 Test Coverage Areas" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 echo "- ✅ **Authentication**: Guest user creation, token validation, cookie handling" >> "$OUTPUT_FILE"
-echo "- ✅ **CRUD Operations**: Create, read, update, delete for all entities" >> "$OUTPUT_FILE"
+echo "- ✅ **Session Lifecycle**: Login, refresh, logout, and token handoff flows" >> "$OUTPUT_FILE"
 echo "- ✅ **Authorization**: Access control, multi-user scenarios, permission checks" >> "$OUTPUT_FILE"
 echo "- ✅ **Data Integrity**: Special characters, unicode, nulls, empty strings, edge cases" >> "$OUTPUT_FILE"
 echo "- ✅ **Database Integration**: PostgreSQL + Flyway migrations + MyBatis mappers" >> "$OUTPUT_FILE"

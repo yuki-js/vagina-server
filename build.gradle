@@ -76,10 +76,12 @@ java {
     }
 }
 
-// Configure parallel test execution
-// With clean-at-start disabled, we can use higher parallelism without database race conditions  
-// Each test class gets its own PostgreSQL container, providing complete isolation
-def testParallelForks = Runtime.runtime.availableProcessors()
+// Configure parallel test execution.
+// When an external datasource URL is provided (for example, CI PostgreSQL service),
+// all test forks share the same database. Flyway clean/migrate at startup can race
+// across forks in that mode, so force sequential execution for stability.
+def hasExternalDatasource = System.getenv('QUARKUS_DATASOURCE_JDBC_URL') != null
+def testParallelForks = hasExternalDatasource ? 1 : Math.max(1, Runtime.runtime.availableProcessors())
 
 test {
     systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
