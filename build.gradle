@@ -340,7 +340,7 @@ task generateOpenApiModels(type: JavaExec) {
 generateOpenApiModels.dependsOn compileOpenApi
 
 def javascriptFetchClientDir = file("$buildDir/generated/openapi-clients/javascript-fetch")
-def npmPackedClientFileName = "yuki-js-quarkus-crud-js-fetch-client-${version}.tgz"
+def npmPackedClientFileName = "vagina-ai-server-js-fetch-client-${version}.tgz"
 def npmPackedClientFile = file("$buildDir/distributions/${npmPackedClientFileName}")
 
 task generateJavascriptFetchClient(type: JavaExec) {
@@ -369,7 +369,7 @@ task generateJavascriptFetchClient(type: JavaExec) {
             'apiPackage=apis',
             'modelPackage=models',
             'typescriptThreePlus=true',
-            'npmName=@yuki-js/quarkus-crud-js-fetch-client',
+            'npmName=@vagina-ai/server-js-fetch-client',
             "npmVersion=${version}",
             'npmRepository=https://npm.pkg.github.com',
             'snapshot=false',

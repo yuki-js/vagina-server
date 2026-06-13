@@ -76,7 +76,7 @@ Tables affected:
 Search in `resource/` folder for the API endpoint:
 
 ```bash
-grep -r "friendships" src/main/java/app/aoki/quarkuscrud/resource/
+grep -r "friendships" src/main/java/app/vagina/server/resource/
 ```
 
 ### Step 2: Find the Friendship Logic
@@ -101,7 +101,7 @@ friendshipMapper.findByParticipants(userId1, userId2);
 
 ### Step 6: Check SQL
 
-In `src/main/java/app/aoki/quarkuscrud/mapper/FriendshipMapper.java`:
+In `src/main/java/app/vagina/server/mapper/FriendshipMapper.java`:
 
 ```java
 @Select("SELECT * FROM friendships WHERE sender_id = #{senderId} AND recipient_id = #{recipientId}")

@@ -12,7 +12,7 @@
 ## File Locations
 
 ```
-src/main/java/app/aoki/quarkuscrud/
+src/main/java/app/vagina/server/
 ├── entity/           # Plain data objects
 ├── resource/         # REST endpoints (thin)
 ├── service/          # Technical "how"

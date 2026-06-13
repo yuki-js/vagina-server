@@ -16,7 +16,7 @@ This chapter gives you **clear rules** for where each type of code belongs.
 Here's the structure we use:
 
 ```
-src/main/java/app/aoki/quarkuscrud/
+src/main/java/app/vagina/server/
 ├── entity/              # Domain models (the data)
 ├── mapper/              # MyBatis data access interfaces
 ├── repository/          # (not used in this template - mappers are used instead)

@@ -159,7 +159,7 @@ CREATE INDEX idx_users_avatar_url ON users(avatar_url);
 
 ### Step 4: Update Entity
 
-Modify `src/main/java/app/aoki/quarkuscrud/entity/User.java`:
+Modify `src/main/java/app/vagina/server/entity/User.java`:
 
 ```java
 public class User {
@@ -179,7 +179,7 @@ public class User {
 
 ### Step 5: Update MyBatis Mapper
 
-Add to `src/main/java/app/aoki/quarkuscrud/mapper/UserMapper.java`:
+Add to `src/main/java/app/vagina/server/mapper/UserMapper.java`:
 
 ```java
 @Mapper
@@ -193,7 +193,7 @@ public interface UserMapper {
 
 ### Step 6: Create Service
 
-Create `src/main/java/app/aoki/quarkuscrud/service/AvatarService.java`:
+Create `src/main/java/app/vagina/server/service/AvatarService.java`:
 
 ```java
 @ApplicationScoped
@@ -254,7 +254,7 @@ public class AvatarService {
 
 ### Step 7: Create UseCase
 
-Create `src/main/java/app/aoki/quarkuscrud/usecase/AvatarUseCase.java`:
+Create `src/main/java/app/vagina/server/usecase/AvatarUseCase.java`:
 
 ```java
 @ApplicationScoped
@@ -305,7 +305,7 @@ public class AvatarUseCase {
 
 ### Step 8: Implement Resource
 
-Modify `src/main/java/app/aoki/quarkuscrud/resource/UsersApiImpl.java`:
+Modify `src/main/java/app/vagina/server/resource/UsersApiImpl.java`:
 
 ```java
 // Add inject
@@ -364,7 +364,7 @@ public Response deleteAvatar(@PathParam("userId") Long userId) {
 
 ### Step 9: Write Tests
 
-Create `src/test/java/app/aoki/quarkuscrud/service/AvatarServiceTest.java`:
+Create `src/test/java/app/vagina/server/service/AvatarServiceTest.java`:
 
 ```java
 @QuarkusTest

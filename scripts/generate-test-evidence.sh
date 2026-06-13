@@ -35,7 +35,7 @@ if [ -d "build/test-results/test" ]; then
     
     for file in build/test-results/test/*.xml; do
         if [ -f "$file" ]; then
-            SUITE_NAME=$(grep -o 'name="[^"]*"' "$file" | head -1 | sed 's/name="//;s/"//' | sed 's/app\.aoki\.//')
+            SUITE_NAME=$(grep -o 'name="[^"]*"' "$file" | head -1 | sed 's/name="//;s/"//' | sed 's/app\.vagina\.//')
             SUITE_TESTS=$(grep -o 'tests="[0-9]*"' "$file" | head -1 | grep -o '[0-9]*')
             SUITE_FAILURES=$(grep -o 'failures="[0-9]*"' "$file" | head -1 | grep -o '[0-9]*')
             SUITE_ERRORS=$(grep -o 'errors="[0-9]*"' "$file" | head -1 | grep -o '[0-9]*')
@@ -59,23 +59,23 @@ if command -v psql &> /dev/null; then
     DB_HOST="${POSTGRES_HOST:-localhost}"
     DB_USER="${POSTGRES_USER:-postgres}"
     DB_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
-    DB_NAME="${POSTGRES_DB:-quarkus_crud}"
+    DB_NAME="${POSTGRES_DB:-vagina_server}"
     
     # Check tables
-    TABLES=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -t -c "\dt" 2>/dev/null | grep -E "users|rooms|flyway" | wc -l || echo "0")
+    TABLES=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -t -c "\dt" 2>/dev/null | grep -E "users|authn_providers|refresh_tokens|oauth_login_attempts|flyway" | wc -l || echo "0")
     
-    if [ "$TABLES" -ge 3 ]; then
+    if [ "$TABLES" -ge 4 ]; then
         echo "✅ Database tables created successfully" >> "$OUTPUT_FILE"
         echo "" >> "$OUTPUT_FILE"
         
         # Count records
         USER_COUNT=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | xargs || echo "0")
-        ROOM_COUNT=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM rooms;" 2>/dev/null | xargs || echo "0")
+        AUTHN_PROVIDER_COUNT=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM authn_providers;" 2>/dev/null | xargs || echo "0")
         
         echo "| Entity | Count | Status |" >> "$OUTPUT_FILE"
         echo "|--------|-------|--------|" >> "$OUTPUT_FILE"
         echo "| Users | $USER_COUNT | ✅ |" >> "$OUTPUT_FILE"
-        echo "| Rooms | $ROOM_COUNT | ✅ |" >> "$OUTPUT_FILE"
+        echo "| Authn Providers | $AUTHN_PROVIDER_COUNT | ✅ |" >> "$OUTPUT_FILE"
         echo "" >> "$OUTPUT_FILE"
         
         # Show recent users
@@ -86,19 +86,19 @@ if command -v psql &> /dev/null; then
         echo "\`\`\`" >> "$OUTPUT_FILE"
         echo "" >> "$OUTPUT_FILE"
         
-        # Show recent rooms
-        echo "### Recent Rooms (Last 10)" >> "$OUTPUT_FILE"
+        # Show recent authn providers
+        echo "### Recent Authn Providers (Last 10)" >> "$OUTPUT_FILE"
         echo "" >> "$OUTPUT_FILE"
         echo "\`\`\`" >> "$OUTPUT_FILE"
-        PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT id, name, description, user_id FROM rooms ORDER BY id DESC LIMIT 10;" 2>/dev/null >> "$OUTPUT_FILE" || echo "Error querying rooms" >> "$OUTPUT_FILE"
+        PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT id, user_id, provider_key, created_at FROM authn_providers ORDER BY id DESC LIMIT 10;" 2>/dev/null >> "$OUTPUT_FILE" || echo "Error querying authn providers" >> "$OUTPUT_FILE"
         echo "\`\`\`" >> "$OUTPUT_FILE"
         echo "" >> "$OUTPUT_FILE"
         
-        # User-room relationships
-        echo "### User-Room Relationships" >> "$OUTPUT_FILE"
+        # User-provider relationships
+        echo "### User-Provider Relationships" >> "$OUTPUT_FILE"
         echo "" >> "$OUTPUT_FILE"
         echo "\`\`\`" >> "$OUTPUT_FILE"
-        PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT u.id, u.created_at, COUNT(r.id) as room_count FROM users u LEFT JOIN rooms r ON u.id = r.user_id GROUP BY u.id, u.created_at ORDER BY u.id DESC LIMIT 10;" 2>/dev/null >> "$OUTPUT_FILE" || echo "Error querying relationships" >> "$OUTPUT_FILE"
+        PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT u.id, u.created_at, COUNT(ap.id) AS provider_count FROM users u LEFT JOIN authn_providers ap ON u.id = ap.user_id GROUP BY u.id, u.created_at ORDER BY u.id DESC LIMIT 10;" 2>/dev/null >> "$OUTPUT_FILE" || echo "Error querying relationships" >> "$OUTPUT_FILE"
         echo "\`\`\`" >> "$OUTPUT_FILE"
         echo "" >> "$OUTPUT_FILE"
     else
@@ -122,8 +122,8 @@ echo "- ✅ **CRUD Operations**: Create, read, update, delete for all entities" 
 echo "- ✅ **Authorization**: Access control, multi-user scenarios, permission checks" >> "$OUTPUT_FILE"
 echo "- ✅ **Data Integrity**: Special characters, unicode, nulls, empty strings, edge cases" >> "$OUTPUT_FILE"
 echo "- ✅ **Database Integration**: PostgreSQL + Flyway migrations + MyBatis mappers" >> "$OUTPUT_FILE"
-echo "- ✅ **REST API**: All endpoints (AuthResource, RoomResource)" >> "$OUTPUT_FILE"
-echo "- ✅ **Service Layer**: Business logic in UserService and RoomService" >> "$OUTPUT_FILE"
+echo "- ✅ **REST API**: All endpoints (Auth API)" >> "$OUTPUT_FILE"
+echo "- ✅ **Service Layer**: Business logic in UserService and AuthService" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 
 # Final Status

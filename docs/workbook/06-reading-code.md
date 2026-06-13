@@ -142,7 +142,7 @@ Let's trace the "Create Event" feature to understand how it works.
 Search for event creation:
 
 ```bash
-grep -r "events" src/main/java/app/aoki/quarkuscrud/resource/
+grep -r "events" src/main/java/app/vagina/server/resource/
 ```
 
 Found: `EventsApiImpl.java`
@@ -244,7 +244,7 @@ if (currentStatus == DELETED) {
 Mapper interfaces contain SQL using Java annotations (@Select, @Insert, @Update, @Delete). Find them in:
 
 ```
-src/main/java/app/aoki/quarkuscrud/mapper/
+src/main/java/app/vagina/server/mapper/
 ```
 
 ```java

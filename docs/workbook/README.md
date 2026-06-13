@@ -1,6 +1,6 @@
 # Building Maintainable Backend: A Workbook
 
-Welcome to this hands-on workshop for learning how to build maintainable backend applications using the Quarkus-CRUD template.
+Welcome to this hands-on workshop for learning how to build maintainable backend applications using Vagina Server.
 
 ## What You Will Learn
 
@@ -40,8 +40,8 @@ Before starting, ensure you have:
 Clone the repository:
 
 ```bash
-git clone https://github.com/yuki-js/quarkus-crud
-cd quarkus-crud
+git clone https://github.com/vagina-ai/server
+cd server
 ```
 
 Verify your environment:
@@ -94,7 +94,7 @@ Each chapter follows this pattern:
 If you're stuck:
 
 1. Check the `docs/workbook/answers/` folder for hints
-2. Review the existing code in `src/main/java/app/aoki/quarkuscrud/`
+2. Review the existing code in `src/main/java/app/vagina/server/`
 3. Ask questions in the workshop channel
 
 ---

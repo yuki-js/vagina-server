@@ -44,7 +44,7 @@
 ## File Locations
 
 ```
-src/main/java/app/aoki/quarkuscrud/
+src/main/java/app/vagina/server/
 ├── entity/              # Plain data objects (fields + getters/setters)
 ├── resource/            # REST endpoints (@Path, @GET, @POST)
 ├── service/             # Business logic (technical "how")

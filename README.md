@@ -1,10 +1,10 @@
-# Quarkus CRUD Template
+# Vagina Server
 
 ![Build](https://img.shields.io/badge/gradle-8.x-02303a?logo=gradle&labelColor=0b1724)
 ![Quarkus](https://img.shields.io/badge/quarkus-3.x-b326ff?logo=quarkus&labelColor=111)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 
-Opinionated Quarkus 3 starter. Schema-first OpenAPI, PostgreSQL, MyBatis, JWT, observability, generated clients. Clone the repo, run `./gradlew quarkusDev`, and you get a working stack.
+Opinionated Quarkus 3 backend for Vagina Server. Schema-first OpenAPI, PostgreSQL, MyBatis, JWT, observability, generated clients. Clone the repo, run `./gradlew quarkusDev`, and you get a working stack.
 
 ## Features
 
@@ -51,10 +51,10 @@ Dev Services launches PostgreSQL, Flyway migrates, the OpenAPI compiler runs, ge
 To build and ship the same stack:
 
 ```bash
-./gradlew clean build jib
+./gradlew clean assemble test jib
 ```
 
-This produces a distroless image (default `ghcr.io/yuki-js/quarkus-crud:${version}`) with OCI labels and the OpenAPI artifact baked in.
+This produces a distroless image (default `ghcr.io/vagina-ai/server:${version}`) with OCI labels and the OpenAPI artifact baked in.
 
 ## Documentation
 
