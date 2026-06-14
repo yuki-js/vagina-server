@@ -37,7 +37,7 @@ VfsFile:
       $ref: '#/VfsPath'
     content:
       type: string
-      example: "# Today\n"
+      example: "# Today"
 
 VfsListParams:
   type: object
@@ -71,7 +71,7 @@ VfsWriteParams:
       $ref: '#/VfsPath'
     content:
       type: string
-      example: "# Today\n"
+      example: "# Today"
 
 VfsMoveParams:
   type: object
@@ -168,7 +168,7 @@ VfsRpcParams:
       default: false
     content:
       type: string
-      example: "# Today\n"
+      example: "# Today"
     fromPath:
       $ref: '#/VfsPath'
     toPath:
