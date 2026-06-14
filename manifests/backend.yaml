@@ -46,7 +46,7 @@ spec:
               mountPath: /keys
       containers:
         - name: backend
-          image: ghcr.io/vagina-ai/server:latest-native
+          image: ghcr.io/yuki-js/vagina-server:latest-native
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

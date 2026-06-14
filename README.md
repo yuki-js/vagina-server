@@ -54,7 +54,7 @@ To build and ship the same stack:
 ./gradlew clean assemble test jib
 ```
 
-This produces a distroless image (default `ghcr.io/vagina-ai/server:${version}`) with OCI labels and the OpenAPI artifact baked in.
+This produces a distroless image (default `ghcr.io/yuki-js/vagina-server:${version}`) with OCI labels and the OpenAPI artifact baked in.
 
 ## Documentation
 

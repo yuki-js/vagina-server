@@ -128,7 +128,7 @@ jib {
     }
     
     to {
-        image = System.getProperty('jib.to.image') ?: "ghcr.io/vagina-ai/server:${version}"
+        image = System.getProperty('jib.to.image') ?: "ghcr.io/yuki-js/vagina-server:${version}"
         auth {
             username = System.getProperty('jib.to.auth.username') ?: System.getenv('REGISTRY_USERNAME') ?: ''
             password = System.getProperty('jib.to.auth.password') ?: System.getenv('REGISTRY_PASSWORD') ?: ''

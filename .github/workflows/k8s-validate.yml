@@ -11,7 +11,7 @@ on:
 
 env:
   K8S_NAMESPACE: vagina-server
-  EXPECTED_IMAGE_REPO: ghcr.io/vagina-ai/server
+  EXPECTED_IMAGE_REPO: ghcr.io/yuki-js/vagina-server
 
 jobs:
   validate:

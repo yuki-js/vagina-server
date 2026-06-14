@@ -15,7 +15,7 @@ configMapGenerator:
       - application.properties
 
 images:
-  - name: ghcr.io/vagina-ai/server
+  - name: ghcr.io/yuki-js/vagina-server
     newTag: latest-native
 
 labels:
