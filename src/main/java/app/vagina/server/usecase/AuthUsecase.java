@@ -1,12 +1,12 @@
 package app.vagina.server.usecase;
 
+import app.vagina.server.domain.error.AuthenticationException;
 import app.vagina.server.entity.AuthnProvider;
 import app.vagina.server.entity.ClientType;
 import app.vagina.server.entity.User;
 import app.vagina.server.service.AuthService;
 import app.vagina.server.service.UserService;
 import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcUserInfo;
-import app.vagina.server.support.AppException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -45,29 +45,25 @@ public class AuthUsecase {
       URI redirectUri,
       String codeChallenge,
       String codeChallengeMethod) {
-    try {
-      authService.resolveProvider(provider);
-      var createdState =
-          authService.createState(
-              provider,
-              clientType,
-              redirectUri.toString(),
-              codeChallenge,
-              codeChallengeMethod);
+    authService.resolveProvider(provider);
+    var createdState =
+        authService.createState(
+            provider,
+            clientType,
+            redirectUri.toString(),
+            codeChallenge,
+            codeChallengeMethod);
 
-      String authorizationUrl =
-          authService.buildAuthorizationUrl(
-              provider,
-              redirectUri.toString(),
-              createdState.rawState(),
-              codeChallenge,
-              codeChallengeMethod);
+    String authorizationUrl =
+        authService.buildAuthorizationUrl(
+            provider,
+            redirectUri.toString(),
+            createdState.rawState(),
+            codeChallenge,
+            codeChallengeMethod);
 
-      return new StartOidcLoginResult(
-          URI.create(authorizationUrl), createdState.rawState(), createdState.expiresIn());
-    } catch (IllegalArgumentException e) {
-      throw AppException.badRequest(e.getMessage());
-    }
+    return new StartOidcLoginResult(
+        URI.create(authorizationUrl), createdState.rawState(), createdState.expiresIn());
   }
 
   @Transactional
@@ -103,10 +99,8 @@ public class AuthUsecase {
           "Bearer",
           accessTokenLifespan,
           toAuthUserView(user, primaryAuthnProvider));
-    } catch (IllegalArgumentException e) {
-      throw AppException.badRequest(e.getMessage());
     } catch (SecurityException e) {
-      throw AppException.unauthorized(e.getMessage());
+      throw new AuthenticationException(e.getMessage(), e);
     }
   }
 
@@ -115,7 +109,7 @@ public class AuthUsecase {
     var rotatedRefreshToken =
         authService
             .rotateRefreshToken(rawRefreshToken)
-            .orElseThrow(() -> AppException.unauthorized("Invalid refresh token"));
+            .orElseThrow(() -> new AuthenticationException("Invalid refresh token"));
 
     User user =
         userService

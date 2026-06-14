@@ -1,8 +1,9 @@
 package app.vagina.server.usecase;
 
+import app.vagina.server.domain.error.ConflictException;
+import app.vagina.server.domain.error.NotFoundException;
 import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.service.SpeedDialService;
-import app.vagina.server.support.AppException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -25,13 +26,13 @@ public class SpeedDialUsecase {
 
     return speedDialService
         .findByUserIdAndSpeedDialId(userId, speedDialId)
-        .orElseThrow(() -> AppException.notFound("Speed dial not found"));
+        .orElseThrow(() -> new NotFoundException("Speed dial not found"));
   }
 
   @Transactional
   public SpeedDialPreset saveSpeedDial(Long userId, String pathSpeedDialId, SpeedDialPreset candidate) {
     if (!pathSpeedDialId.equals(candidate.getSpeedDialId())) {
-      throw AppException.badRequest("Path/body speed dial id mismatch");
+      throw new IllegalArgumentException("Path/body speed dial id mismatch");
     }
 
     Optional<SpeedDialPreset> existing;
@@ -45,7 +46,7 @@ public class SpeedDialUsecase {
     if (SpeedDialService.DEFAULT_SPEED_DIAL_ID.equals(pathSpeedDialId)
         && existing.isPresent()
         && !SpeedDialService.DEFAULT_SPEED_DIAL_NAME.equals(candidate.getName())) {
-      throw AppException.conflict("Default speed dial cannot be renamed");
+      throw new ConflictException("Default speed dial cannot be renamed");
     }
 
     return speedDialService.save(userId, candidate);
@@ -54,12 +55,12 @@ public class SpeedDialUsecase {
   @Transactional
   public void deleteSpeedDial(Long userId, String speedDialId) {
     if (SpeedDialService.DEFAULT_SPEED_DIAL_ID.equals(speedDialId)) {
-      throw AppException.conflict("Default speed dial cannot be deleted");
+      throw new ConflictException("Default speed dial cannot be deleted");
     }
 
     boolean deleted = speedDialService.delete(userId, speedDialId);
     if (!deleted) {
-      throw AppException.notFound("Speed dial not found");
+      throw new NotFoundException("Speed dial not found");
     }
   }
 }
