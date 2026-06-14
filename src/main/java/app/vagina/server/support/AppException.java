@@ -1,17 +1,39 @@
 package app.vagina.server.support;
 
-import jakarta.ws.rs.core.Response;
-
 public class AppException extends RuntimeException {
 
-  private final Response.Status status;
+  private final int statusCode;
 
-  public AppException(Response.Status status, String message) {
+  public AppException(int statusCode, String message) {
     super(message);
-    this.status = status;
+    this.statusCode = statusCode;
   }
 
-  public Response.Status getStatus() {
-    return status;
+  public int getStatusCode() {
+    return statusCode;
+  }
+
+  public static AppException badRequest(String message) {
+    return new AppException(400, message);
+  }
+
+  public static AppException unauthorized(String message) {
+    return new AppException(401, message);
+  }
+
+  public static AppException forbidden(String message) {
+    return new AppException(403, message);
+  }
+
+  public static AppException notFound(String message) {
+    return new AppException(404, message);
+  }
+
+  public static AppException conflict(String message) {
+    return new AppException(409, message);
+  }
+
+  public static AppException internalError(String message) {
+    return new AppException(500, message);
   }
 }

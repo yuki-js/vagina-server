@@ -1,0 +1,148 @@
+paths:
+  /speed-dials:
+    get:
+      tags:
+        - speed-dials
+      operationId: listSpeedDials
+      summary: List speed dials
+      description: List the authenticated user's speed dial entries.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Speed dials.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "../components/schemas/speed_dial.yaml#/SpeedDial"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+  /speed-dials/{speedDialId}:
+    parameters:
+      - name: speedDialId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description: Speed dial identifier.
+    get:
+      tags:
+        - speed-dials
+      operationId: getSpeedDial
+      summary: Get speed dial
+      description: Get one speed dial entry owned by the authenticated user.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Speed dial.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/speed_dial.yaml#/SpeedDial"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "404":
+          description: Speed dial not found.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+    put:
+      tags:
+        - speed-dials
+      operationId: saveSpeedDial
+      summary: Save speed dial
+      description: Create or replace one speed dial entry owned by the authenticated user. The request body uses the same schema as the response. The path id and body id must match.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/speed_dial.yaml#/SpeedDial"
+      responses:
+        "200":
+          description: Speed dial saved.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/speed_dial.yaml#/SpeedDial"
+        "400":
+          description: Invalid request, including path/body id mismatch.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+    delete:
+      tags:
+        - speed-dials
+      operationId: deleteSpeedDial
+      summary: Delete speed dial
+      description: Delete one speed dial entry owned by the authenticated user. The `default` speed dial id is protected.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Speed dial deleted.
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "404":
+          description: Speed dial not found.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "409":
+          description: Speed dial cannot be deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"

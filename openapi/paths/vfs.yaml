@@ -1,0 +1,47 @@
+paths:
+  /vfs/rpc:
+    post:
+      tags:
+        - vfs
+      operationId: vfsRpc
+      summary: Persisted VFS JSON-RPC
+      description: Execute one persisted virtual filesystem operation using one JSON-RPC 2.0 request object and one JSON-RPC 2.0 response object. Phase 1 supports no batch and no notification. Valid JSON-RPC requests always return HTTP 200. Domain failures are returned through the JSON-RPC `error` member.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/vfs_rpc.yaml#/VfsRpcRequest"
+      responses:
+        "200":
+          description: JSON-RPC response.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/vfs_rpc.yaml#/VfsRpcResponse"
+        "400":
+          description: Malformed JSON or invalid JSON-RPC envelope.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "403":
+          description: Authorization failed.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"

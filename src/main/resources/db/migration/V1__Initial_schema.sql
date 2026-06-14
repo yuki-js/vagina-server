@@ -127,3 +127,55 @@ COMMENT ON COLUMN oauth_login_attempts.sysmeta IS 'System/admin-only auxiliary m
 
 CREATE UNIQUE INDEX idx_oauth_login_attempts_state_hash ON oauth_login_attempts(state_hash);
 CREATE INDEX idx_oauth_login_attempts_expires_at ON oauth_login_attempts(expires_at);
+
+-- ============================================================================
+-- Speed Dials
+-- User-owned voice agent presets. The external/public identifier is speed_dial_id.
+-- ============================================================================
+CREATE TABLE speed_dials (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    speed_dial_id VARCHAR(128) NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    system_prompt TEXT NOT NULL,
+    description TEXT,
+    icon_emoji VARCHAR(16),
+    voice VARCHAR(64) NOT NULL,
+    enabled_tools JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_speed_dials_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE speed_dials IS 'User-owned speed dial presets';
+COMMENT ON COLUMN speed_dials.speed_dial_id IS 'Stable per-user speed dial identifier used by the client API';
+COMMENT ON COLUMN speed_dials.enabled_tools IS 'Per-tool enable/disable overrides keyed by tool name';
+
+CREATE UNIQUE INDEX idx_speed_dials_unique_user_speed_dial_id
+    ON speed_dials(user_id, speed_dial_id);
+CREATE INDEX idx_speed_dials_user_id ON speed_dials(user_id);
+CREATE INDEX idx_speed_dials_created_at ON speed_dials(created_at DESC);
+
+-- ============================================================================
+-- Persisted Virtual Filesystem Files
+-- Directories remain implicit and are derived from path prefixes.
+-- ============================================================================
+CREATE TABLE vfs_files (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    path VARCHAR(512) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_vfs_files_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE vfs_files IS 'User-owned persisted virtual filesystem files';
+COMMENT ON COLUMN vfs_files.path IS 'Absolute virtual filesystem path; directories are implicit';
+COMMENT ON COLUMN vfs_files.content IS 'Persisted file content';
+
+CREATE UNIQUE INDEX idx_vfs_files_unique_user_path
+    ON vfs_files(user_id, path);
+CREATE INDEX idx_vfs_files_user_id ON vfs_files(user_id);

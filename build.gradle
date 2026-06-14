@@ -519,14 +519,12 @@ task checkLayeredArchitecture {
         }
 
         if (!violations.isEmpty()) {
-            throw new RuntimeException('Layered architecture violation detected:\n' + violations.join('\n'))
+            throw new RuntimeException('Layered architecture violation detected(Never against the objective why such task exists):\n' + violations.join('\n'))
         }
     }
 }
 
-if (project.hasProperty('enforceLayeredArchitecture')) {
-    check.dependsOn checkLayeredArchitecture
-}
+check.dependsOn checkLayeredArchitecture
 
 // Clean generated sources on clean
 clean {
@@ -536,6 +534,7 @@ clean {
 
  // Make compileJava depend on generateOpenApiModels for automatic generation
 compileJava.dependsOn generateOpenApiModels
+compileJava.dependsOn checkLayeredArchitecture
 
 // Ensure generateOpenApiModels runs before main lifecycle and containerization tasks
 ['build', 'test', 'quarkusDev', 'quarkusBuild', 'jib', 'jibDockerBuild', "checkstyleMain"].each { taskName ->

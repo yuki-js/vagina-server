@@ -17,6 +17,12 @@ paths:
     $ref: './paths/auth.yaml#/paths/~1auth~1logout'
   /me:
     $ref: './paths/auth.yaml#/paths/~1me'
+  /speed-dials:
+    $ref: './paths/speed_dials.yaml#/paths/~1speed-dials'
+  /speed-dials/{speedDialId}:
+    $ref: './paths/speed_dials.yaml#/paths/~1speed-dials~1{speedDialId}'
+  /vfs/rpc:
+    $ref: './paths/vfs.yaml#/paths/~1vfs~1rpc'
 components:
   schemas:
     User:

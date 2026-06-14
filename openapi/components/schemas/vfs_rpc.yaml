@@ -1,0 +1,256 @@
+JsonRpcVersion:
+  type: string
+  enum:
+    - '2.0'
+
+JsonRpcRequestId:
+  type: string
+  minLength: 1
+  maxLength: 128
+  description: Phase 1 accepts string request ids only.
+  example: req-1
+
+VfsMethod:
+  type: string
+  enum:
+    - vfs.list
+    - vfs.read
+    - vfs.write
+    - vfs.move
+    - vfs.delete
+
+VfsPath:
+  type: string
+  minLength: 1
+  maxLength: 512
+  pattern: '^/.*$'
+  example: /notes/today.md
+
+VfsFile:
+  type: object
+  additionalProperties: false
+  required:
+    - path
+    - content
+  properties:
+    path:
+      $ref: '#/VfsPath'
+    content:
+      type: string
+      example: "# Today\n"
+
+VfsListParams:
+  type: object
+  additionalProperties: false
+  required:
+    - path
+  properties:
+    path:
+      $ref: '#/VfsPath'
+    recursive:
+      type: boolean
+      default: false
+
+VfsReadParams:
+  type: object
+  additionalProperties: false
+  required:
+    - path
+  properties:
+    path:
+      $ref: '#/VfsPath'
+
+VfsWriteParams:
+  type: object
+  additionalProperties: false
+  required:
+    - path
+    - content
+  properties:
+    path:
+      $ref: '#/VfsPath'
+    content:
+      type: string
+      example: "# Today\n"
+
+VfsMoveParams:
+  type: object
+  additionalProperties: false
+  required:
+    - fromPath
+    - toPath
+  properties:
+    fromPath:
+      $ref: '#/VfsPath'
+    toPath:
+      $ref: '#/VfsPath'
+
+VfsDeleteParams:
+  type: object
+  additionalProperties: false
+  required:
+    - path
+  properties:
+    path:
+      $ref: '#/VfsPath'
+
+VfsListResult:
+  type: object
+  additionalProperties: false
+  required:
+    - entries
+  properties:
+    entries:
+      type: array
+      items:
+        type: string
+        minLength: 1
+      example:
+        - notes/
+        - scratch.md
+
+VfsReadResult:
+  type: object
+  additionalProperties: false
+  required:
+    - file
+  properties:
+    file:
+      $ref: '#/VfsFile'
+
+VfsWriteResult:
+  type: object
+  additionalProperties: false
+  required:
+    - file
+  properties:
+    file:
+      $ref: '#/VfsFile'
+
+VfsMoveResult:
+  type: object
+  additionalProperties: false
+  required:
+    - fromPath
+    - toPath
+  properties:
+    fromPath:
+      $ref: '#/VfsPath'
+    toPath:
+      $ref: '#/VfsPath'
+
+VfsDeleteResult:
+  type: object
+  additionalProperties: false
+  required:
+    - path
+  properties:
+    path:
+      $ref: '#/VfsPath'
+
+VfsRpcParams:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  description: |
+    Aggregated JSON-RPC params envelope.
+    The server validates field combinations according to `method`.
+    - `vfs.list` expects the shape of `VfsListParams`
+    - `vfs.read` expects the shape of `VfsReadParams`
+    - `vfs.write` expects the shape of `VfsWriteParams`
+    - `vfs.move` expects the shape of `VfsMoveParams`
+    - `vfs.delete` expects the shape of `VfsDeleteParams`
+  properties:
+    path:
+      $ref: '#/VfsPath'
+    recursive:
+      type: boolean
+      default: false
+    content:
+      type: string
+      example: "# Today\n"
+    fromPath:
+      $ref: '#/VfsPath'
+    toPath:
+      $ref: '#/VfsPath'
+
+VfsRpcResult:
+  type: object
+  additionalProperties: false
+  description: |
+    Aggregated JSON-RPC success result envelope.
+    The server emits fields according to `method`.
+    - `vfs.list` returns the shape of `VfsListResult`
+    - `vfs.read` returns the shape of `VfsReadResult`
+    - `vfs.write` returns the shape of `VfsWriteResult`
+    - `vfs.move` returns the shape of `VfsMoveResult`
+    - `vfs.delete` returns the shape of `VfsDeleteResult`
+  properties:
+    entries:
+      type: array
+      items:
+        type: string
+        minLength: 1
+    file:
+      $ref: '#/VfsFile'
+    path:
+      $ref: '#/VfsPath'
+    fromPath:
+      $ref: '#/VfsPath'
+    toPath:
+      $ref: '#/VfsPath'
+
+VfsRpcError:
+  type: object
+  additionalProperties: false
+  required:
+    - code
+    - message
+  properties:
+    code:
+      type: integer
+      format: int32
+      example: -32602
+    message:
+      type: string
+      minLength: 1
+      example: Invalid params
+    data:
+      type: object
+      additionalProperties: true
+
+VfsRpcRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - jsonrpc
+    - id
+    - method
+    - params
+  properties:
+    jsonrpc:
+      $ref: '#/JsonRpcVersion'
+    id:
+      $ref: '#/JsonRpcRequestId'
+    method:
+      $ref: '#/VfsMethod'
+    params:
+      $ref: '#/VfsRpcParams'
+
+VfsRpcResponse:
+  type: object
+  additionalProperties: false
+  required:
+    - jsonrpc
+    - id
+  description: |
+    Exactly one of `result` or `error` is expected in a valid response.
+  properties:
+    jsonrpc:
+      $ref: '#/JsonRpcVersion'
+    id:
+      $ref: '#/JsonRpcRequestId'
+    result:
+      $ref: '#/VfsRpcResult'
+    error:
+      $ref: '#/VfsRpcError'

@@ -1,11 +1,13 @@
 package app.vagina.server.resource;
 
+import app.vagina.server.entity.ClientType;
 import app.vagina.server.generated.api.AuthApi;
 import app.vagina.server.generated.model.AuthTokenResponse;
 import app.vagina.server.generated.model.ExchangeOidcLoginRequest;
 import app.vagina.server.generated.model.RefreshSessionRequest;
 import app.vagina.server.generated.model.StartOidcLogin200Response;
 import app.vagina.server.generated.model.StartOidcLoginRequest;
+import app.vagina.server.generated.model.User;
 import app.vagina.server.support.Authenticated;
 import app.vagina.server.support.AuthenticatedUser;
 import app.vagina.server.usecase.AuthUsecase;
@@ -29,8 +31,14 @@ public class AuthApiImpl implements AuthApi {
   @Override
   public Response exchangeOidcLogin(
       String provider, ExchangeOidcLoginRequest exchangeOidcLoginRequest) {
-    AuthTokenResponse response = authUsecase.exchangeOidcLogin(provider, exchangeOidcLoginRequest);
-    return Response.ok(response).build();
+    AuthUsecase.AuthSessionResult result =
+        authUsecase.exchangeOidcLogin(
+            provider,
+            exchangeOidcLoginRequest.getCode(),
+            exchangeOidcLoginRequest.getState(),
+            exchangeOidcLoginRequest.getRedirectUri(),
+            exchangeOidcLoginRequest.getCodeVerifier());
+    return Response.ok(toAuthTokenResponse(result)).build();
   }
 
   @Override
@@ -39,9 +47,8 @@ public class AuthApiImpl implements AuthApi {
   @Path("/me")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getCurrentUser() {
-    app.vagina.server.generated.model.User user =
-        authUsecase.getCurrentUser(authenticatedUser.get().getId());
-    return Response.ok(user).build();
+    AuthUsecase.AuthUserView userView = authUsecase.getCurrentUser(authenticatedUser.get().getId());
+    return Response.ok(toGeneratedUser(userView)).build();
   }
 
   @Override
@@ -60,15 +67,47 @@ public class AuthApiImpl implements AuthApi {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response refreshSession(RefreshSessionRequest refreshSessionRequest) {
-    AuthTokenResponse response =
+    AuthUsecase.AuthSessionResult result =
         authUsecase.refreshSession(refreshSessionRequest.getRefreshToken());
-    return Response.ok(response).build();
+    return Response.ok(toAuthTokenResponse(result)).build();
   }
 
   @Override
   public Response startOidcLogin(String provider, StartOidcLoginRequest startOidcLoginRequest) {
-    StartOidcLogin200Response response =
-        authUsecase.startOidcLogin(provider, startOidcLoginRequest);
+    AuthUsecase.StartOidcLoginResult result =
+        authUsecase.startOidcLogin(
+            provider,
+            ClientType.fromValue(startOidcLoginRequest.getClientType().value()),
+            startOidcLoginRequest.getRedirectUri(),
+            startOidcLoginRequest.getCodeChallenge(),
+            startOidcLoginRequest.getCodeChallengeMethod().value());
+
+    StartOidcLogin200Response response = new StartOidcLogin200Response();
+    response.setAuthorizationUrl(result.authorizationUrl());
+    response.setState(result.state());
+    response.setExpiresIn(result.expiresIn());
     return Response.ok(response).build();
+  }
+
+  private AuthTokenResponse toAuthTokenResponse(AuthUsecase.AuthSessionResult result) {
+    AuthTokenResponse response = new AuthTokenResponse();
+    response.setAccessToken(result.accessToken());
+    response.setRefreshToken(result.refreshToken());
+    response.setTokenType(result.tokenType());
+    response.setExpiresIn(result.expiresIn());
+    response.setUser(toGeneratedUser(result.user()));
+    return response;
+  }
+
+  private User toGeneratedUser(AuthUsecase.AuthUserView view) {
+    User user = new User();
+    user.setId(view.id());
+    if (view.accountLifecycle() != null) {
+      user.setAccountLifecycle(User.AccountLifecycleEnum.fromValue(view.accountLifecycle()));
+    }
+    user.setDisplayName(view.displayName());
+    user.setAvatarUrl(view.avatarUrl());
+    user.setCreatedAt(view.createdAt());
+    return user;
   }
 }
