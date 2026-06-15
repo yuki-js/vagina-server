@@ -35,7 +35,12 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 public class AuthService {
 
   // --- records ---
-  public record CreatedOidcState(String rawState, long expiresIn) {}
+  public record CreatedOidcState(
+      String rawState,
+      String redirectUri,
+      String codeChallenge,
+      String codeChallengeMethod,
+      long expiresIn) {}
 
   public record IssuedRefreshToken(String rawToken, RefreshToken persistedToken) {}
 
@@ -51,6 +56,18 @@ public class AuthService {
   @ConfigProperty(name = "vagina.auth.oauth.state.lifespan")
   Long stateLifespan;
 
+  @ConfigProperty(name = "vagina.auth.oidc.redirect-uri.web", defaultValue = "")
+  String webRedirectUri;
+
+  @ConfigProperty(name = "vagina.auth.oidc.redirect-uri.mobile", defaultValue = "")
+  String mobileRedirectUri;
+
+  @ConfigProperty(name = "vagina.auth.oidc.redirect-uri.desktop", defaultValue = "")
+  String desktopRedirectUri;
+
+  @ConfigProperty(name = "vagina.auth.oauth.pkce.secret")
+  Optional<String> pkceSecret; // todo: システム共通シークレットにまとめる
+
   @ConfigProperty(name = "smallrye.jwt.new-token.issuer")
   String jwtIssuer;
 
@@ -64,6 +81,7 @@ public class AuthService {
   private static final ThreadLocal<SecureRandom> SECURE_RANDOM =
       ThreadLocal.withInitial(SecureRandom::new);
   private static final HexFormat HEX_FORMAT = HexFormat.of();
+  private final String runtimePkceSecret = randomToken();
 
   // ========================
   // OIDC Provider delegation
@@ -102,14 +120,13 @@ public class AuthService {
   // ========================
 
   @Transactional
-  public CreatedOidcState createState(
-      String providerKey,
-      ClientType clientType,
-      String redirectUri,
-      String codeChallenge,
-      String codeChallengeMethod) {
+  public CreatedOidcState createState(String providerKey, ClientType clientType) {
     String rawState = randomToken();
     LocalDateTime now = LocalDateTime.now();
+    String redirectUri = resolveRedirectUri(clientType);
+    String codeVerifier = buildPkceCodeVerifierForState(rawState);
+    String codeChallenge = generateS256CodeChallenge(codeVerifier);
+    String codeChallengeMethod = "S256";
 
     OAuthLoginAttempt attempt = new OAuthLoginAttempt();
     attempt.setStateHash(sha256(rawState));
@@ -126,12 +143,12 @@ public class AuthService {
     attempt.setUpdatedAt(now);
     oauthLoginAttemptMapper.insert(attempt);
 
-    return new CreatedOidcState(rawState, stateLifespan);
+    return new CreatedOidcState(
+        rawState, redirectUri, codeChallenge, codeChallengeMethod, stateLifespan);
   }
 
   @Transactional
-  public OAuthLoginAttempt consumeState(
-      String providerKey, String rawState, String redirectUri, String codeVerifier) {
+  public OAuthLoginAttempt consumeState(String providerKey, String rawState) {
     OAuthLoginAttempt attempt =
         oauthLoginAttemptMapper
             .findByStateHash(sha256(rawState))
@@ -148,9 +165,7 @@ public class AuthService {
     if (attempt.getExpiresAt() == null || !attempt.getExpiresAt().isAfter(now)) {
       throw new SecurityException("OIDC state expired");
     }
-    if (!redirectUri.equals(attempt.getRedirectUri())) {
-      throw new SecurityException("OIDC redirect URI mismatch");
-    }
+    String codeVerifier = buildPkceCodeVerifierForState(rawState);
     if (!matchesPkce(codeVerifier, attempt.getCodeChallenge(), attempt.getCodeChallengeMethod())) {
       throw new SecurityException("OIDC PKCE verification failed");
     }
@@ -163,6 +178,22 @@ public class AuthService {
     attempt.setConsumedAt(now);
     attempt.setUpdatedAt(now);
     return attempt;
+  }
+
+  public String resolveRedirectUri(ClientType clientType) {
+    ClientType effectiveClientType = clientType == null ? ClientType.WEB : clientType;
+    return switch (effectiveClientType) {
+      case WEB -> requiredRedirectUri(webRedirectUri, "web");
+      case MOBILE -> requiredRedirectUri(mobileRedirectUri, "mobile");
+      case DESKTOP -> requiredRedirectUri(desktopRedirectUri, "desktop");
+    };
+  }
+
+  public String buildPkceCodeVerifierForState(String rawState) {
+    if (rawState == null || rawState.isBlank()) {
+      throw new SecurityException("OIDC state is required");
+    }
+    return generateS256CodeChallenge(resolvePkceSecret() + ":" + rawState);
   }
 
   public static String generateS256CodeChallenge(String codeVerifier) {
@@ -322,6 +353,24 @@ public class AuthService {
       throw new SecurityException("Unsupported PKCE method: " + method);
     }
     return expectedCodeChallenge.equals(generateS256CodeChallenge(codeVerifier));
+  }
+
+  private String requiredRedirectUri(String redirectUri, String clientType) {
+    if (redirectUri == null || redirectUri.isBlank()) {
+      throw new IllegalStateException(
+          "Missing OIDC redirect URI configuration for clientType=" + clientType);
+    }
+    return redirectUri;
+  }
+
+  private String resolvePkceSecret() {
+    if (pkceSecret != null) {
+      Optional<String> configuredSecret = pkceSecret.filter(value -> !value.isBlank());
+      if (configuredSecret.isPresent()) {
+        return configuredSecret.get();
+      }
+    }
+    return runtimePkceSecret;
   }
 
   private void revokeTokenFamily(String tokenFamily, LocalDateTime now, String reason) {

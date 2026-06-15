@@ -40,47 +40,33 @@ public class AuthUsecase {
   @Inject AuthService authService;
 
   public StartOidcLoginResult startOidcLogin(
-      String provider,
-      ClientType clientType,
-      URI redirectUri,
-      String codeChallenge,
-      String codeChallengeMethod) {
+      String provider, ClientType clientType) {
     authService.resolveProvider(provider);
-    var createdState =
-        authService.createState(
-            provider,
-            clientType,
-            redirectUri.toString(),
-            codeChallenge,
-            codeChallengeMethod);
+    var createdState = authService.createState(provider, clientType);
 
     String authorizationUrl =
         authService.buildAuthorizationUrl(
             provider,
-            redirectUri.toString(),
+            createdState.redirectUri(),
             createdState.rawState(),
-            codeChallenge,
-            codeChallengeMethod);
+            createdState.codeChallenge(),
+            createdState.codeChallengeMethod());
 
     return new StartOidcLoginResult(
         URI.create(authorizationUrl), createdState.rawState(), createdState.expiresIn());
   }
 
   @Transactional
-  public AuthSessionResult exchangeOidcLogin(
-      String provider,
-      String code,
-      String state,
-      URI redirectUri,
-      String codeVerifier) {
+  public AuthSessionResult exchangeOidcLogin(String provider, String code, String state) {
     try {
-      authService.consumeState(provider, state, redirectUri.toString(), codeVerifier);
+      var consumedState = authService.consumeState(provider, state);
+      String codeVerifier = authService.buildPkceCodeVerifierForState(state);
 
       var tokenSet =
           authService.exchangeAuthorizationCode(
               provider,
               code,
-              redirectUri.toString(),
+              consumedState.getRedirectUri(),
               codeVerifier);
       OidcUserInfo oidcUserInfo = authService.fetchUserInfo(provider, tokenSet.accessToken());
 

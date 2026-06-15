@@ -33,11 +33,7 @@ public class AuthApiImpl implements AuthApi {
       String provider, ExchangeOidcLoginRequest exchangeOidcLoginRequest) {
     AuthUsecase.AuthSessionResult result =
         authUsecase.exchangeOidcLogin(
-            provider,
-            exchangeOidcLoginRequest.getCode(),
-            exchangeOidcLoginRequest.getState(),
-            exchangeOidcLoginRequest.getRedirectUri(),
-            exchangeOidcLoginRequest.getCodeVerifier());
+            provider, exchangeOidcLoginRequest.getCode(), exchangeOidcLoginRequest.getState());
     return Response.ok(toAuthTokenResponse(result)).build();
   }
 
@@ -74,18 +70,16 @@ public class AuthApiImpl implements AuthApi {
 
   @Override
   public Response startOidcLogin(String provider, StartOidcLoginRequest startOidcLoginRequest) {
+    ClientType clientType = ClientType.WEB;
+    if (startOidcLoginRequest != null && startOidcLoginRequest.getClientType() != null) {
+      clientType = ClientType.fromValue(startOidcLoginRequest.getClientType().value());
+    }
+
     AuthUsecase.StartOidcLoginResult result =
-        authUsecase.startOidcLogin(
-            provider,
-            ClientType.fromValue(startOidcLoginRequest.getClientType().value()),
-            startOidcLoginRequest.getRedirectUri(),
-            startOidcLoginRequest.getCodeChallenge(),
-            startOidcLoginRequest.getCodeChallengeMethod().value());
+        authUsecase.startOidcLogin(provider, clientType);
 
     StartOidcLogin200Response response = new StartOidcLogin200Response();
     response.setAuthorizationUrl(result.authorizationUrl());
-    response.setState(result.state());
-    response.setExpiresIn(result.expiresIn());
     return Response.ok(response).build();
   }
 

@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import app.vagina.server.service.AuthService;
 import app.vagina.server.support.HarigataOidcMockServerResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -32,7 +31,6 @@ public class AuthenticationIntegrationTest {
 
   private static final String REDIRECT_URI = "https://example.com/callback";
   private static final String CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-  private static final String CODE_CHALLENGE = AuthService.generateS256CodeChallenge(CODE_VERIFIER);
 
   private static String accessToken;
   private static String refreshToken;
@@ -48,26 +46,18 @@ public class AuthenticationIntegrationTest {
             .contentType(ContentType.JSON)
             .body(
                 Map.of(
-                    "clientType",
-                    "web",
-                    "redirectUri",
-                    REDIRECT_URI,
-                    "codeChallenge",
-                    CODE_CHALLENGE,
-                    "codeChallengeMethod",
-                    "S256"))
+                    "clientType", "web"))
             .when()
             .post("/api/auth/oidc/harigata/start")
             .then()
             .statusCode(200)
             .body("authorizationUrl", notNullValue())
-            .body("state", notNullValue())
-            .body("expiresIn", notNullValue())
             .extract()
             .response();
 
     String authorizationUrl = startResponse.jsonPath().getString("authorizationUrl");
-    String initialState = startResponse.jsonPath().getString("state");
+    String initialState = parseQueryParams(URI.create(authorizationUrl).getRawQuery()).get("state");
+    assertTrue(initialState != null && !initialState.isBlank(), "Authorization URL should include state");
 
     Response authorizeResponse =
         given()
@@ -102,8 +92,6 @@ public class AuthenticationIntegrationTest {
                     redirectPayload.code(),
                     "state",
                     redirectPayload.state(),
-                    "redirectUri",
-                    REDIRECT_URI,
                     "codeVerifier",
                     CODE_VERIFIER))
             .when()
@@ -143,16 +131,7 @@ public class AuthenticationIntegrationTest {
   public void testStartUnsupportedOidcProvider() {
     given()
         .contentType(ContentType.JSON)
-        .body(
-            Map.of(
-                "clientType",
-                "web",
-                "redirectUri",
-                REDIRECT_URI,
-                "codeChallenge",
-                CODE_CHALLENGE,
-                "codeChallengeMethod",
-                "S256"))
+        .body(Map.of("clientType", "web"))
         .when()
         .post("/api/auth/oidc/unsupported/start")
         .then()
@@ -162,20 +141,13 @@ public class AuthenticationIntegrationTest {
 
   @Test
   @Order(4)
-  public void testExchangeHarigataOidcLoginWithBadVerifierFails() {
+  public void testExchangeHarigataOidcLoginWithBadStateFails() {
     Response startResponse =
         given()
             .contentType(ContentType.JSON)
             .body(
                 Map.of(
-                    "clientType",
-                    "web",
-                    "redirectUri",
-                    REDIRECT_URI,
-                    "codeChallenge",
-                    CODE_CHALLENGE,
-                    "codeChallengeMethod",
-                    "S256"))
+                    "clientType", "web"))
             .when()
             .post("/api/auth/oidc/harigata/start")
             .then()
@@ -183,7 +155,8 @@ public class AuthenticationIntegrationTest {
             .extract()
             .response();
 
-    String badState = startResponse.jsonPath().getString("state");
+    String authorizationUrl = startResponse.jsonPath().getString("authorizationUrl");
+    String badState = parseQueryParams(URI.create(authorizationUrl).getRawQuery()).get("state") + "-tampered";
 
     given()
         .contentType(ContentType.JSON)
@@ -193,15 +166,13 @@ public class AuthenticationIntegrationTest {
                 HarigataOidcMockServerResource.DEFAULT_AUTHORIZATION_CODE,
                 "state",
                 badState,
-                "redirectUri",
-                REDIRECT_URI,
                 "codeVerifier",
                 "wrong-verifier"))
         .when()
         .post("/api/auth/oidc/harigata/exchange")
         .then()
         .statusCode(401)
-        .body("message", equalTo("OIDC PKCE verification failed"));
+        .body("message", equalTo("Unknown OIDC state"));
   }
 
   @Test
@@ -272,14 +243,7 @@ public class AuthenticationIntegrationTest {
             .contentType(ContentType.JSON)
             .body(
                 Map.of(
-                    "clientType",
-                    "web",
-                    "redirectUri",
-                    REDIRECT_URI,
-                    "codeChallenge",
-                    CODE_CHALLENGE,
-                    "codeChallengeMethod",
-                    "S256"))
+                    "clientType", "web"))
             .when()
             .post("/api/auth/oidc/harigata/start")
             .then()
@@ -311,8 +275,6 @@ public class AuthenticationIntegrationTest {
                     redirectPayload.code(),
                     "state",
                     redirectPayload.state(),
-                    "redirectUri",
-                    REDIRECT_URI,
                     "codeVerifier",
                     CODE_VERIFIER))
             .when()

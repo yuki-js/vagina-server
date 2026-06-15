@@ -6,7 +6,6 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import app.vagina.server.service.AuthService;
 import app.vagina.server.support.HarigataOidcMockServerResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -40,7 +39,6 @@ import org.junit.jupiter.api.TestMethodOrder;
 public class SpeedDialIntegrationTest {
   private static final String REDIRECT_URI = "https://example.com/callback";
   private static final String CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-  private static final String CODE_CHALLENGE = AuthService.generateS256CodeChallenge(CODE_VERIFIER);
   private static final String SPEED_DIAL_ID = "work-assistant";
 
   private static String accessToken;
@@ -55,16 +53,7 @@ public class SpeedDialIntegrationTest {
     Response startResponse =
         given()
             .contentType(ContentType.JSON)
-            .body(
-                Map.of(
-                    "clientType",
-                    "web",
-                    "redirectUri",
-                    REDIRECT_URI,
-                    "codeChallenge",
-                    CODE_CHALLENGE,
-                    "codeChallengeMethod",
-                    "S256"))
+            .body(Map.of("clientType", "web"))
             .when()
             .post("/api/auth/oidc/harigata/start")
             .then()
@@ -96,8 +85,6 @@ public class SpeedDialIntegrationTest {
                     redirectPayload.code(),
                     "state",
                     redirectPayload.state(),
-                    "redirectUri",
-                    REDIRECT_URI,
                     "codeVerifier",
                     CODE_VERIFIER))
             .when()

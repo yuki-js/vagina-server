@@ -39,12 +39,13 @@ public class HarigataOidcMockServerResource implements QuarkusTestResourceLifecy
     String issuer = issuerBaseUrl();
     return Map.of(
         "vagina.auth.oidc.harigata.issuer", issuer,
-        "vagina.auth.oidc.harigata.discovery-url", issuer + "/.well-known/openid-configuration",
+        "vagina.auth.oidc.harigata.configuration-url",
+        issuer + "/.well-known/openid-configuration",
         "vagina.auth.oidc.harigata.client-id", DEFAULT_CLIENT_ID,
         "vagina.auth.oidc.harigata.client-secret", DEFAULT_CLIENT_SECRET,
-        "vagina.auth.oidc.harigata.authorize-url", issuer + "/authorize",
-        "vagina.auth.oidc.harigata.token-url", issuer + "/token",
-        "vagina.auth.oidc.harigata.userinfo-url", issuer + "/userinfo",
+        "vagina.auth.oidc.harigata.authorization-endpoint", issuer + "/authorize",
+        "vagina.auth.oidc.harigata.token-endpoint", issuer + "/token",
+        "vagina.auth.oidc.harigata.userinfo-endpoint", issuer + "/userinfo",
         "vagina.auth.oidc.harigata.jwks-url", issuer + "/jwks");
   }
 

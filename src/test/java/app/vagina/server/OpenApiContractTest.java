@@ -2,7 +2,6 @@ package app.vagina.server;
 
 import static io.restassured.RestAssured.given;
 
-import app.vagina.server.service.AuthService;
 import app.vagina.server.support.HarigataOidcMockServerResource;
 import com.atlassian.oai.validator.OpenApiInteractionValidator;
 import com.atlassian.oai.validator.report.LevelResolver;
@@ -13,8 +12,11 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -27,9 +29,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 @TestMethodOrder(OrderAnnotation.class)
 public class OpenApiContractTest {
 
-  private static final String REDIRECT_URI = "https://example.com/callback";
   private static final String CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-  private static final String CODE_CHALLENGE = AuthService.generateS256CodeChallenge(CODE_VERIFIER);
 
   private static OpenApiValidationFilter validationFilter;
   private static String accessToken;
@@ -61,16 +61,7 @@ public class OpenApiContractTest {
         given()
             .filter(validationFilter)
             .contentType(ContentType.JSON)
-            .body(
-                Map.of(
-                    "clientType",
-                    "web",
-                    "redirectUri",
-                    REDIRECT_URI,
-                    "codeChallenge",
-                    CODE_CHALLENGE,
-                    "codeChallengeMethod",
-                    "S256"))
+            .body(Map.of("clientType", "web"))
             .when()
             .post("/api/auth/oidc/harigata/start")
             .then()
@@ -78,7 +69,8 @@ public class OpenApiContractTest {
             .extract()
             .response();
 
-    state = response.jsonPath().getString("state");
+    String authorizationUrl = response.jsonPath().getString("authorizationUrl");
+    state = parseQueryParams(URI.create(authorizationUrl).getRawQuery()).get("state");
   }
 
   @Test
@@ -92,7 +84,6 @@ public class OpenApiContractTest {
                 Map.of(
                     "code", HarigataOidcMockServerResource.DEFAULT_AUTHORIZATION_CODE,
                     "state", state,
-                    "redirectUri", REDIRECT_URI,
                     "codeVerifier", CODE_VERIFIER))
             .when()
             .post("/api/auth/oidc/harigata/exchange")
@@ -147,5 +138,20 @@ public class OpenApiContractTest {
         .post("/api/auth/logout")
         .then()
         .statusCode(204);
+  }
+
+  private Map<String, String> parseQueryParams(String rawQuery) {
+    Map<String, String> values = new LinkedHashMap<>();
+    if (rawQuery == null || rawQuery.isBlank()) {
+      return values;
+    }
+
+    for (String pair : rawQuery.split("&")) {
+      String[] parts = pair.split("=", 2);
+      String key = URLDecoder.decode(parts[0], StandardCharsets.UTF_8);
+      String value = parts.length > 1 ? URLDecoder.decode(parts[1], StandardCharsets.UTF_8) : "";
+      values.put(key, value);
+    }
+    return values;
   }
 }

@@ -36,7 +36,6 @@ public abstract class OidcProviderBase {
       String rawProfileJson) {}
 
   public interface OidcProviderInfo {
-    String providerKey();
     String clientId();
     String clientSecret();
     Optional<String> configurationUrl();
@@ -48,7 +47,6 @@ public abstract class OidcProviderBase {
   }
 
   protected record ConfiguredOidcProviderInfo(
-      String providerKey,
       String clientId,
       String clientSecret,
       String jwksUrl,
@@ -56,6 +54,8 @@ public abstract class OidcProviderBase {
       String authorizationEndpoint,
       String tokenEndpoint,
       Optional<String> userinfoEndpoint) {}
+
+  public abstract String getProviderKey();
 
   public abstract OidcProviderInfo getProviderConfiguration();
 
@@ -106,7 +106,6 @@ public abstract class OidcProviderBase {
               : Optional.empty();
 
       return new ConfiguredOidcProviderInfo(
-          info.providerKey(),
           info.clientId(),
           info.clientSecret(),
           jwksUrl,
@@ -141,7 +140,6 @@ public abstract class OidcProviderBase {
                       new IllegalArgumentException(
                           "tokenEndpoint is required when configurationUrl is not provided"));
       return new ConfiguredOidcProviderInfo(
-          info.providerKey(),
           info.clientId(),
           info.clientSecret(),
           jwksUrl,
@@ -160,14 +158,23 @@ public abstract class OidcProviderBase {
   public String buildAuthorizationUrl(
       String redirectUri, String state, String codeChallenge, String codeChallengeMethod
   ) {
-        Map<String, String> queryParams = new LinkedHashMap<>();
-        queryParams.put("client_id", clientId);
-        queryParams.put("redirect_uri", redirectUri);
-        queryParams.put("scope", "read:user user:email");
-        queryParams.put("state", state);
+    ConfiguredOidcProviderInfo provider = configureProvider();
 
-        return authorizeUrl + "?" + Util.formEncode(queryParams);
-}
+    Map<String, String> queryParams = new LinkedHashMap<>();
+    queryParams.put("response_type", "code");
+    queryParams.put("client_id", provider.clientId());
+    queryParams.put("redirect_uri", redirectUri);
+    queryParams.put("scope", "openid profile email");
+    queryParams.put("state", state);
+    if (codeChallenge != null && !codeChallenge.isBlank()) {
+      queryParams.put("code_challenge", codeChallenge);
+    }
+    if (codeChallengeMethod != null && !codeChallengeMethod.isBlank()) {
+      queryParams.put("code_challenge_method", codeChallengeMethod);
+    }
+
+    return provider.authorizationEndpoint() + "?" + Util.formEncode(queryParams);
+  }
 
   /**
    * Exchanges the authorization code for tokens.

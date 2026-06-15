@@ -20,28 +20,16 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - clientType
-                - redirectUri
-                - codeChallenge
-                - codeChallengeMethod
+              required: []
               properties:
                 clientType:
                   type: string
+                  description: The type of client initiating the OIDC login, used to determine appropriate redirect URIs and other provider-specific parameters. 
+                  default: web
                   enum:
                     - web
                     - mobile
                     - desktop
-                redirectUri:
-                  type: string
-                  format: uri
-                codeChallenge:
-                  type: string
-                  minLength: 1
-                codeChallengeMethod:
-                  type: string
-                  enum:
-                    - S256
       responses:
         "200":
           description: OIDC authorization request created.
@@ -51,17 +39,10 @@ paths:
                 type: object
                 required:
                   - authorizationUrl
-                  - state
-                  - expiresIn
                 properties:
                   authorizationUrl:
                     type: string
                     format: uri
-                  state:
-                    type: string
-                  expiresIn:
-                    type: integer
-                    format: int64
         "400":
           description: Invalid request or unsupported provider.
           content:
@@ -98,7 +79,6 @@ paths:
               required:
                 - code
                 - state
-                - redirectUri
                 - codeVerifier
               properties:
                 code:
@@ -107,9 +87,6 @@ paths:
                 state:
                   type: string
                   minLength: 1
-                redirectUri:
-                  type: string
-                  format: uri
                 codeVerifier:
                   type: string
                   minLength: 1
