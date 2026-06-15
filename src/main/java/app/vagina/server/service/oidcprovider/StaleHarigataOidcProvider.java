@@ -1,0 +1,141 @@
+package app.vagina.server.service.oidcprovider;
+
+import app.vagina.server.support.Util;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+@ApplicationScoped
+public class HarigataOidcProvider extends OidcProviderBase {
+
+  @ConfigProperty(name = "vagina.auth.oidc.harigata.client-id", defaultValue = "")
+  String clientId;
+
+  @ConfigProperty(name = "vagina.auth.oidc.harigata.client-secret", defaultValue = "")
+  String clientSecret;
+
+  @ConfigProperty(name = "vagina.auth.oidc.harigata.authorize-url", defaultValue = "")
+  String authorizeUrl;
+
+  @ConfigProperty(name = "vagina.auth.oidc.harigata.token-url", defaultValue = "")
+  String tokenUrl;
+
+  @ConfigProperty(name = "vagina.auth.oidc.harigata.userinfo-url", defaultValue = "")
+  String userInfoUrl;
+
+  @Inject ObjectMapper objectMapper;
+
+  private final HttpClient httpClient = HttpClient.newHttpClient();
+
+  @Override
+  public String getProviderKey() {
+    return "harigata";
+  }
+
+  @Override
+  public String buildAuthorizationUrl(
+      String redirectUri, String state, String codeChallenge, String codeChallengeMethod) {
+    requireConfigured(authorizeUrl, "authorize-url");
+    requireConfigured(clientId, "client-id");
+
+    Map<String, String> queryParams = new LinkedHashMap<>();
+    queryParams.put("response_type", "code");
+    queryParams.put("client_id", clientId);
+    queryParams.put("redirect_uri", redirectUri);
+    queryParams.put("scope", "openid profile email");
+    queryParams.put("state", state);
+    queryParams.put("code_challenge", codeChallenge);
+    queryParams.put("code_challenge_method", codeChallengeMethod);
+
+    return authorizeUrl + "?" + Util.formEncode(queryParams);
+  }
+
+  @Override
+  public OidcTokenSet exchangeAuthorizationCode(
+      String code, String redirectUri, String codeVerifier) {
+    requireConfigured(tokenUrl, "token-url");
+    requireConfigured(clientId, "client-id");
+    requireConfigured(clientSecret, "client-secret");
+
+    Map<String, String> form = new LinkedHashMap<>();
+    form.put("grant_type", "authorization_code");
+    form.put("client_id", clientId);
+    form.put("client_secret", clientSecret);
+    form.put("code", code);
+    form.put("redirect_uri", redirectUri);
+    form.put("code_verifier", codeVerifier);
+
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create(tokenUrl))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .POST(HttpRequest.BodyPublishers.ofString(Util.formEncode(form)))
+            .build();
+
+    try {
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      if (response.statusCode() != 200) {
+        throw new IllegalStateException(
+            "OIDC token endpoint returned status " + response.statusCode());
+      }
+
+      JsonNode json = objectMapper.readTree(response.body());
+      String accessToken = Util.requiredText(json, "access_token");
+      String idToken = Util.requiredText(json, "id_token");
+      long expiresIn = json.path("expires_in").asLong(3600L);
+      return new OidcTokenSet(accessToken, idToken, expiresIn);
+    } catch (IOException | InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Failed to exchange OIDC authorization code", e);
+    }
+  }
+
+  @Override
+  public OidcUserInfo fetchUserInfo(String accessToken) {
+    requireConfigured(userInfoUrl, "userinfo-url");
+
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create(userInfoUrl))
+            .header("Authorization", "Bearer " + accessToken)
+            .GET()
+            .build();
+
+    try {
+      HttpResponse<String> response =
+          httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+      if (response.statusCode() != 200) {
+        throw new IllegalStateException(
+            "OIDC userinfo endpoint returned status " + response.statusCode());
+      }
+
+      JsonNode json = objectMapper.readTree(response.body());
+      return new OidcUserInfo(
+          Util.requiredText(json, "sub"),
+          Util.optionalText(json, "preferred_username"),
+          Util.optionalText(json, "name"),
+          Util.optionalText(json, "picture"),
+          Util.optionalText(json, "email"),
+          json.path("email_verified").asBoolean(false),
+          response.body());
+    } catch (IOException | InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Failed to fetch OIDC userinfo", e);
+    }
+  }
+
+  private void requireConfigured(String value, String key) {
+    if (value == null || value.isBlank()) {
+      throw new IllegalStateException("Missing Harigata OIDC configuration: " + key);
+    }
+  }
+}

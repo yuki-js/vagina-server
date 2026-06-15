@@ -8,6 +8,7 @@ import io.vertx.mutiny.ext.web.client.HttpResponse;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import app.vagina.server.support.Util;
 import jakarta.inject.Inject;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -34,16 +35,17 @@ public abstract class OidcProviderBase {
       boolean emailVerified,
       String rawProfileJson) {}
 
-  public record OidcProviderInfo(
-      String providerKey,
-      String clientId,
-      String clientSecret,
-      Optional<String> configurationUrl,
-      Optional<String> jwksUrl,
-      Optional<String> issuer,
-      Optional<String> authorizationEndpoint,
-      Optional<String> tokenEndpoint,
-      Optional<String> userinfoEndpoint) {}
+  public interface OidcProviderInfo {
+    String providerKey();
+    String clientId();
+    String clientSecret();
+    Optional<String> configurationUrl();
+    Optional<String> jwksUrl();
+    Optional<String> issuer();
+    Optional<String> authorizationEndpoint();
+    Optional<String> tokenEndpoint();
+    Optional<String> userinfoEndpoint();
+  }
 
   protected record ConfiguredOidcProviderInfo(
       String providerKey,
@@ -54,9 +56,6 @@ public abstract class OidcProviderBase {
       String authorizationEndpoint,
       String tokenEndpoint,
       Optional<String> userinfoEndpoint) {}
-
-  /** Returns the unique key identifying this provider (e.g. {@code "github"}, {@code "harigata"}). */
-  public abstract String getProviderKey();
 
   public abstract OidcProviderInfo getProviderConfiguration();
 
@@ -158,20 +157,105 @@ public abstract class OidcProviderBase {
   /**
    * Builds the authorization URL.
    */
-  public abstract String buildAuthorizationUrl(
-      String redirectUri, String state, String codeChallenge, String codeChallengeMethod);
+  public String buildAuthorizationUrl(
+      String redirectUri, String state, String codeChallenge, String codeChallengeMethod
+  ) {
+        Map<String, String> queryParams = new LinkedHashMap<>();
+        queryParams.put("client_id", clientId);
+        queryParams.put("redirect_uri", redirectUri);
+        queryParams.put("scope", "read:user user:email");
+        queryParams.put("state", state);
+
+        return authorizeUrl + "?" + Util.formEncode(queryParams);
+}
 
   /**
    * Exchanges the authorization code for tokens.
    */
-  public abstract OidcTokenSet exchangeAuthorizationCode(
-      String code, String redirectUri, String codeVerifier);
+  public OidcTokenSet exchangeAuthorizationCode(
+      String code, String redirectUri, String codeVerifier) {
+    ConfiguredOidcProviderInfo provider = configureProvider();
+
+    Map<String, String> form = new LinkedHashMap<>();
+    form.put("grant_type", "authorization_code");
+    form.put("client_id", provider.clientId());
+    form.put("client_secret", provider.clientSecret());
+    form.put("code", code);
+    form.put("redirect_uri", redirectUri);
+    if (codeVerifier != null && !codeVerifier.isBlank()) {
+      form.put("code_verifier", codeVerifier);
+    }
+
+    WebClient client = WebClient.create(vertx);
+    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response =
+        client
+            .postAbs(provider.tokenEndpoint())
+            .putHeader("Accept", "application/json")
+            .putHeader("Content-Type", "application/x-www-form-urlencoded")
+            .sendBuffer(io.vertx.mutiny.core.buffer.Buffer.buffer(Util.formEncode(form)))
+            .await()
+            .indefinitely();
+
+    if (response.statusCode() != 200) {
+      throw new IllegalStateException(
+          "OIDC token endpoint returned status " + response.statusCode());
+    }
+
+    try {
+      JsonNode json = objectMapper.readTree(response.bodyAsString());
+      String accessToken = Util.requiredText(json, "access_token");
+      String idToken = Util.optionalText(json, "id_token");
+      long expiresIn = json.path("expires_in").asLong(3600L);
+      return new OidcTokenSet(accessToken, idToken, expiresIn);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("Failed to parse OIDC token response", e);
+    }
+  }
 
   /**
    * Fetches user information from the OIDC provider. When the provider does not support a userinfo
    * endpoint, this method must either unpack the user info from the ID token or throw {@link
    * UnsupportedOperationException}.
    */
-  public abstract OidcUserInfo fetchUserInfo(String accessToken)
-      throws UnsupportedOperationException;
+  public OidcUserInfo fetchUserInfo(String accessToken)
+      throws UnsupportedOperationException {
+    ConfiguredOidcProviderInfo provider = configureProvider();
+    String userinfoEndpoint =
+        provider
+            .userinfoEndpoint()
+            .orElseThrow(
+                () ->
+                    new UnsupportedOperationException(
+                        "OIDC provider does not expose a userinfo endpoint"));
+
+    WebClient client = WebClient.create(vertx);
+    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response =
+        client
+            .getAbs(userinfoEndpoint)
+            .putHeader("Authorization", "Bearer " + accessToken)
+            .putHeader("Accept", "application/json")
+            .send()
+            .await()
+            .indefinitely();
+
+    if (response.statusCode() != 200) {
+      throw new IllegalStateException(
+          "OIDC userinfo endpoint returned status " + response.statusCode());
+    }
+
+    String rawProfile = response.bodyAsString();
+    try {
+      JsonNode json = objectMapper.readTree(rawProfile);
+      return new OidcUserInfo(
+          Util.requiredText(json, "sub"),
+          Util.optionalText(json, "preferred_username"),
+          Util.optionalText(json, "name"),
+          Util.optionalText(json, "picture"),
+          Util.optionalText(json, "email"),
+          json.path("email_verified").asBoolean(false),
+          rawProfile);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("Failed to parse OIDC userinfo response", e);
+    }
+  }
 }
