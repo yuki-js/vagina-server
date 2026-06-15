@@ -12,10 +12,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - "api.vagina.app"
+        - "*.ouchiserver.aokiapp.com"
       secretName: service-tls
   rules:
-    - host: api.vagina.app
+    - host: vagina-api.ouchiserver.aokiapp.com
       http:
         paths:
           - path: /
