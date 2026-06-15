@@ -8,6 +8,7 @@ resources:
   - common-secret.yaml
   - jwt-keys.yaml
   - ingress.yaml
+  - db.yaml
 
 configMapGenerator:
   - name: backend-config

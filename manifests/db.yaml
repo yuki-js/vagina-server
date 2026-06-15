@@ -1,0 +1,10 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: vagina-server-db
+spec:
+  name: vagina-server-db
+  owner: vagina-server
+  cluster:
+    name: pg-cluster
+  extensions: []
