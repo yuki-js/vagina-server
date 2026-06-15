@@ -12,6 +12,7 @@ import app.vagina.server.mapper.RefreshTokenMapper;
 import app.vagina.server.service.oidcprovider.OidcProviderBase;
 import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcTokenSet;
 import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcUserInfo;
+import app.vagina.server.support.Util;
 import io.smallrye.jwt.algorithm.SignatureAlgorithm;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -21,10 +22,8 @@ import jakarta.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -65,8 +64,9 @@ public class AuthService {
   @ConfigProperty(name = "vagina.auth.oidc.redirect-uri.desktop", defaultValue = "")
   String desktopRedirectUri;
 
-  @ConfigProperty(name = "vagina.auth.oauth.pkce.secret")
-  Optional<String> pkceSecret; // todo: システム共通シークレットにまとめる
+  @ConfigProperty(name = "vagina.secret")
+  Optional<String> systemSecret;
+
 
   @ConfigProperty(name = "smallrye.jwt.new-token.issuer")
   String jwtIssuer;
@@ -78,10 +78,7 @@ public class AuthService {
   @Inject AuthnProviderMapper authnProviderMapper;
   @Inject UserService userService;
 
-  private static final ThreadLocal<SecureRandom> SECURE_RANDOM =
-      ThreadLocal.withInitial(SecureRandom::new);
-  private static final HexFormat HEX_FORMAT = HexFormat.of();
-  private final String runtimePkceSecret = randomToken();
+  private final String runtimePkceSecret = Util.randomHexToken();
 
   // ========================
   // OIDC Provider delegation
@@ -121,7 +118,7 @@ public class AuthService {
 
   @Transactional
   public CreatedOidcState createState(String providerKey, ClientType clientType) {
-    String rawState = randomToken();
+    String rawState = Util.randomHexToken();
     LocalDateTime now = LocalDateTime.now();
     String redirectUri = resolveRedirectUri(clientType);
     String codeVerifier = buildPkceCodeVerifierForState(rawState);
@@ -129,7 +126,7 @@ public class AuthService {
     String codeChallengeMethod = "S256";
 
     OAuthLoginAttempt attempt = new OAuthLoginAttempt();
-    attempt.setStateHash(sha256(rawState));
+    attempt.setStateHash(Util.sha256Hex(rawState));
     attempt.setAuthMethod(AuthMethod.OIDC);
     attempt.setProviderKey(providerKey);
     attempt.setClientType(clientType);
@@ -151,7 +148,7 @@ public class AuthService {
   public OAuthLoginAttempt consumeState(String providerKey, String rawState) {
     OAuthLoginAttempt attempt =
         oauthLoginAttemptMapper
-            .findByStateHash(sha256(rawState))
+            .findByStateHash(Util.sha256Hex(rawState))
             .orElseThrow(() -> new SecurityException("Unknown OIDC state"));
 
     LocalDateTime now = LocalDateTime.now();
@@ -166,7 +163,10 @@ public class AuthService {
       throw new SecurityException("OIDC state expired");
     }
     String codeVerifier = buildPkceCodeVerifierForState(rawState);
-    if (!matchesPkce(codeVerifier, attempt.getCodeChallenge(), attempt.getCodeChallengeMethod())) {
+    if (!"S256".equals(attempt.getCodeChallengeMethod())) {
+      throw new SecurityException("Unsupported PKCE method: " + attempt.getCodeChallengeMethod());
+    }
+    if (!attempt.getCodeChallenge().equals(generateS256CodeChallenge(codeVerifier))) {
       throw new SecurityException("OIDC PKCE verification failed");
     }
 
@@ -184,8 +184,14 @@ public class AuthService {
     ClientType effectiveClientType = clientType == null ? ClientType.WEB : clientType;
     return switch (effectiveClientType) {
       case WEB -> requiredRedirectUri(webRedirectUri, "web");
-      case MOBILE -> requiredRedirectUri(mobileRedirectUri, "mobile");
-      case DESKTOP -> requiredRedirectUri(desktopRedirectUri, "desktop");
+      case MOBILE ->
+          (mobileRedirectUri != null && !mobileRedirectUri.isBlank())
+              ? mobileRedirectUri
+              : requiredRedirectUri(webRedirectUri, "web");
+      case DESKTOP ->
+          (desktopRedirectUri != null && !desktopRedirectUri.isBlank())
+              ? desktopRedirectUri
+              : requiredRedirectUri(webRedirectUri, "web");
     };
   }
 
@@ -193,7 +199,14 @@ public class AuthService {
     if (rawState == null || rawState.isBlank()) {
       throw new SecurityException("OIDC state is required");
     }
-    return generateS256CodeChallenge(resolvePkceSecret() + ":" + rawState);
+    String pkceSecret = runtimePkceSecret;
+    if (systemSecret != null) {
+      Optional<String> configuredSecret = systemSecret.filter(value -> !value.isBlank());
+      if (configuredSecret.isPresent()) {
+        pkceSecret = configuredSecret.get();
+      }
+    }
+    return generateS256CodeChallenge(pkceSecret + ":" + rawState);
   }
 
   public static String generateS256CodeChallenge(String codeVerifier) {
@@ -240,13 +253,13 @@ public class AuthService {
 
   @Transactional
   public IssuedRefreshToken issueRefreshToken(Long userId) {
-    String rawToken = randomOpaqueToken();
+    String rawToken = Util.randomHexToken();
     String tokenFamily = UUID.randomUUID().toString();
     LocalDateTime now = LocalDateTime.now();
 
     RefreshToken refreshToken = new RefreshToken();
     refreshToken.setUserId(userId);
-    refreshToken.setTokenHash(sha256(rawToken));
+    refreshToken.setTokenHash(Util.sha256Hex(rawToken));
     refreshToken.setTokenFamily(tokenFamily);
     refreshToken.setIssuedAt(now);
     refreshToken.setExpiresAt(now.plusSeconds(refreshTokenLifespan));
@@ -263,7 +276,7 @@ public class AuthService {
 
   @Transactional
   public Optional<RotateResult> rotateRefreshToken(String rawToken) {
-    Optional<RefreshToken> currentOpt = refreshTokenMapper.findByTokenHash(sha256(rawToken));
+    Optional<RefreshToken> currentOpt = refreshTokenMapper.findByTokenHash(Util.sha256Hex(rawToken));
     if (currentOpt.isEmpty()) {
       return Optional.empty();
     }
@@ -271,7 +284,9 @@ public class AuthService {
     RefreshToken current = currentOpt.get();
     LocalDateTime now = LocalDateTime.now();
 
-    if (isRevoked(current) || isExpired(current)) {
+    if (current.getRevokedAt() != null
+        || current.getExpiresAt() == null
+        || !current.getExpiresAt().isAfter(now)) {
       return Optional.empty();
     }
 
@@ -286,10 +301,10 @@ public class AuthService {
       return Optional.empty();
     }
 
-    String newRawToken = randomOpaqueToken();
+    String newRawToken = Util.randomHexToken();
     RefreshToken replacement = new RefreshToken();
     replacement.setUserId(current.getUserId());
-    replacement.setTokenHash(sha256(newRawToken));
+    replacement.setTokenHash(Util.sha256Hex(newRawToken));
     replacement.setTokenFamily(current.getTokenFamily());
     replacement.setIssuedAt(now);
     replacement.setExpiresAt(now.plusSeconds(refreshTokenLifespan));
@@ -306,7 +321,8 @@ public class AuthService {
 
   @Transactional
   public void revokeRefreshToken(String rawToken) {
-    Optional<RefreshToken> refreshTokenOpt = refreshTokenMapper.findByTokenHash(sha256(rawToken));
+    Optional<RefreshToken> refreshTokenOpt =
+        refreshTokenMapper.findByTokenHash(Util.sha256Hex(rawToken));
     if (refreshTokenOpt.isEmpty()) {
       return;
     }
@@ -348,29 +364,12 @@ public class AuthService {
   // Private helpers
   // ========================
 
-  private boolean matchesPkce(String codeVerifier, String expectedCodeChallenge, String method) {
-    if (!"S256".equals(method)) {
-      throw new SecurityException("Unsupported PKCE method: " + method);
-    }
-    return expectedCodeChallenge.equals(generateS256CodeChallenge(codeVerifier));
-  }
-
   private String requiredRedirectUri(String redirectUri, String clientType) {
     if (redirectUri == null || redirectUri.isBlank()) {
       throw new IllegalStateException(
           "Missing OIDC redirect URI configuration for clientType=" + clientType);
     }
     return redirectUri;
-  }
-
-  private String resolvePkceSecret() {
-    if (pkceSecret != null) {
-      Optional<String> configuredSecret = pkceSecret.filter(value -> !value.isBlank());
-      if (configuredSecret.isPresent()) {
-        return configuredSecret.get();
-      }
-    }
-    return runtimePkceSecret;
   }
 
   private void revokeTokenFamily(String tokenFamily, LocalDateTime now, String reason) {
@@ -385,31 +384,4 @@ public class AuthService {
     }
   }
 
-  private boolean isRevoked(RefreshToken refreshToken) {
-    return refreshToken.getRevokedAt() != null;
-  }
-
-  private boolean isExpired(RefreshToken refreshToken) {
-    return refreshToken.getExpiresAt() == null
-        || !refreshToken.getExpiresAt().isAfter(LocalDateTime.now());
-  }
-
-  private String sha256(String value) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      return HEX_FORMAT.formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("SHA-256 is not available", e);
-    }
-  }
-
-  private String randomToken() {
-    byte[] randomBytes = new byte[32];
-    SECURE_RANDOM.get().nextBytes(randomBytes);
-    return HEX_FORMAT.formatHex(randomBytes);
-  }
-
-  private String randomOpaqueToken() {
-    return randomToken();
-  }
 }
