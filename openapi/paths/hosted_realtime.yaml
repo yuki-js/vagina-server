@@ -1,0 +1,39 @@
+paths:
+  /hosted-realtime/v1/connect:
+    get:
+      tags:
+        - hosted-realtime
+      operationId: hostedRealtimeConnect
+      summary: VHRP/1 WebSocket upgrade (discoverability stub)
+      description: >-
+        WebSocket upgrade entry point for the hosted realtime voice protocol
+        (VHRP/1). This is a discoverability stub only: the connection is a binary
+        WebSocket negotiating the `vhrp.cbor.v1` subprotocol and exchanges CBOR
+        frames, which OpenAPI cannot describe. No request/response body is modeled
+        here on purpose. Authentication is NOT performed at upgrade time; the
+        first application message MUST be `session.open` carrying a JWT in
+        `body.token`. See the linked design docs for the full wire contract,
+        message types, and thread projection rules.
+      externalDocs:
+        description: VHRP/1 wire protocol and adapter design set
+        url: https://github.com/vagina-ai/server/blob/main/../client/docs/hosted_realtime/02_vhrp_wire_protocol.md
+      parameters:
+        - name: Sec-WebSocket-Protocol
+          in: header
+          required: true
+          description: Must include the `vhrp.cbor.v1` subprotocol token.
+          schema:
+            type: string
+            example: vhrp.cbor.v1
+      responses:
+        "101":
+          description: >-
+            Switching Protocols. The HTTP connection is upgraded to a binary
+            WebSocket speaking VHRP/1 over CBOR. All subsequent communication is
+            out of OpenAPI scope.
+        "400":
+          description: Malformed upgrade request or unsupported subprotocol.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"

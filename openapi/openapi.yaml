@@ -23,6 +23,8 @@ paths:
     $ref: './paths/speed_dials.yaml#/paths/~1speed-dials~1{speedDialId}'
   /vfs/rpc:
     $ref: './paths/vfs.yaml#/paths/~1vfs~1rpc'
+  /hosted-realtime/v1/connect:
+    $ref: './paths/hosted_realtime.yaml#/paths/~1hosted-realtime~1v1~1connect'
 components:
   schemas:
     User:
