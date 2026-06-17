@@ -40,9 +40,13 @@ public class AuthUsecase {
   @Inject AuthService authService;
 
   public StartOidcLoginResult startOidcLogin(
-      String provider, ClientType clientType) {
+      String provider,
+      ClientType clientType,
+      String codeChallenge,
+      String codeChallengeMethod) {
     authService.resolveProvider(provider);
-    var createdState = authService.createState(provider, clientType);
+    var createdState =
+        authService.createState(provider, clientType, codeChallenge, codeChallengeMethod);
 
     String authorizationUrl =
         authService.buildAuthorizationUrl(
@@ -57,37 +61,33 @@ public class AuthUsecase {
   }
 
   @Transactional
-  public AuthSessionResult exchangeOidcLogin(String provider, String code, String state) {
-    try {
-      var consumedState = authService.consumeState(provider, state);
-      String codeVerifier = authService.buildPkceCodeVerifierForState(state);
+  public AuthSessionResult exchangeOidcLogin(
+      String provider, String code, String state, String codeVerifier) {
+    var consumedState = authService.consumeState(provider, state, codeVerifier);
 
-      var tokenSet =
-          authService.exchangeAuthorizationCode(
-              provider,
-              code,
-              consumedState.getRedirectUri(),
-              codeVerifier);
-      OidcUserInfo oidcUserInfo = authService.fetchUserInfo(provider, tokenSet.accessToken());
+    var tokenSet =
+        authService.exchangeAuthorizationCode(
+            provider,
+            code,
+            consumedState.getRedirectUri(),
+            codeVerifier);
+    OidcUserInfo oidcUserInfo = authService.fetchUserInfo(provider, tokenSet.accessToken());
 
-      User user = userService.getOrCreateOidcUser(provider, oidcUserInfo);
-      AuthnProvider primaryAuthnProvider =
-          userService
-              .findPrimaryAuthnProvider(user.getId())
-              .orElseThrow(() -> new IllegalStateException("User has no auth provider"));
+    User user = userService.getOrCreateOidcUser(provider, oidcUserInfo);
+    AuthnProvider primaryAuthnProvider =
+        userService
+            .findPrimaryAuthnProvider(user.getId())
+            .orElseThrow(() -> new IllegalStateException("User has no auth provider"));
 
-      String accessToken = authService.generateAccessToken(user);
-      var issuedRefreshToken = authService.issueRefreshToken(user.getId());
+    String accessToken = authService.generateAccessToken(user);
+    var issuedRefreshToken = authService.issueRefreshToken(user.getId());
 
-      return new AuthSessionResult(
-          accessToken,
-          issuedRefreshToken.rawToken(),
-          "Bearer",
-          accessTokenLifespan,
-          toAuthUserView(user, primaryAuthnProvider));
-    } catch (SecurityException e) {
-      throw new AuthenticationException(e.getMessage(), e);
-    }
+    return new AuthSessionResult(
+        accessToken,
+        issuedRefreshToken.rawToken(),
+        "Bearer",
+        accessTokenLifespan,
+        toAuthUserView(user, primaryAuthnProvider));
   }
 
   @Transactional

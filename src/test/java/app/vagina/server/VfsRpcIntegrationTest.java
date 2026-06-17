@@ -15,8 +15,12 @@ import io.restassured.response.Response;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -37,9 +41,6 @@ import org.junit.jupiter.api.TestMethodOrder;
 @QuarkusTestResource(HarigataOidcMockServerResource.class)
 @TestMethodOrder(OrderAnnotation.class)
 public class VfsRpcIntegrationTest {
-  private static final String REDIRECT_URI = "https://example.com/callback";
-  private static final String CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-
   private static String accessToken;
 
   /**
@@ -49,10 +50,15 @@ public class VfsRpcIntegrationTest {
   @Test
   @Order(1)
   public void setupAuthenticatedUser() {
+    PkcePair pkce = issuePkcePair();
     Response startResponse =
         given()
             .contentType(ContentType.JSON)
-            .body(Map.of("clientType", "web"))
+            .body(
+                Map.of(
+                    "clientType", "web",
+                    "codeChallenge", pkce.codeChallenge(),
+                    "codeChallengeMethod", "S256"))
             .when()
             .post("/api/auth/oidc/harigata/start")
             .then()
@@ -85,7 +91,7 @@ public class VfsRpcIntegrationTest {
                     "state",
                     redirectPayload.state(),
                     "codeVerifier",
-                    CODE_VERIFIER))
+                    pkce.codeVerifier()))
             .when()
             .post("/api/auth/oidc/harigata/exchange")
             .then()
@@ -373,4 +379,21 @@ public class VfsRpcIntegrationTest {
   }
 
   private record RedirectPayload(String location, String code, String state) {}
+
+  private PkcePair issuePkcePair() {
+    String verifier = "test-verifier-" + UUID.randomUUID();
+    return new PkcePair(verifier, s256(verifier));
+  }
+
+  private String s256(String verifier) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(verifier.getBytes(StandardCharsets.US_ASCII));
+      return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 is not available", e);
+    }
+  }
+
+  private record PkcePair(String codeVerifier, String codeChallenge) {}
 }

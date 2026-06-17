@@ -1,5 +1,6 @@
 package app.vagina.server.service.oidcprovider;
 
+import app.vagina.server.domain.error.ExternalServiceException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -71,16 +72,22 @@ public abstract class OidcProviderBase {
       String discoveryUrl = info.configurationUrl().get();
 
       WebClient client = WebClient.create(vertx);
-      HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response =
-          client
-              .getAbs(discoveryUrl)
-              .putHeader("Accept", "application/json")
-              .send()
-              .await()
-              .indefinitely();
+      HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response;
+      try {
+        response =
+            client
+                .getAbs(discoveryUrl)
+                .putHeader("Accept", "application/json")
+                .send()
+                .await()
+                .indefinitely();
+      } catch (RuntimeException e) {
+        throw new ExternalServiceException(
+            "Failed to fetch OIDC discovery document from " + discoveryUrl, e);
+      }
 
       if (response.statusCode() != 200) {
-        throw new IllegalStateException(
+        throw new ExternalServiceException(
             "Failed to fetch OIDC discovery document from "
                 + discoveryUrl
                 + ": HTTP "
@@ -91,7 +98,7 @@ public abstract class OidcProviderBase {
       try {
         doc = objectMapper.readTree(response.bodyAsString());
       } catch (JsonProcessingException e) {
-        throw new IllegalStateException(
+        throw new ExternalServiceException(
             "Failed to parse OIDC discovery document from " + discoveryUrl, e);
       }
 
@@ -119,25 +126,25 @@ public abstract class OidcProviderBase {
           info.jwksUrl()
               .orElseThrow(
                   () ->
-                      new IllegalArgumentException(
+                      new IllegalStateException(
                           "jwksUrl is required when configurationUrl is not provided"));
       String issuer =
           info.issuer()
               .orElseThrow(
                   () ->
-                      new IllegalArgumentException(
+                      new IllegalStateException(
                           "issuer is required when configurationUrl is not provided"));
       String authorizationEndpoint =
           info.authorizationEndpoint()
               .orElseThrow(
                   () ->
-                      new IllegalArgumentException(
+                      new IllegalStateException(
                           "authorizationEndpoint is required when configurationUrl is not provided"));
       String tokenEndpoint =
           info.tokenEndpoint()
               .orElseThrow(
                   () ->
-                      new IllegalArgumentException(
+                      new IllegalStateException(
                           "tokenEndpoint is required when configurationUrl is not provided"));
       return new ConfiguredOidcProviderInfo(
           info.clientId(),
@@ -194,17 +201,22 @@ public abstract class OidcProviderBase {
     }
 
     WebClient client = WebClient.create(vertx);
-    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response =
-        client
-            .postAbs(provider.tokenEndpoint())
-            .putHeader("Accept", "application/json")
-            .putHeader("Content-Type", "application/x-www-form-urlencoded")
-            .sendBuffer(io.vertx.mutiny.core.buffer.Buffer.buffer(Util.formEncode(form)))
-            .await()
-            .indefinitely();
+    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response;
+    try {
+      response =
+          client
+              .postAbs(provider.tokenEndpoint())
+              .putHeader("Accept", "application/json")
+              .putHeader("Content-Type", "application/x-www-form-urlencoded")
+              .sendBuffer(io.vertx.mutiny.core.buffer.Buffer.buffer(Util.formEncode(form)))
+              .await()
+              .indefinitely();
+    } catch (RuntimeException e) {
+      throw new ExternalServiceException("OIDC token endpoint request failed", e);
+    }
 
     if (response.statusCode() != 200) {
-      throw new IllegalStateException(
+      throw new ExternalServiceException(
           "OIDC token endpoint returned status " + response.statusCode());
     }
 
@@ -214,8 +226,8 @@ public abstract class OidcProviderBase {
       String idToken = Util.optionalText(json, "id_token");
       long expiresIn = json.path("expires_in").asLong(3600L);
       return new OidcTokenSet(accessToken, idToken, expiresIn);
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException("Failed to parse OIDC token response", e);
+    } catch (Exception e) {
+      throw new ExternalServiceException("Failed to parse OIDC token response", e);
     }
   }
 
@@ -236,17 +248,22 @@ public abstract class OidcProviderBase {
                         "OIDC provider does not expose a userinfo endpoint"));
 
     WebClient client = WebClient.create(vertx);
-    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response =
-        client
-            .getAbs(userinfoEndpoint)
-            .putHeader("Authorization", "Bearer " + accessToken)
-            .putHeader("Accept", "application/json")
-            .send()
-            .await()
-            .indefinitely();
+    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response;
+    try {
+      response =
+          client
+              .getAbs(userinfoEndpoint)
+              .putHeader("Authorization", "Bearer " + accessToken)
+              .putHeader("Accept", "application/json")
+              .send()
+              .await()
+              .indefinitely();
+    } catch (RuntimeException e) {
+      throw new ExternalServiceException("OIDC userinfo endpoint request failed", e);
+    }
 
     if (response.statusCode() != 200) {
-      throw new IllegalStateException(
+      throw new ExternalServiceException(
           "OIDC userinfo endpoint returned status " + response.statusCode());
     }
 
@@ -261,8 +278,8 @@ public abstract class OidcProviderBase {
           Util.optionalText(json, "email"),
           json.path("email_verified").asBoolean(false),
           rawProfile);
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException("Failed to parse OIDC userinfo response", e);
+    } catch (Exception e) {
+      throw new ExternalServiceException("Failed to parse OIDC userinfo response", e);
     }
   }
 }

@@ -2,6 +2,7 @@ package app.vagina.server.usecase;
 
 import app.vagina.server.domain.error.ConflictException;
 import app.vagina.server.domain.error.NotFoundException;
+import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.service.SpeedDialService;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -32,7 +33,7 @@ public class SpeedDialUsecase {
   @Transactional
   public SpeedDialPreset saveSpeedDial(Long userId, String pathSpeedDialId, SpeedDialPreset candidate) {
     if (!pathSpeedDialId.equals(candidate.getSpeedDialId())) {
-      throw new IllegalArgumentException("Path/body speed dial id mismatch");
+      throw new ValidationException("Path/body speed dial id mismatch");
     }
 
     Optional<SpeedDialPreset> existing;

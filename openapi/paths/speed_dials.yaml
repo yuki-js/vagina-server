@@ -17,12 +17,6 @@ paths:
                 type: array
                 items:
                   $ref: "../components/schemas/speed_dial.yaml#/SpeedDial"
-        "401":
-          description: Authentication required.
-          content:
-            application/json:
-              schema:
-                $ref: "../components/schemas/common.yaml#/ErrorResponse"
         "500":
           description: Unexpected error.
           content:
@@ -54,12 +48,6 @@ paths:
             application/json:
               schema:
                 $ref: "../components/schemas/speed_dial.yaml#/SpeedDial"
-        "401":
-          description: Authentication required.
-          content:
-            application/json:
-              schema:
-                $ref: "../components/schemas/common.yaml#/ErrorResponse"
         "404":
           description: Speed dial not found.
           content:
@@ -99,12 +87,6 @@ paths:
             application/json:
               schema:
                 $ref: "../components/schemas/common.yaml#/ErrorResponse"
-        "401":
-          description: Authentication required.
-          content:
-            application/json:
-              schema:
-                $ref: "../components/schemas/common.yaml#/ErrorResponse"
         "500":
           description: Unexpected error.
           content:
@@ -122,12 +104,6 @@ paths:
       responses:
         "204":
           description: Speed dial deleted.
-        "401":
-          description: Authentication required.
-          content:
-            application/json:
-              schema:
-                $ref: "../components/schemas/common.yaml#/ErrorResponse"
         "404":
           description: Speed dial not found.
           content:

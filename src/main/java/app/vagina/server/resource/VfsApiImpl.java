@@ -1,5 +1,6 @@
 package app.vagina.server.resource;
 
+import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.entity.VfsFileEntity;
 import app.vagina.server.generated.api.VfsApi;
 import app.vagina.server.generated.model.JsonRpcVersion;
@@ -46,6 +47,14 @@ public class VfsApiImpl implements VfsApi {
         case MOVE -> moveResponse(userId, vfsRpcRequest);
         case DELETE -> deleteResponse(userId, vfsRpcRequest);
       };
+    } catch (ValidationException e) {
+      return Response.ok(
+              errorResponse(
+                  vfsRpcRequest.getId(),
+                  JSON_RPC_INVALID_PARAMS,
+                  e.getMessage(),
+                  buildRequestData(vfsRpcRequest)))
+          .build();
     } catch (IllegalArgumentException e) {
       return Response.ok(
               errorResponse(

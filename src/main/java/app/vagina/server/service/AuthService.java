@@ -1,5 +1,8 @@
 package app.vagina.server.service;
 
+import app.vagina.server.domain.error.AuthenticationException;
+import app.vagina.server.domain.error.ProviderNotImplementedException;
+import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.entity.AuthMethod;
 import app.vagina.server.entity.AuthnProvider;
 import app.vagina.server.entity.ClientType;
@@ -26,12 +29,15 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 @ApplicationScoped
 public class AuthService {
+  private static final Set<String> DECLARED_BUT_NOT_IMPLEMENTED_PROVIDERS =
+      Set.of("google", "apple", "twitter");
 
   // --- records ---
   public record CreatedOidcState(
@@ -64,10 +70,6 @@ public class AuthService {
   @ConfigProperty(name = "vagina.auth.oidc.redirect-uri.desktop", defaultValue = "")
   String desktopRedirectUri;
 
-  @ConfigProperty(name = "vagina.secret")
-  Optional<String> systemSecret;
-
-
   @ConfigProperty(name = "smallrye.jwt.new-token.issuer")
   String jwtIssuer;
 
@@ -78,19 +80,23 @@ public class AuthService {
   @Inject AuthnProviderMapper authnProviderMapper;
   @Inject UserService userService;
 
-  private final String runtimePkceSecret = Util.randomHexToken();
-
   // ========================
   // OIDC Provider delegation
   // ========================
 
   public OidcProviderBase resolveProvider(String providerKey) {
+    if (providerKey == null || providerKey.isBlank()) {
+      throw new ValidationException("OIDC provider is required");
+    }
     for (OidcProviderBase provider : oidcProviders) {
       if (providerKey.equals(provider.getProviderKey())) {
         return provider;
       }
     }
-    throw new IllegalArgumentException("Unsupported OIDC provider: " + providerKey);
+    if (DECLARED_BUT_NOT_IMPLEMENTED_PROVIDERS.contains(providerKey)) {
+      throw new ProviderNotImplementedException("OIDC provider not implemented: " + providerKey);
+    }
+    throw new ValidationException("Unsupported OIDC provider: " + providerKey);
   }
 
   public String buildAuthorizationUrl(
@@ -117,13 +123,16 @@ public class AuthService {
   // ========================
 
   @Transactional
-  public CreatedOidcState createState(String providerKey, ClientType clientType) {
+  public CreatedOidcState createState(
+      String providerKey,
+      ClientType clientType,
+      String codeChallenge,
+      String codeChallengeMethod) {
     String rawState = Util.randomHexToken();
     LocalDateTime now = LocalDateTime.now();
     String redirectUri = resolveRedirectUri(clientType);
-    String codeVerifier = buildPkceCodeVerifierForState(rawState);
-    String codeChallenge = generateS256CodeChallenge(codeVerifier);
-    String codeChallengeMethod = "S256";
+    String normalizedCodeChallenge = validateCodeChallenge(codeChallenge);
+    String normalizedCodeChallengeMethod = validateCodeChallengeMethod(codeChallengeMethod);
 
     OAuthLoginAttempt attempt = new OAuthLoginAttempt();
     attempt.setStateHash(Util.sha256Hex(rawState));
@@ -131,8 +140,8 @@ public class AuthService {
     attempt.setProviderKey(providerKey);
     attempt.setClientType(clientType);
     attempt.setRedirectUri(redirectUri);
-    attempt.setCodeChallenge(codeChallenge);
-    attempt.setCodeChallengeMethod(codeChallengeMethod);
+    attempt.setCodeChallenge(normalizedCodeChallenge);
+    attempt.setCodeChallengeMethod(normalizedCodeChallengeMethod);
     attempt.setExpiresAt(now.plusSeconds(stateLifespan));
     attempt.setConsumedAt(null);
     attempt.setSysmeta(null);
@@ -141,38 +150,43 @@ public class AuthService {
     oauthLoginAttemptMapper.insert(attempt);
 
     return new CreatedOidcState(
-        rawState, redirectUri, codeChallenge, codeChallengeMethod, stateLifespan);
+        rawState,
+        redirectUri,
+        normalizedCodeChallenge,
+        normalizedCodeChallengeMethod,
+        stateLifespan);
   }
 
   @Transactional
-  public OAuthLoginAttempt consumeState(String providerKey, String rawState) {
+  public OAuthLoginAttempt consumeState(String providerKey, String rawState, String codeVerifier) {
     OAuthLoginAttempt attempt =
         oauthLoginAttemptMapper
             .findByStateHash(Util.sha256Hex(rawState))
-            .orElseThrow(() -> new SecurityException("Unknown OIDC state"));
+            .orElseThrow(() -> new AuthenticationException("Unknown OIDC state"));
 
     LocalDateTime now = LocalDateTime.now();
 
     if (!providerKey.equals(attempt.getProviderKey())) {
-      throw new SecurityException("OIDC provider mismatch");
+      throw new AuthenticationException("OIDC provider mismatch");
     }
     if (attempt.getConsumedAt() != null) {
-      throw new SecurityException("OIDC state already consumed");
+      throw new AuthenticationException("OIDC state already consumed");
     }
     if (attempt.getExpiresAt() == null || !attempt.getExpiresAt().isAfter(now)) {
-      throw new SecurityException("OIDC state expired");
+      throw new AuthenticationException("OIDC state expired");
     }
-    String codeVerifier = buildPkceCodeVerifierForState(rawState);
+    String normalizedCodeVerifier = validateCodeVerifier(codeVerifier);
     if (!"S256".equals(attempt.getCodeChallengeMethod())) {
-      throw new SecurityException("Unsupported PKCE method: " + attempt.getCodeChallengeMethod());
+      throw new AuthenticationException(
+          "Unsupported PKCE method: " + attempt.getCodeChallengeMethod());
     }
-    if (!attempt.getCodeChallenge().equals(generateS256CodeChallenge(codeVerifier))) {
-      throw new SecurityException("OIDC PKCE verification failed");
+    if (!attempt.getCodeChallenge().equals(generateS256CodeChallenge(normalizedCodeVerifier))) {
+      throw new AuthenticationException("OIDC PKCE verification failed");
     }
 
     int updated = oauthLoginAttemptMapper.markConsumedIfUnused(attempt.getId(), now, now);
     if (updated != 1) {
-      throw new SecurityException("OIDC state already consumed");
+      throw new AuthenticationException("OIDC state already consumed");
     }
 
     attempt.setConsumedAt(now);
@@ -193,20 +207,6 @@ public class AuthService {
               ? desktopRedirectUri
               : requiredRedirectUri(webRedirectUri, "web");
     };
-  }
-
-  public String buildPkceCodeVerifierForState(String rawState) {
-    if (rawState == null || rawState.isBlank()) {
-      throw new SecurityException("OIDC state is required");
-    }
-    String pkceSecret = runtimePkceSecret;
-    if (systemSecret != null) {
-      Optional<String> configuredSecret = systemSecret.filter(value -> !value.isBlank());
-      if (configuredSecret.isPresent()) {
-        pkceSecret = configuredSecret.get();
-      }
-    }
-    return generateS256CodeChallenge(pkceSecret + ":" + rawState);
   }
 
   public static String generateS256CodeChallenge(String codeVerifier) {
@@ -382,6 +382,39 @@ public class AuthService {
       }
       refreshTokenMapper.update(familyToken);
     }
+  }
+
+  private String validateCodeChallenge(String codeChallenge) {
+    if (codeChallenge == null) {
+      throw new ValidationException("codeChallenge is required");
+    }
+    String normalized = codeChallenge.trim();
+    if (normalized.isEmpty()) {
+      throw new ValidationException("codeChallenge is required");
+    }
+    return normalized;
+  }
+
+  private String validateCodeChallengeMethod(String codeChallengeMethod) {
+    if (codeChallengeMethod == null) {
+      throw new ValidationException("codeChallengeMethod is required");
+    }
+    String normalized = codeChallengeMethod.trim();
+    if (!"S256".equals(normalized)) {
+      throw new ValidationException("Unsupported codeChallengeMethod: " + normalized);
+    }
+    return normalized;
+  }
+
+  private String validateCodeVerifier(String codeVerifier) {
+    if (codeVerifier == null) {
+      throw new AuthenticationException("codeVerifier is required");
+    }
+    String normalized = codeVerifier.trim();
+    if (normalized.isEmpty()) {
+      throw new AuthenticationException("codeVerifier is required");
+    }
+    return normalized;
   }
 
 }

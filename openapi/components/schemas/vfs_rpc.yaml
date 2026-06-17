@@ -34,7 +34,10 @@ VfsFile:
     - content
   properties:
     path:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
     content:
       type: string
       example: "# Today"
@@ -46,7 +49,10 @@ VfsListParams:
     - path
   properties:
     path:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
     recursive:
       type: boolean
       default: false
@@ -58,7 +64,10 @@ VfsReadParams:
     - path
   properties:
     path:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
 
 VfsWriteParams:
   type: object
@@ -68,7 +77,10 @@ VfsWriteParams:
     - content
   properties:
     path:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
     content:
       type: string
       example: "# Today"
@@ -81,9 +93,15 @@ VfsMoveParams:
     - toPath
   properties:
     fromPath:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
     toPath:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
 
 VfsDeleteParams:
   type: object
@@ -92,7 +110,10 @@ VfsDeleteParams:
     - path
   properties:
     path:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
 
 VfsListResult:
   type: object
@@ -135,9 +156,15 @@ VfsMoveResult:
     - toPath
   properties:
     fromPath:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
     toPath:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
 
 VfsDeleteResult:
   type: object
@@ -146,7 +173,10 @@ VfsDeleteResult:
     - path
   properties:
     path:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
 
 VfsRpcParams:
   type: object
@@ -162,7 +192,10 @@ VfsRpcParams:
     - `vfs.delete` expects the shape of `VfsDeleteParams`
   properties:
     path:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
     recursive:
       type: boolean
       default: false
@@ -170,9 +203,15 @@ VfsRpcParams:
       type: string
       example: "# Today"
     fromPath:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
     toPath:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
 
 VfsRpcResult:
   type: object
@@ -194,11 +233,20 @@ VfsRpcResult:
     file:
       $ref: '#/VfsFile'
     path:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
     fromPath:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
     toPath:
-      $ref: '#/VfsPath'
+      type: string
+      minLength: 1
+      maxLength: 512
+      pattern: '^/.*$'
 
 VfsRpcError:
   type: object
@@ -231,7 +279,9 @@ VfsRpcRequest:
     jsonrpc:
       $ref: '#/JsonRpcVersion'
     id:
-      $ref: '#/JsonRpcRequestId'
+      type: string
+      minLength: 1
+      maxLength: 128
     method:
       $ref: '#/VfsMethod'
     params:
@@ -249,7 +299,9 @@ VfsRpcResponse:
     jsonrpc:
       $ref: '#/JsonRpcVersion'
     id:
-      $ref: '#/JsonRpcRequestId'
+      type: string
+      minLength: 1
+      maxLength: 128
     result:
       $ref: '#/VfsRpcResult'
     error:

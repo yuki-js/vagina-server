@@ -1,5 +1,6 @@
 package app.vagina.server.resource;
 
+import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.entity.ClientType;
 import app.vagina.server.generated.api.AuthApi;
 import app.vagina.server.generated.model.AuthTokenResponse;
@@ -31,9 +32,15 @@ public class AuthApiImpl implements AuthApi {
   @Override
   public Response exchangeOidcLogin(
       String provider, ExchangeOidcLoginRequest exchangeOidcLoginRequest) {
+    if (exchangeOidcLoginRequest == null) {
+      throw new ValidationException("Request body is required");
+    }
     AuthUsecase.AuthSessionResult result =
         authUsecase.exchangeOidcLogin(
-            provider, exchangeOidcLoginRequest.getCode(), exchangeOidcLoginRequest.getState());
+            provider,
+            exchangeOidcLoginRequest.getCode(),
+            exchangeOidcLoginRequest.getState(),
+            exchangeOidcLoginRequest.getCodeVerifier());
     return Response.ok(toAuthTokenResponse(result)).build();
   }
 
@@ -70,13 +77,29 @@ public class AuthApiImpl implements AuthApi {
 
   @Override
   public Response startOidcLogin(String provider, StartOidcLoginRequest startOidcLoginRequest) {
+    if (startOidcLoginRequest == null) {
+      throw new ValidationException("Request body is required");
+    }
     ClientType clientType = ClientType.WEB;
-    if (startOidcLoginRequest != null && startOidcLoginRequest.getClientType() != null) {
-      clientType = ClientType.fromValue(startOidcLoginRequest.getClientType().value());
+    if (startOidcLoginRequest.getClientType() != null) {
+      try {
+        clientType = ClientType.fromValue(startOidcLoginRequest.getClientType().value());
+      } catch (IllegalArgumentException e) {
+        throw new ValidationException(e.getMessage(), e);
+      }
+    }
+    StartOidcLoginRequest.CodeChallengeMethodEnum codeChallengeMethod =
+        startOidcLoginRequest.getCodeChallengeMethod();
+    if (codeChallengeMethod == null) {
+      throw new ValidationException("codeChallengeMethod is required");
     }
 
     AuthUsecase.StartOidcLoginResult result =
-        authUsecase.startOidcLogin(provider, clientType);
+        authUsecase.startOidcLogin(
+            provider,
+            clientType,
+            startOidcLoginRequest.getCodeChallenge(),
+            codeChallengeMethod.value());
 
     StartOidcLogin200Response response = new StartOidcLogin200Response();
     response.setAuthorizationUrl(result.authorizationUrl());

@@ -15,8 +15,12 @@ import io.restassured.response.Response;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -30,7 +34,6 @@ import org.junit.jupiter.api.TestMethodOrder;
 public class AuthenticationIntegrationTest {
 
   private static final String REDIRECT_URI = "https://example.com/callback";
-  private static final String CODE_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
 
   private static String accessToken;
   private static String refreshToken;
@@ -41,12 +44,15 @@ public class AuthenticationIntegrationTest {
   @Test
   @Order(1)
   public void testHarigataOidcAuthorizationCodeFlow() {
+    PkcePair pkce = issuePkcePair();
     Response startResponse =
         given()
             .contentType(ContentType.JSON)
             .body(
                 Map.of(
-                    "clientType", "web"))
+                    "clientType", "web",
+                    "codeChallenge", pkce.codeChallenge(),
+                    "codeChallengeMethod", "S256"))
             .when()
             .post("/api/auth/oidc/harigata/start")
             .then()
@@ -93,7 +99,7 @@ public class AuthenticationIntegrationTest {
                     "state",
                     redirectPayload.state(),
                     "codeVerifier",
-                    CODE_VERIFIER))
+                    pkce.codeVerifier()))
             .when()
             .post("/api/auth/oidc/harigata/exchange")
             .then()
@@ -129,9 +135,14 @@ public class AuthenticationIntegrationTest {
   @Test
   @Order(3)
   public void testStartUnsupportedOidcProvider() {
+    PkcePair pkce = issuePkcePair();
     given()
         .contentType(ContentType.JSON)
-        .body(Map.of("clientType", "web"))
+        .body(
+            Map.of(
+                "clientType", "web",
+                "codeChallenge", pkce.codeChallenge(),
+                "codeChallengeMethod", "S256"))
         .when()
         .post("/api/auth/oidc/unsupported/start")
         .then()
@@ -141,13 +152,34 @@ public class AuthenticationIntegrationTest {
 
   @Test
   @Order(4)
+  public void testStartKnownButNotImplementedOidcProvider() {
+    PkcePair pkce = issuePkcePair();
+    given()
+        .contentType(ContentType.JSON)
+        .body(
+            Map.of(
+                "clientType", "web",
+                "codeChallenge", pkce.codeChallenge(),
+                "codeChallengeMethod", "S256"))
+        .when()
+        .post("/api/auth/oidc/google/start")
+        .then()
+        .statusCode(501)
+        .body("message", equalTo("OIDC provider not implemented: google"));
+  }
+
+  @Test
+  @Order(5)
   public void testExchangeHarigataOidcLoginWithBadStateFails() {
+    PkcePair pkce = issuePkcePair();
     Response startResponse =
         given()
             .contentType(ContentType.JSON)
             .body(
                 Map.of(
-                    "clientType", "web"))
+                    "clientType", "web",
+                    "codeChallenge", pkce.codeChallenge(),
+                    "codeChallengeMethod", "S256"))
             .when()
             .post("/api/auth/oidc/harigata/start")
             .then()
@@ -167,7 +199,7 @@ public class AuthenticationIntegrationTest {
                 "state",
                 badState,
                 "codeVerifier",
-                "wrong-verifier"))
+                pkce.codeVerifier()))
         .when()
         .post("/api/auth/oidc/harigata/exchange")
         .then()
@@ -176,7 +208,7 @@ public class AuthenticationIntegrationTest {
   }
 
   @Test
-  @Order(5)
+  @Order(6)
   public void testGetCurrentUserWithValidAccessToken() {
     given()
         .header("Authorization", "Bearer " + accessToken)
@@ -189,7 +221,7 @@ public class AuthenticationIntegrationTest {
   }
 
   @Test
-  @Order(6)
+  @Order(7)
   public void testRefreshSession() {
     Response response =
         given()
@@ -213,7 +245,7 @@ public class AuthenticationIntegrationTest {
   }
 
   @Test
-  @Order(7)
+  @Order(8)
   public void testLogoutRevokesRefreshToken() {
     given()
         .contentType(ContentType.JSON)
@@ -225,7 +257,7 @@ public class AuthenticationIntegrationTest {
   }
 
   @Test
-  @Order(8)
+  @Order(9)
   public void testRevokedRefreshTokenCannotBeUsed() {
     given()
         .contentType(ContentType.JSON)
@@ -238,12 +270,15 @@ public class AuthenticationIntegrationTest {
   }
 
   private String runOidcLoginAndReturnUserId() {
+    PkcePair pkce = issuePkcePair();
     Response startResponse =
         given()
             .contentType(ContentType.JSON)
             .body(
                 Map.of(
-                    "clientType", "web"))
+                    "clientType", "web",
+                    "codeChallenge", pkce.codeChallenge(),
+                    "codeChallengeMethod", "S256"))
             .when()
             .post("/api/auth/oidc/harigata/start")
             .then()
@@ -276,7 +311,7 @@ public class AuthenticationIntegrationTest {
                     "state",
                     redirectPayload.state(),
                     "codeVerifier",
-                    CODE_VERIFIER))
+                    pkce.codeVerifier()))
             .when()
             .post("/api/auth/oidc/harigata/exchange")
             .then()
@@ -310,4 +345,21 @@ public class AuthenticationIntegrationTest {
   }
 
   private record RedirectPayload(String location, String code, String state) {}
+
+  private PkcePair issuePkcePair() {
+    String verifier = "test-verifier-" + UUID.randomUUID();
+    return new PkcePair(verifier, s256(verifier));
+  }
+
+  private String s256(String verifier) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(verifier.getBytes(StandardCharsets.US_ASCII));
+      return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 is not available", e);
+    }
+  }
+
+  private record PkcePair(String codeVerifier, String codeChallenge) {}
 }

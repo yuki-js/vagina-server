@@ -1,5 +1,6 @@
 package app.vagina.server.service.oidcprovider;
 
+import app.vagina.server.domain.error.ExternalServiceException;
 import app.vagina.server.support.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -60,17 +61,22 @@ public class GitHubOidcProvider extends OidcProviderBase {
 
   private OidcUserInfo fetchUserInfoFromGitHubApi(String accessToken) {
     WebClient client = WebClient.create(vertx);
-    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response =
-        client
-            .getAbs(gitHubOidcProviderInfo.userApiEndpoint())
-            .putHeader("Authorization", "Bearer " + accessToken)
-            .putHeader("Accept", "application/json")
-            .send()
-            .await()
-            .indefinitely();
+    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response;
+    try {
+      response =
+          client
+              .getAbs(gitHubOidcProviderInfo.userApiEndpoint())
+              .putHeader("Authorization", "Bearer " + accessToken)
+              .putHeader("Accept", "application/json")
+              .send()
+              .await()
+              .indefinitely();
+    } catch (RuntimeException e) {
+      throw new ExternalServiceException("GitHub user API request failed", e);
+    }
 
     if (response.statusCode() != 200) {
-      throw new IllegalStateException(
+      throw new ExternalServiceException(
           "GitHub user API endpoint returned status " + response.statusCode());
     }
 
@@ -92,8 +98,8 @@ public class GitHubOidcProvider extends OidcProviderBase {
 
       return new OidcUserInfo(
           subject, providerLogin, displayName, avatarUrl, email, emailVerified, rawProfile);
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException("Failed to parse GitHub user API response", e);
+    } catch (Exception e) {
+      throw new ExternalServiceException("Failed to parse GitHub user API response", e);
     }
   }
 
