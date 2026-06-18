@@ -7,6 +7,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.StringJoiner;
 
@@ -63,5 +64,65 @@ public final class Util {
     byte[] randomBytes = new byte[32];
     SECURE_RANDOM.get().nextBytes(randomBytes);
     return HEX_FORMAT.formatHex(randomBytes);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Map field extraction (mirror of the JsonNode helpers above, for decoded
+  // CBOR/JSON object maps). Pure, dependency-free, and protocol-agnostic.
+  // ---------------------------------------------------------------------------
+
+  public static String requireString(Map<?, ?> map, String field) {
+    Object value = map.get(field);
+    if (!(value instanceof String text) || text.isEmpty()) {
+      throw new IllegalStateException("Missing or invalid string field: " + field);
+    }
+    return text;
+  }
+
+  public static String optionalString(Map<?, ?> map, String field) {
+    Object value = map.get(field);
+    if (value == null) {
+      return null;
+    }
+    if (!(value instanceof String text)) {
+      throw new IllegalStateException("Field is not a string: " + field);
+    }
+    return text;
+  }
+
+  public static long requireLong(Map<?, ?> map, String field) {
+    Object value = map.get(field);
+    if (value instanceof Number number) {
+      return number.longValue();
+    }
+    throw new IllegalStateException("Missing or invalid integer field: " + field);
+  }
+
+  public static byte[] requireBytes(Map<?, ?> map, String field, int maxBytes) {
+    Object value = map.get(field);
+    if (!(value instanceof byte[] bytes)) {
+      throw new IllegalStateException("Missing or invalid byte field: " + field);
+    }
+    if (bytes.length > maxBytes) {
+      throw new IllegalStateException(field + " exceeds limit");
+    }
+    return bytes;
+  }
+
+  public static Map<String, Object> asStringKeyedMap(Object value) {
+    if (value == null) {
+      return Map.of();
+    }
+    if (!(value instanceof Map<?, ?> map)) {
+      throw new IllegalStateException("Expected a map payload");
+    }
+    Map<String, Object> result = new LinkedHashMap<>();
+    for (Map.Entry<?, ?> entry : map.entrySet()) {
+      if (!(entry.getKey() instanceof String key)) {
+        throw new IllegalStateException("Map payload has a non-string key");
+      }
+      result.put(key, entry.getValue());
+    }
+    return result;
   }
 }
