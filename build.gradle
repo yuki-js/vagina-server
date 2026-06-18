@@ -21,6 +21,12 @@ dependencies {
     implementation 'io.quarkus:quarkus-arc'
     implementation 'io.quarkus:quarkus-vertx'
     implementation 'io.smallrye.reactive:smallrye-mutiny-vertx-web-client'
+
+    // Hosted realtime (VHRP/1): binary WebSocket transport + CBOR wire codec.
+    // Presentation/transport substrate only; session/thread/model logic lives in
+    // the usecase/service layers (not provided by this change).
+    implementation 'io.quarkus:quarkus-websockets-next'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor'
     
     // CORS support via Vert.x HTTP
     implementation 'io.quarkus:quarkus-vertx-http'
