@@ -17,6 +17,8 @@ import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcTokenSet;
 import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcUserInfo;
 import app.vagina.server.support.Util;
 import io.smallrye.jwt.algorithm.SignatureAlgorithm;
+import io.smallrye.jwt.auth.principal.JWTParser;
+import io.smallrye.jwt.auth.principal.ParseException;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -79,6 +81,7 @@ public class AuthService {
   @Inject RefreshTokenMapper refreshTokenMapper;
   @Inject AuthnProviderMapper authnProviderMapper;
   @Inject UserService userService;
+  @Inject JWTParser jwtParser;
 
   // ========================
   // OIDC Provider delegation
@@ -337,6 +340,32 @@ public class AuthService {
   // ========================
   // Authentication
   // ========================
+
+  /**
+   * Authenticate a raw JWT string carried in-band (for example a VHRP/1 {@code session.open} token).
+   *
+   * <p>REST requests are authenticated from the {@code Authorization} header, which MP-JWT parses
+   * for us; an in-band token arrives as a raw string with no header. This {@link String} overload
+   * does that parsing itself and then delegates to {@link #authenticateFromJwt(JsonWebToken)} to
+   * resolve the user, keeping both entry points behaviourally identical.
+   *
+   * <p>Consistent with the {@link JsonWebToken} overload, this never throws: a missing, malformed,
+   * or unresolvable token yields {@link Optional#empty()}. Callers that need to treat that as a
+   * failure decide so themselves (for example via {@code orElseThrow}).
+   *
+   * @param rawToken the raw JWT string
+   * @return the authenticated user, or empty if the token is missing, invalid, or unresolvable
+   */
+  public Optional<User> authenticateFromJwt(String rawToken) {
+    if (rawToken == null || rawToken.isBlank()) {
+      return Optional.empty();
+    }
+    try {
+      return authenticateFromJwt(jwtParser.parse(rawToken));
+    } catch (ParseException e) {
+      return Optional.empty();
+    }
+  }
 
   public Optional<User> authenticateFromJwt(JsonWebToken jwt) {
     if (jwt == null || jwt.getClaim("uid") == null) {
