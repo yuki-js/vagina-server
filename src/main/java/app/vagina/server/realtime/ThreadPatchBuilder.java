@@ -21,10 +21,11 @@ import java.util.Map;
  * </ol>
  *
  * <p>Where the Dart code called {@code _emitThreadUpdate()}, the {@code oai/} mirror calls {@link
- * #drainOps()} and the session flushes the buffered ops as one {@code thread.patch} (the session
- * owns {@code streamSeq} / {@code baseThreadRevision} / {@code targetThreadRevision}; this builder
- * owns only the op <em>content</em>). One builder belongs to one session, so it is intentionally
- * mutable and not thread-safe; the {@code oai/} body funnels all mutations through this one place.
+ * #drainOps()} and the session flushes the buffered ops as one {@code thread.patch} (this builder
+ * owns only the op <em>content</em>; the patch carries no revision/sequence — it is a fire-and-forget
+ * live delta, recovered on gap by reconnect + full snapshot). One builder belongs to one session, so
+ * it is intentionally mutable and not thread-safe; the {@code oai/} body funnels all mutations
+ * through this one place.
  *
  * <p>The op wire shapes here mirror the {@code thread.patch.ops} table in {@code
  * 02_vhrp_wire_protocol.md}. PCM bytes never enter an op: assistant audio rides its own {@code
@@ -32,12 +33,6 @@ import java.util.Map;
  * op.
  */
 public final class ThreadPatchBuilder {
-
-  /** P-frame patch kind, per the checkpoint model (patch = P-frame, snapshot = I-frame). */
-  private static final String PATCH_KIND_P_FRAME = "p_frame";
-
-  /** I-frame snapshot kind. */
-  private static final String SNAPSHOT_KIND_I_FRAME = "i_frame";
 
   private final RealtimeThread thread;
 
@@ -255,6 +250,32 @@ public final class ThreadPatchBuilder {
    */
   public void appendAudioChunk(RealtimeThread.AudioPart part, byte[] pcm) {
     part.appendAudioDelta(pcm);
+  }
+
+  /**
+   * Marks the located part done and re-records {@code put_part} so the client observes {@code
+   * isDone:true}. Mirrors the Dart adapter calling {@code part.markDone()} on {@code
+   * content_part.done} / {@code output_text.done} / {@code output_audio.done}: the only wire shape
+   * carrying {@code isDone} is {@code put_part}, so a done transition re-upserts the same part. With
+   * a {@code null} index the last part of any kind is used, matching {@link #findPart} semantics for
+   * an unspecified index. No-op (and no op) when no part is located.
+   */
+  public void markPartDone(RealtimeThread.Item item, Integer contentIndex) {
+    RealtimeThread.ContentPart part = locatePart(item, contentIndex);
+    if (part == null) {
+      return;
+    }
+    part.markDone();
+    recordPutPart(item.id(), indexOf(item, part), part);
+  }
+
+  /** Locates a part by explicit index, or the last part when {@code contentIndex} is null. */
+  private RealtimeThread.ContentPart locatePart(RealtimeThread.Item item, Integer contentIndex) {
+    if (contentIndex != null) {
+      return item.findContentPart(contentIndex);
+    }
+    List<RealtimeThread.ContentPart> content = item.content();
+    return content.isEmpty() ? null : content.get(content.size() - 1);
   }
 
   // ---------------------------------------------------------------------------

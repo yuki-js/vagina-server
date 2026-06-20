@@ -23,10 +23,14 @@ import java.util.Set;
  *
  * The Dart adapter projects a thread and emits whole-thread updates; the server must instead emit
  * VHRP {@code thread.patch} deltas. So this interface adds projection accessors ({@link
- * #conversationId()}, {@link #threadRevision()}, {@link #supportedExtensions()}) and a delta stream
- * ({@link #threadPatches()}) the session frames as patches, while {@link #thread()} remains the
- * canonical snapshot source. Live mic input is a single-chunk push ({@link #pushLiveAudioChunk},
- * judgment 6) rather than a bound stream.
+ * #conversationId()}, {@link #supportedExtensions()}) and a delta stream ({@link #threadPatches()})
+ * the session frames as patches, while {@link #thread()} remains the canonical snapshot source. Live
+ * mic input is a single-chunk push ({@link #pushLiveAudioChunk}, judgment 6) rather than a bound
+ * stream.
+ *
+ * <p>There is no thread revision/sequence here: a {@code thread.patch} is a fire-and-forget live
+ * delta, and the only recovery for any delivery gap is reconnect + a fresh full {@code
+ * thread.snapshot} built from {@link #thread()}. So the adapter owns no version counter.
  */
 public interface RealtimeAdapter {
 
@@ -64,13 +68,11 @@ public interface RealtimeAdapter {
   /**
    * Emits one batch of patch ops per flush point (judgment 5: ops are appended at mutation sites and
    * flushed where the Dart code emitted a whole-thread update). The session wraps each batch in a
-   * VHRP {@code thread.patch} with the next streamSeq and a base→target revision step. Ops are kept
-   * as generic maps so the wire-shape stays in the session/codec, not in the adapter.
+   * VHRP {@code thread.patch} and writes it live. Ops are kept as generic maps so the wire-shape
+   * stays in the session/codec, not in the adapter. There is no revision on a batch: a patch is a
+   * fire-and-forget live delta, and a delivery gap is recovered by reconnect + full snapshot.
    */
-  Multi<List<Map<String, Object>>> threadPatches();
-
-  /** Current canonical thread revision; reported in {@code session.resumed}. */
-  long threadRevision();
+  Multi<RealtimeAdapterModels.ThreadPatchOps> threadPatches();
 
   /** Conversation id once known; reported in {@code session.ready}/{@code session.resumed}. */
   String conversationId();

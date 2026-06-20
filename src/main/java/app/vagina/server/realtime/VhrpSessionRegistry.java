@@ -1,6 +1,7 @@
 package app.vagina.server.realtime;
 
 import app.vagina.server.entity.User;
+import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.service.AuthService;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.WebSocketConnection;
@@ -9,6 +10,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -37,9 +39,6 @@ public class VhrpSessionRegistry {
   /** How long a detached session is retained for resume before disposal. */
   private static final Duration RETENTION_WINDOW = Duration.ofMinutes(2);
 
-  /** Replay-log capacity handed to each new session; bounds how far a resume can catch up. */
-  private static final int REPLAY_LOG_CAPACITY = 512;
-
   /** Live and retained sessions keyed by stable sessionId. Concurrent: connections span threads. */
   private final ConcurrentHashMap<String, Entry> sessions = new ConcurrentHashMap<>();
 
@@ -47,14 +46,22 @@ public class VhrpSessionRegistry {
   @Inject RealtimeAdapterFactory adapterFactory;
   @Inject VhrpCborCodec codec;
 
-  /** A session plus the bookkeeping the registry needs to police retention. */
+  /** A session plus the bookkeeping the registry needs to police retention and ownership. */
   private static final class Entry {
     final VhrpSession session;
+
+    /**
+     * The id of the user who created this session. A resume must come from the same user, so a
+     * leaked sessionId cannot be rebound under a different token.
+     */
+    final String ownerUserId;
+
     volatile boolean attached;
     volatile Instant detachedAt;
 
-    Entry(VhrpSession session) {
+    Entry(VhrpSession session, String ownerUserId) {
       this.session = session;
+      this.ownerUserId = ownerUserId;
       this.attached = true;
     }
   }
@@ -76,6 +83,7 @@ public class VhrpSessionRegistry {
               new VhrpException.AuthInvalidJwt("Invalid or missing session.open token"));
     }
 
+    sweepExpired();
     if (open.resume() != null) {
       return resume(open, user.get());
     }
@@ -94,17 +102,19 @@ public class VhrpSessionRegistry {
 
     String sessionId = newSessionId();
     String threadId = newThreadId();
-    VhrpSession session =
-        new VhrpSession(sessionId, threadId, codec, adapter, REPLAY_LOG_CAPACITY);
-    sessions.put(sessionId, new Entry(session));
+    VhrpSession session = new VhrpSession(sessionId, threadId, codec, adapter);
+    sessions.put(sessionId, new Entry(session, user.getId().toString()));
     Log.infof(
         "VHRP session %s created for user %s on model %s",
         sessionId, user.getId(), open.modelId());
 
-    // connect() opens the downstream vendor connection and applies voice/instructions from the
-    // open; the session is returned only once the adapter is ready to be driven.
+    // Apply the session.open initial turn mode before connect(): while disconnected the adapter only
+    // records the mode, so the first session.update connect() sends already carries it — no second
+    // update, no missed initial mode. Then connect() opens the downstream vendor connection and
+    // applies voice/instructions; the session is returned once the adapter is ready to be driven.
     return adapter
-        .connect(open.voice(), open.instructions())
+        .setAudioTurnMode(RealtimeAdapterModels.AudioTurnMode.fromWire(open.audioTurnMode()))
+        .chain(() -> adapter.connect(open.voice(), open.instructions()))
         .replaceWith(session);
   }
 
@@ -118,8 +128,18 @@ public class VhrpSessionRegistry {
               new VhrpException.ResumeNotAvailable(
                   "No retained session for " + request.sessionId()));
     }
-    // TODO: verify the resuming user owns this session before rebinding, so a leaked sessionId
-    //   cannot be hijacked under a different token.
+    // Ownership check: a resume must come from the same user that created the session, so a leaked
+    // sessionId cannot be rebound under a different token. Report not-available rather than a
+    // distinct auth error so a probe cannot tell "wrong owner" from "no such session".
+    if (!Objects.equals(entry.ownerUserId, user.getId().toString())) {
+      Log.warnf(
+          "VHRP resume of %s rejected: user %s is not the owner",
+          request.sessionId(), user.getId());
+      return Uni.createFrom()
+          .failure(
+              new VhrpException.ResumeNotAvailable(
+                  "No retained session for " + request.sessionId()));
+    }
     entry.attached = true;
     entry.detachedAt = null;
     Log.infof("VHRP session %s resumed by user %s", request.sessionId(), user.getId());
@@ -137,8 +157,39 @@ public class VhrpSessionRegistry {
       entry.attached = false;
       entry.detachedAt = Instant.now();
     }
-    // TODO: schedule a sweep (or run a periodic one) that disposes entries whose detachedAt is older
-    //   than RETENTION_WINDOW, calling the adapter's dispose to release the downstream connection.ｇｔ
+    sweepExpired();
+  }
+
+  /**
+   * Lazily disposes any detached session whose retention window has elapsed, releasing its
+   * downstream vendor connection via {@link VhrpSession#dispose()}. Run opportunistically on
+   * registry mutation (open/resume/detach) rather than on a timer: scheduling/eviction policy is
+   * outside the clean-room scope, but a real downstream socket must not leak past its window, so the
+   * minimum viable reclamation is done here. An attached session is never swept; a session re-bound
+   * by a fast resume has its {@code detachedAt} cleared and is therefore skipped.
+   */
+  private void sweepExpired() {
+    Instant now = Instant.now();
+    for (Entry entry : sessions.values()) {
+      if (entry.attached || entry.detachedAt == null) {
+        continue;
+      }
+      if (Duration.between(entry.detachedAt, now).compareTo(RETENTION_WINDOW) < 0) {
+        continue;
+      }
+      if (sessions.remove(entry.session.sessionId(), entry)) {
+        Log.infof("VHRP session %s evicted after retention window", entry.session.sessionId());
+        entry
+            .session
+            .dispose()
+            .subscribe()
+            .with(
+                ignored -> {},
+                error ->
+                    Log.errorf(
+                        error, "VHRP session %s dispose failed", entry.session.sessionId()));
+      }
+    }
   }
 
   private String newSessionId() {

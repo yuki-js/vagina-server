@@ -1,6 +1,8 @@
 package app.vagina.server.realtime;
 
 import app.vagina.server.realtime.oai.OaiRealtimeAdapter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.vertx.mutiny.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -35,30 +37,34 @@ public class ConfigRealtimeAdapterFactory implements RealtimeAdapterFactory {
 
   @Inject RealtimeModelsConfig modelsConfig;
 
+  /** Shared Vert.x for the downstream OpenAI WebSocket; one event loop serves all sessions. */
+  @Inject Vertx vertx;
+
+  /** Single configured JSON mapper shared by every driver's encoder/parser. */
+  @Inject ObjectMapper objectMapper;
+
   @Override
   public RealtimeAdapter create(String modelId) throws UnknownModelException {
     RealtimeModelsConfig.ModelConfig model = modelsConfig.models().get(modelId);
     if (model == null) {
       throw new UnknownModelException(modelId);
     }
-    // Only the provider discriminator is read here; the modelId alone is forwarded to the driver,
-    // which resolves its own connection info from RealtimeModelsConfig.
+    // Only the provider discriminator is read here to pick the driver; the resolved ModelConfig is
+    // handed to the driver, which interprets its own baseUrl/apiKey/transcription/defaults.
     return switch (model.provider()) {
-      case "oai" -> buildOaiAdapter(modelId);
+      case "oai" -> buildOaiAdapter(modelId, model);
       default -> throw new UnknownModelException(modelId);
     };
   }
 
   /**
-   * Builds the OAI-family driver, handing it only the {@code modelId} to self-resolve.
-   *
-   * <p>Per the standing decision, the factory passes nothing but the {@code modelId}: the OAI body
-   * injects {@link RealtimeModelsConfig} itself and resolves baseUrl/apiKey/transcription/defaults
-   * from its own {@code modelId} group, and owns its own {@code RealtimeThread} +
-   * {@link ThreadPatchBuilder} internally (mirroring the Dart {@code OaiRealtimeAdapter}). The
-   * factory therefore stays ignorant of every vendor's connection shape.
+   * Builds the OAI-family driver. The factory reads only {@code provider()} to select it and then
+   * hands over the {@code modelId} and its resolved {@link RealtimeModelsConfig.ModelConfig} group
+   * plus the shared Vert.x and JSON mapper; the OAI body owns its own {@code RealtimeThread} +
+   * {@link ThreadPatchBuilder} and downstream connection, mirroring the Dart {@code
+   * OaiRealtimeAdapter}. The factory therefore stays ignorant of every vendor's connection shape.
    */
-  private RealtimeAdapter buildOaiAdapter(String modelId) {
-    return new OaiRealtimeAdapter(modelId);
+  private RealtimeAdapter buildOaiAdapter(String modelId, RealtimeModelsConfig.ModelConfig model) {
+    return new OaiRealtimeAdapter(modelId, model, vertx, objectMapper);
   }
 }

@@ -1,5 +1,6 @@
 package app.vagina.server.realtime.model;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -92,4 +93,18 @@ public final class RealtimeAdapterModels {
    * {@code pcm} is empty for an end-of-audio boundary emitted on the completion stream.
    */
   public record AssistantAudioFrame(String itemId, int contentIndex, byte[] pcm) {}
+
+  /**
+   * One flush of thread mutations (judgment 4), as a bare op list.
+   *
+   * <p>The Dart {@code OaiRealtimeAdapter} emits the <em>whole</em> thread at each {@code
+   * _emitThreadUpdate()}; the server instead emits a delta. Each flush of buffered ops becomes one
+   * VHRP {@code thread.patch}, which the client applies as a live mutation of its projected thread.
+   *
+   * <p>There is no revision/sequence on a patch: the single recovery path for any delivery gap is
+   * reconnect + a fresh full {@code thread.snapshot}, so a patch needs no version to be validated
+   * against. {@code ops} are kept as generic maps so the wire shape stays in the codec, not the
+   * adapter.
+   */
+  public record ThreadPatchOps(List<Map<String, Object>> ops) {}
 }

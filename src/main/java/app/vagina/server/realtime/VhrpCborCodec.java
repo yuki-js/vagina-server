@@ -17,10 +17,12 @@ import java.util.Map;
  * Translates VHRP/1 binary frames to/from the typed {@link VhrpMessage} set.
  *
  * <p>On the wire every application message is exactly one CBOR map with the common envelope {@code {
- * type, [messageId], [streamSeq], [replyTo], body }} (see {@code
+ * type, [messageId], [replyTo], body }} (see {@code
  * client/docs/hosted_realtime/02_vhrp_wire_protocol.md}). This codec is the only place that touches
  * that raw shape; everything above it works with records. Binary payloads ride as CBOR {@code bstr}
- * and surface as {@code byte[]}, so base64 never appears server-side.
+ * and surface as {@code byte[]}, so base64 never appears server-side. There is no {@code streamSeq}
+ * or thread revision on the envelope: a {@code thread.patch} is a fire-and-forget live delta and the
+ * single recovery for any gap is reconnect + a fresh full {@code thread.snapshot}.
  *
  * <p>Decoding is strict on the envelope (missing {@code type}/{@code body} is a {@link
  * VhrpException.ProtocolBadMessage}) and on the set of client types (unknown type is a {@link
@@ -100,12 +102,7 @@ public class VhrpCborCodec {
               text(body, "errorMessage"));
       case "assistant.interrupt" -> new VhrpMessage.AssistantInterrupt(text(body, "reason"));
       case "thread.sync.request" ->
-          new VhrpMessage.ThreadSyncRequest(
-              messageId,
-              longValue(body, "afterStreamSeq", 0L),
-              longValue(body, "knownThreadRevision", 0L),
-              text(body, "mode"),
-              text(body, "reason"));
+          new VhrpMessage.ThreadSyncRequest(messageId, text(body, "reason"));
       default ->
           throw new VhrpException.ProtocolUnsupportedMessageType(
               "Unsupported VHRP message type: " + type);
@@ -163,7 +160,6 @@ public class VhrpCborCodec {
 
     switch (message) {
       case VhrpMessage.SessionReady m -> {
-        putStreamSeq(root, m.streamSeq());
         putIfPresent(root, "replyTo", m.replyTo());
         body.put("sessionId", m.sessionId());
         body.put("threadId", m.threadId());
@@ -172,13 +168,10 @@ public class VhrpCborCodec {
         putStringArray(caps, "extensions", m.capabilityExtensions());
       }
       case VhrpMessage.SessionResumed m -> {
-        putStreamSeq(root, m.streamSeq());
         putIfPresent(root, "replyTo", m.replyTo());
         body.put("sessionId", m.sessionId());
         body.put("threadId", m.threadId());
         putIfPresent(body, "conversationId", m.conversationId());
-        body.put("resumeStrategy", m.resumeStrategy());
-        body.put("threadRevision", m.threadRevision());
       }
       case VhrpMessage.Ack m -> {
         putIfPresent(root, "replyTo", m.replyTo());
@@ -187,37 +180,22 @@ public class VhrpCborCodec {
         body.put("applied", m.applied());
       }
       case VhrpMessage.ThreadSnapshot m -> {
-        putStreamSeq(root, m.streamSeq());
         body.put("threadId", m.threadId());
         putIfPresent(body, "conversationId", m.conversationId());
-        body.put("snapshotKind", m.snapshotKind());
-        body.put("threadRevision", m.threadRevision());
         body.set("items", toArrayOfMaps(m.items()));
       }
-      case VhrpMessage.ThreadPatch m -> {
-        putStreamSeq(root, m.streamSeq());
-        body.put("patchKind", m.patchKind());
-        body.put("baseThreadRevision", m.baseThreadRevision());
-        body.put("targetThreadRevision", m.targetThreadRevision());
-        body.set("ops", toArrayOfMaps(m.ops()));
-      }
+      case VhrpMessage.ThreadPatch m -> body.set("ops", toArrayOfMaps(m.ops()));
       case VhrpMessage.AssistantAudioChunk m -> {
-        putStreamSeq(root, m.streamSeq());
         body.put("itemId", m.itemId());
         body.put("contentIndex", m.contentIndex());
         body.put("pcm", m.pcm());
       }
       case VhrpMessage.AssistantAudioDone m -> {
-        putStreamSeq(root, m.streamSeq());
         body.put("itemId", m.itemId());
         body.put("contentIndex", m.contentIndex());
       }
-      case VhrpMessage.VadState m -> {
-        putStreamSeq(root, m.streamSeq());
-        body.put("isSpeaking", m.isSpeaking());
-      }
+      case VhrpMessage.VadState m -> body.put("isSpeaking", m.isSpeaking());
       case VhrpMessage.Error m -> {
-        putStreamSeq(root, m.streamSeq());
         putIfPresent(root, "replyTo", m.replyTo());
         body.put("code", m.code());
         body.put("message", m.message());
@@ -242,14 +220,6 @@ public class VhrpCborCodec {
   // ---------------------------------------------------------------------------
   // Envelope helpers
   // ---------------------------------------------------------------------------
-
-  private static void putStreamSeq(ObjectNode root, long streamSeq) {
-    // streamSeq is part of the envelope (not body) and only meaningful for stateful S2C messages;
-    // 0 marks "no sequence" (e.g. connection-level error before a session exists).
-    if (streamSeq > 0) {
-      root.put("streamSeq", streamSeq);
-    }
-  }
 
   private static void putIfPresent(ObjectNode node, String field, String value) {
     if (value != null) {

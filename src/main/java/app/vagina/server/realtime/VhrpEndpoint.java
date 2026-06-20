@@ -113,7 +113,7 @@ public class VhrpEndpoint {
       return bootstrap(connection, message);
     }
     // Established session: hand the C2S message to the session, which owns the dispatch table
-    // (session.* / turn.* / tools.set / ... -> RealtimeAdapter) and all streamSeq/revision state.
+    // (session.* / turn.* / tools.set / ... -> RealtimeAdapter) and the connection binding.
     return bound.dispatch(message);
   }
 
@@ -139,10 +139,11 @@ public class VhrpEndpoint {
     return sessionRegistry
         .openOrResume(open, connection)
         .invoke(session -> connection.userData().put(SESSION_KEY, session))
-        // attachConnection makes the session start writing to this socket: session.ready /
-        // session.resumed, then the ongoing thread.patch / assistant.audio.chunk / vad.state stream.
-        // The endpoint stays stateless; the session owns that subscription so it survives reconnects.
-        .chain(session -> session.attachConnection(connection));
+        // attachConnection makes the session start writing to this socket: it replies session.ready
+        // (new) or session.resumed (resume), correlated via this open's messageId, then the ongoing
+        // thread.patch / assistant.audio.chunk / vad.state stream. The endpoint stays stateless; the
+        // session owns that subscription so it survives reconnects.
+        .chain(session -> session.attachConnection(connection, open.messageId()));
   }
 
   @OnClose

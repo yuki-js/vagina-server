@@ -2,52 +2,51 @@ package app.vagina.server.realtime;
 
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.realtime.model.RealtimeThread;
-import app.vagina.server.realtime.model.RealtimeThread.AudioPart;
-import app.vagina.server.realtime.model.RealtimeThread.ContentPart;
-import app.vagina.server.realtime.model.RealtimeThread.ImagePart;
-import app.vagina.server.realtime.model.RealtimeThread.Item;
-import app.vagina.server.realtime.model.RealtimeThread.TextPart;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.WebSocketConnection;
 import io.smallrye.mutiny.Uni;
-import java.util.ArrayDeque;
+import io.smallrye.mutiny.subscription.Cancellable;
 import java.util.ArrayList;
-import java.util.Deque;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
  * One VHRP/1 session: the stateful core that outlives any single WebSocket connection.
  *
  * <p>A session is created by {@link VhrpSessionRegistry} from a {@code session.open} and serves a
- * sequence of connections over its lifetime (a fresh socket re-binds on resume). It owns everything
- * that must survive a reconnect:
+ * sequence of connections over its lifetime (a fresh socket re-binds on resume). It owns:
  *
  * <ul>
- *   <li>the monotonic {@code streamSeq} stamped on every stateful S2C message;
  *   <li>the bound {@link RealtimeAdapter} (the vendor translation body), which it drives for C2S
  *       and which pushes S2C back through {@link #sendToClient};
- *   <li>a bounded replay log so a resumed connection can be brought forward without a full
- *       snapshot.
+ *   <li>the current socket binding, swappable across reconnects.
  * </ul>
  *
  * <p>The {@link VhrpEndpoint} is stateless and merely forwards: it calls {@link #dispatch} for each
  * inbound frame and {@link #attachConnection} when a socket binds. The current socket is swappable;
  * {@link #detach} clears it without destroying session state, which is what makes resume possible.
  *
- * <h2>Patch building</h2>
+ * <h2>Single recovery path: reconnect + full snapshot</h2>
  *
- * <p>This class also owns the op-list and snapshot serialization logic (previously attributed to a
- * hypothetical {@code ThreadPatchBuilder}). Keeping it here collocates streamSeq/revision adoption
- * with the serialization that needs both, and avoids a collaborator whose only client would be this
- * class anyway.
+ * <p>This session keeps <em>no</em> replay log and stamps <em>no</em> stream sequence or thread
+ * revision. A {@code thread.patch} is a fire-and-forget live delta. The one and only recovery for
+ * any delivery gap — a dropped frame, a desync, a reconnect — is a fresh full {@code thread.snapshot}
+ * built on demand from the adapter's canonical thread (which is always live in memory). That makes
+ * two things follow:
+ *
+ * <ul>
+ *   <li>{@link #handleSyncRequest} always answers with a full snapshot; there is no cursor to honor;
+ *   <li>{@link #writeFrame} logs and absorbs a live-frame write failure rather than closing the
+ *       socket itself. A genuinely dead socket is reclaimed by Quarkus via {@code @OnClose} →
+ *       {@link VhrpEndpoint#onClose} → detach (after which the client reconnects and resyncs), so a
+ *       manual close would only duplicate that while risking the needless teardown of a healthy
+ *       connection on a possibly-transient failure. While detached, frames are simply dropped (the
+ *       next attach resyncs).
+ * </ul>
  *
  * <p>Threading: a single connection delivers frames serially (the endpoint's {@code
- * InboundProcessingMode.SERIAL} default), but the adapter pushes outbound on its own threads, so
- * {@code streamSeq} is an {@link AtomicLong} and the current-connection reference is volatile.
+ * InboundProcessingMode.SERIAL} default), but the adapter pushes outbound on its own threads, so the
+ * current-connection reference is volatile.
  */
 public class VhrpSession {
 
@@ -60,22 +59,11 @@ public class VhrpSession {
   private final VhrpCborCodec codec;
 
   /**
-   * The vendor translation body for this session. Driven for C2S; it calls back into {@link
-   * #nextStreamSeq} and {@link #sendToClient} to emit S2C. Defined two levels deeper (the {@code
-   * oai/} mirror) and intentionally unresolved here.
+   * The vendor translation body for this session. Driven for C2S; it pushes S2C back through {@link
+   * #sendToClient}. Defined two levels deeper (the {@code oai/} mirror) and intentionally unresolved
+   * here.
    */
   private final RealtimeAdapter adapter;
-
-  /** Monotonic server send counter; 1-based, advanced once per stateful S2C message. */
-  private final AtomicLong streamSeq = new AtomicLong(0);
-
-  /**
-   * Bounded history of already-sent stateful S2C messages, oldest first, used to satisfy a resume's
-   * {@code afterStreamSeq} without a full snapshot. Capacity bounds the retention window.
-   */
-  private final Deque<VhrpMessage.S2C> replayLog = new ArrayDeque<>();
-
-  private final int replayLogCapacity;
 
   /** The socket currently serving this session, or {@code null} while detached. */
   private volatile WebSocketConnection currentConnection;
@@ -83,17 +71,19 @@ public class VhrpSession {
   /** Whether {@code session.ready} has ever been emitted; distinguishes new from resumed attach. */
   private volatile boolean everReady = false;
 
-  public VhrpSession(
-      String sessionId,
-      String threadId,
-      VhrpCborCodec codec,
-      RealtimeAdapter adapter,
-      int replayLogCapacity) {
+  /**
+   * Subscriptions to the adapter's S2C output streams (patches/audio/vad/errors). Held for the
+   * session's lifetime and cancelled on {@link #dispose()}; the adapter pushes on its own threads so
+   * these feed straight into {@link #writeFrame}.
+   */
+  private final List<Cancellable> adapterSubscriptions = new ArrayList<>();
+
+  public VhrpSession(String sessionId, String threadId, VhrpCborCodec codec, RealtimeAdapter adapter) {
     this.sessionId = sessionId;
     this.threadId = threadId;
     this.codec = codec;
     this.adapter = adapter;
-    this.replayLogCapacity = replayLogCapacity;
+    subscribeAdapterOutput();
   }
 
   public String sessionId() {
@@ -101,42 +91,128 @@ public class VhrpSession {
   }
 
   // ---------------------------------------------------------------------------
+  // Adapter S2C subscription
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Subscribes the adapter's observation points and frames each into an S2C message. This is the S2C
+   * half of the warp: the adapter (vendor body) speaks model types on Mutiny streams, and the
+   * session turns them into wire frames written live to the current socket.
+   *
+   * <ul>
+   *   <li>{@code threadPatches()} → {@code thread.patch} (bare op list);
+   *   <li>{@code assistantAudioStream()} → {@code assistant.audio.chunk};
+   *   <li>{@code assistantAudioCompleted()} → {@code assistant.audio.done};
+   *   <li>{@code isUserSpeakingUpdates()} → {@code vad.state};
+   *   <li>{@code errors()} → {@code error} (recoverable: an established-session fault is reported
+   *       in-band, never closes here).
+   * </ul>
+   *
+   * <p>A failure on the stream itself (not a write failure) is logged and does not tear the session
+   * down. A failure to <em>write</em> a framed message is handled inside {@link #writeFrame}, which
+   * closes the socket to force a reconnect + snapshot resync.
+   */
+  private void subscribeAdapterOutput() {
+    adapterSubscriptions.add(
+        adapter
+            .threadPatches()
+            .subscribe()
+            .with(this::emitThreadPatch, t -> Log.errorf(t, "VHRP %s threadPatches failed", sessionId)));
+    adapterSubscriptions.add(
+        adapter
+            .assistantAudioStream()
+            .subscribe()
+            .with(this::emitAssistantAudioChunk, t -> Log.errorf(t, "VHRP %s audioStream failed", sessionId)));
+    adapterSubscriptions.add(
+        adapter
+            .assistantAudioCompleted()
+            .subscribe()
+            .with(this::emitAssistantAudioDone, t -> Log.errorf(t, "VHRP %s audioDone failed", sessionId)));
+    adapterSubscriptions.add(
+        adapter
+            .isUserSpeakingUpdates()
+            .subscribe()
+            .with(this::emitVadState, t -> Log.errorf(t, "VHRP %s vad failed", sessionId)));
+    adapterSubscriptions.add(
+        adapter
+            .errors()
+            .subscribe()
+            .with(this::emitError, t -> Log.errorf(t, "VHRP %s errors failed", sessionId)));
+  }
+
+  private void emitThreadPatch(RealtimeAdapterModels.ThreadPatchOps batch) {
+    VhrpMessage.ThreadPatch patch = new VhrpMessage.ThreadPatch(batch.ops());
+    sendToClient(patch).subscribe().with(ignored -> {}, t -> Log.errorf(t, "VHRP %s patch write", sessionId));
+  }
+
+  private void emitAssistantAudioChunk(RealtimeAdapterModels.AssistantAudioFrame frame) {
+    VhrpMessage.AssistantAudioChunk chunk =
+        new VhrpMessage.AssistantAudioChunk(frame.itemId(), frame.contentIndex(), frame.pcm());
+    sendToClient(chunk).subscribe().with(ignored -> {}, t -> Log.errorf(t, "VHRP %s audio write", sessionId));
+  }
+
+  private void emitAssistantAudioDone(RealtimeAdapterModels.AssistantAudioFrame frame) {
+    VhrpMessage.AssistantAudioDone done =
+        new VhrpMessage.AssistantAudioDone(frame.itemId(), frame.contentIndex());
+    sendToClient(done).subscribe().with(ignored -> {}, t -> Log.errorf(t, "VHRP %s audioDone write", sessionId));
+  }
+
+  private void emitVadState(Boolean speaking) {
+    VhrpMessage.VadState vad = new VhrpMessage.VadState(Boolean.TRUE.equals(speaking));
+    sendToClient(vad).subscribe().with(ignored -> {}, t -> Log.errorf(t, "VHRP %s vad write", sessionId));
+  }
+
+  private void emitError(RealtimeAdapterModels.Error error) {
+    VhrpMessage.Error wire = new VhrpMessage.Error(null, error.code(), error.message(), true);
+    sendToClient(wire).subscribe().with(ignored -> {}, t -> Log.errorf(t, "VHRP %s error write", sessionId));
+  }
+
+  /**
+   * Cancels the adapter subscriptions and disposes the adapter. Called by the registry on explicit
+   * close or retention expiry; not on a mere detach (resume must keep the streams alive).
+   */
+  public Uni<Void> dispose() {
+    for (Cancellable subscription : adapterSubscriptions) {
+      subscription.cancel();
+    }
+    adapterSubscriptions.clear();
+    return adapter.dispose();
+  }
+
+  // ---------------------------------------------------------------------------
   // Connection binding
   // ---------------------------------------------------------------------------
 
   /**
-   * Binds {@code connection} as the session's current socket and emits the opening S2C.
+   * Binds {@code connection} as the session's current socket and emits the opening S2C, correlated
+   * to the {@code session.open} that triggered this attach via {@code replyToMessageId}.
    *
    * <p>First-ever attach emits {@code session.ready}; a later attach (resume) emits {@code
-   * session.resumed} and then replays buffered messages newer than the client's last applied
-   * sequence. The endpoint chains this after {@link VhrpSessionRegistry#openOrResume}.
+   * session.resumed} and nothing more. Per the recovery model, a re-bind only announces the rebind;
+   * the client then asks for a fresh full {@code thread.snapshot} via {@code thread.sync.request}
+   * (handled by {@link #handleSyncRequest}). The endpoint chains this after {@link
+   * VhrpSessionRegistry#openOrResume}, passing the open's {@code messageId} so the reply correlates
+   * to the right frame — on resume that is the resume open's own messageId, which is exactly why the
+   * id is threaded through per attach rather than stored at session creation.
    */
-  public Uni<Void> attachConnection(WebSocketConnection connection) {
+  public Uni<Void> attachConnection(WebSocketConnection connection, String replyToMessageId) {
     this.currentConnection = connection;
     if (!everReady) {
       everReady = true;
       VhrpMessage.SessionReady ready =
           new VhrpMessage.SessionReady(
-              null, // replyTo is filled by the registry, which holds the session.open messageId
-              nextStreamSeq(),
+              replyToMessageId,
               sessionId,
               threadId,
               adapter.conversationId(),
               new ArrayList<>(adapter.supportedExtensions()));
       return writeFrame(ready);
     }
+    // Resume: announce the rebind only. The client resyncs by sending thread.sync.request, which we
+    // answer with a fresh full snapshot; we push no state here.
     VhrpMessage.SessionResumed resumed =
-        new VhrpMessage.SessionResumed(
-            null,
-            nextStreamSeq(),
-            sessionId,
-            threadId,
-            adapter.conversationId(),
-            "replay",
-            adapter.threadRevision());
-    // TODO: choose "replay" vs "snapshot" from how much of replayLog still covers the client's
-    //   afterStreamSeq; for now always replay what we still hold.
-    return writeFrame(resumed).chain(this::replayBuffered);
+        new VhrpMessage.SessionResumed(replyToMessageId, sessionId, threadId, adapter.conversationId());
+    return writeFrame(resumed);
   }
 
   /**
@@ -242,31 +318,25 @@ public class VhrpSession {
         .onItem().transformToUni(itemId -> ackItem(m.messageId(), m.clientItemId()));
   }
 
+  /**
+   * Answers a resync request with a fresh full snapshot. In the snapshot-only recovery model there
+   * is no cursor or partial catch-up: whatever the client's situation, the current full thread state
+   * fully reconstructs its projection.
+   */
   private Uni<Void> handleSyncRequest(VhrpMessage.ThreadSyncRequest request) {
-    // delta_or_snapshot: replay if the requested afterStreamSeq is still covered by the log,
-    // otherwise fall back to a fresh snapshot from the adapter's canonical thread.
-    boolean snapshotOnly = "snapshot_only".equals(request.mode());
-    if (!snapshotOnly && coversStreamSeq(request.afterStreamSeq())) {
-      return replayAfter(request.afterStreamSeq());
-    }
     return writeFrame(buildSnapshot());
   }
 
   /**
    * Frames a {@code thread.snapshot} from the adapter's canonical thread. The session owns wire
-   * framing (streamSeq, threadId/conversationId/revision); item serialization is handled by the
-   * private {@link #snapshotItems(RealtimeThread)} helper, keeping it consistent with the patch op
-   * serialization produced by {@link #serializeItem}.
+   * framing (ids); item serialization is delegated to {@link
+   * ThreadPatchBuilder#snapshotItems(RealtimeThread)}, the same projector that backs the patch op
+   * shapes, so a resync snapshot and the incremental patches stay consistent.
    */
   private VhrpMessage.ThreadSnapshot buildSnapshot() {
     RealtimeThread thread = adapter.thread();
     return new VhrpMessage.ThreadSnapshot(
-        nextStreamSeq(),
-        thread.id(),
-        thread.conversationId(),
-        "i_frame",
-        adapter.threadRevision(),
-        snapshotItems(thread));
+        thread.id(), thread.conversationId(), ThreadPatchBuilder.snapshotItems(thread));
   }
 
   // ---------------------------------------------------------------------------
@@ -274,32 +344,51 @@ public class VhrpSession {
   // ---------------------------------------------------------------------------
 
   /**
-   * Reserves the next {@code streamSeq}. The adapter calls this when it constructs a stateful S2C
-   * message so sequence ownership stays with the session even though the message is built upstream.
-   */
-  public long nextStreamSeq() {
-    return streamSeq.incrementAndGet();
-  }
-
-  /**
-   * Sends one already-sequenced S2C message to the current socket and records it for replay. Pushed
-   * by the adapter at thread.patch flush points and for audio/vad frames.
-   *
-   * <p>If no socket is currently bound (mid-reconnect) the frame is still logged so a resuming
-   * connection can replay it; it is simply not written now.
+   * Sends one S2C message to the current socket. Pushed by the adapter at thread.patch flush points
+   * and for audio/vad frames. If no socket is bound (mid-reconnect) the frame is dropped; the next
+   * attach resyncs via a full snapshot.
    */
   public Uni<Void> sendToClient(VhrpMessage.S2C message) {
     return writeFrame(message);
   }
 
+  /**
+   * Writes one framed S2C message to the current socket. The session never closes the socket itself
+   * on a write failure — connection teardown is left to the framework, which keeps the single
+   * recovery path (reconnect + full snapshot) intact without churning live connections.
+   *
+   * <ul>
+   *   <li>detached (no socket / closed): drop the frame. Recovery is reconnect + full snapshot, so a
+   *       dropped live frame is intentionally not buffered.
+   *   <li>write failure: logged and absorbed. Two reasons not to escalate to a manual close here.
+   *       First, a permanent socket fault is already surfaced by Quarkus as {@code @OnClose} →
+   *       {@link VhrpEndpoint#onClose} → detach, after which the client reconnects and resyncs via a
+   *       fresh full {@code thread.snapshot}; a manual close would only duplicate that. Second, a
+   *       manual close on a possibly-transient send failure would needlessly kill a live connection,
+   *       forcing a wasteful reconnect + snapshot (and the handshake cost that implies). Absorbing
+   *       the failure is the dominant choice: it never tears a healthy connection, and a genuinely
+   *       dead one is reclaimed by {@code @OnClose} regardless.
+   * </ul>
+   *
+   * <p>Note these audio/patch/vad frames are emitted from the adapter's own subscriptions (see
+   * {@link #subscribeAdapterOutput}), not from a {@code @On*} callback, so their failures never reach
+   * {@code @OnError}; logging here is the intended terminal handling. Failures on the request/reply
+   * path ({@code ack} etc.), which do ride a {@code @OnBinaryMessage} Uni, are governed instead by
+   * {@code quarkus.websockets-next.server.unhandled-failure-strategy} via {@code @OnError}.
+   */
   private Uni<Void> writeFrame(VhrpMessage.S2C message) {
-    rememberForReplay(message);
     WebSocketConnection connection = currentConnection;
     if (connection == null || connection.isClosed()) {
-      // Detached: keep the message in the replay log only. A resumed connection will pick it up.
       return Uni.createFrom().voidItem();
     }
-    return connection.sendBinary(codec.encode(message));
+    return connection
+        .sendBinary(codec.encode(message))
+        .onFailure()
+        .recoverWithUni(
+            failure -> {
+              Log.warnf(failure, "VHRP %s frame write failed; dropping (recovery via reconnect+snapshot)", sessionId);
+              return Uni.createFrom().voidItem();
+            });
   }
 
   // ---------------------------------------------------------------------------
@@ -319,244 +408,5 @@ public class VhrpSession {
       return Uni.createFrom().voidItem();
     }
     return sendToClient(new VhrpMessage.Ack(messageId, true, clientItemId, true));
-  }
-
-  // ---------------------------------------------------------------------------
-  // Replay log
-  // ---------------------------------------------------------------------------
-
-  private void rememberForReplay(VhrpMessage.S2C message) {
-    // ack/session.ready carry no streamSeq and are not part of resync; only log sequenced frames.
-    if (!isSequenced(message)) {
-      return;
-    }
-    synchronized (replayLog) {
-      replayLog.addLast(message);
-      while (replayLog.size() > replayLogCapacity) {
-        replayLog.removeFirst();
-      }
-    }
-  }
-
-  private boolean coversStreamSeq(long afterStreamSeq) {
-    synchronized (replayLog) {
-      VhrpMessage.S2C oldest = replayLog.peekFirst();
-      // Covered when the oldest retained frame is at or before the next one the client needs.
-      return oldest == null || streamSeqOf(oldest) <= afterStreamSeq + 1;
-    }
-  }
-
-  private Uni<Void> replayBuffered() {
-    return replayAfter(0);
-  }
-
-  private Uni<Void> replayAfter(long afterStreamSeq) {
-    Uni<Void> chain = Uni.createFrom().voidItem();
-    synchronized (replayLog) {
-      for (VhrpMessage.S2C message : replayLog) {
-        if (streamSeqOf(message) > afterStreamSeq) {
-          // Re-send already-sequenced frames as-is; do NOT advance streamSeq on replay.
-          WebSocketConnection connection = currentConnection;
-          if (connection != null && !connection.isClosed()) {
-            chain = chain.chain(() -> connection.sendBinary(codec.encode(message)));
-          }
-        }
-      }
-    }
-    return chain;
-  }
-
-  private static boolean isSequenced(VhrpMessage.S2C message) {
-    return switch (message) {
-      case VhrpMessage.Ack ignored -> false;
-      case VhrpMessage.SessionReady ignored -> false;
-      default -> true;
-    };
-  }
-
-  private static long streamSeqOf(VhrpMessage.S2C message) {
-    return switch (message) {
-      case VhrpMessage.ThreadSnapshot m -> m.streamSeq();
-      case VhrpMessage.ThreadPatch m -> m.streamSeq();
-      case VhrpMessage.AssistantAudioChunk m -> m.streamSeq();
-      case VhrpMessage.AssistantAudioDone m -> m.streamSeq();
-      case VhrpMessage.VadState m -> m.streamSeq();
-      case VhrpMessage.SessionResumed m -> m.streamSeq();
-      case VhrpMessage.Error m -> m.streamSeq();
-      // Non-sequenced frames never enter the replay log (see isSequenced), so this is unreachable.
-      default -> 0L;
-    };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Patch op builders (inline; previously a hypothetical ThreadPatchBuilder)
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Builds an {@code add_item} op map. Called by the OAI adapter's mutation sink when a new item
-   * is added to the canonical thread.
-   */
-  public static Map<String, Object> opAddItem(Item item) {
-    Map<String, Object> op = new LinkedHashMap<>();
-    op.put("op", "add_item");
-    op.put("item", serializeItem(item));
-    return op;
-  }
-
-  public static Map<String, Object> opRemoveItem(String itemId) {
-    Map<String, Object> op = new LinkedHashMap<>();
-    op.put("op", "remove_item");
-    op.put("itemId", itemId);
-    return op;
-  }
-
-  public static Map<String, Object> opSetStatus(String itemId, String status) {
-    Map<String, Object> op = new LinkedHashMap<>();
-    op.put("op", "set_status");
-    op.put("itemId", itemId);
-    op.put("status", status);
-    return op;
-  }
-
-  public static Map<String, Object> opSetField(String itemId, String field, Object value) {
-    Map<String, Object> op = new LinkedHashMap<>();
-    op.put("op", "set_field");
-    op.put("itemId", itemId);
-    op.put("field", field);
-    op.put("value", value);
-    return op;
-  }
-
-  public static Map<String, Object> opPutPart(String itemId, int contentIndex, ContentPart part) {
-    Map<String, Object> op = new LinkedHashMap<>();
-    op.put("op", "put_part");
-    op.put("itemId", itemId);
-    op.put("contentIndex", contentIndex);
-    op.put("part", serializePart(part));
-    return op;
-  }
-
-  public static Map<String, Object> opAppendText(String itemId, int contentIndex, String delta) {
-    Map<String, Object> op = new LinkedHashMap<>();
-    op.put("op", "append_text");
-    op.put("itemId", itemId);
-    op.put("contentIndex", contentIndex);
-    op.put("delta", delta);
-    return op;
-  }
-
-  public static Map<String, Object> opReplaceText(String itemId, int contentIndex, String text) {
-    Map<String, Object> op = new LinkedHashMap<>();
-    op.put("op", "replace_text");
-    op.put("itemId", itemId);
-    op.put("contentIndex", contentIndex);
-    op.put("text", text);
-    return op;
-  }
-
-  public static Map<String, Object> opAppendTranscript(
-      String itemId, int contentIndex, String delta) {
-    Map<String, Object> op = new LinkedHashMap<>();
-    op.put("op", "append_transcript");
-    op.put("itemId", itemId);
-    op.put("contentIndex", contentIndex);
-    op.put("delta", delta);
-    return op;
-  }
-
-  public static Map<String, Object> opReplaceTranscript(
-      String itemId, int contentIndex, String text) {
-    Map<String, Object> op = new LinkedHashMap<>();
-    op.put("op", "replace_transcript");
-    op.put("itemId", itemId);
-    op.put("contentIndex", contentIndex);
-    op.put("text", text);
-    return op;
-  }
-
-  public static Map<String, Object> opSetConversationId(String conversationId) {
-    Map<String, Object> op = new LinkedHashMap<>();
-    op.put("op", "set_conversation_id");
-    op.put("conversationId", conversationId);
-    return op;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Snapshot item serialization
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Serialises all items of {@code thread} into the {@code thread.snapshot.body.items} shape.
-   * Uses the same per-item serializer as the patch op builders so client-side patch applier and
-   * snapshot replacer see identical item/part shapes.
-   */
-  private static List<Map<String, Object>> snapshotItems(RealtimeThread thread) {
-    List<Map<String, Object>> items = new ArrayList<>();
-    for (Item item : thread.items()) {
-      items.add(serializeItem(item));
-    }
-    return List.copyOf(items);
-  }
-
-  private static Map<String, Object> serializeItem(Item item) {
-    Map<String, Object> map = new LinkedHashMap<>();
-    map.put("id", item.id());
-    map.put("type", wireItemType(item.type()));
-    if (item.role() != null) {
-      map.put("role", item.role().name().toLowerCase());
-    }
-    map.put("status", item.status().wireValue());
-    if (item.callId() != null) {
-      map.put("callId", item.callId());
-    }
-    if (item.name() != null) {
-      map.put("name", item.name());
-    }
-    if (item.arguments() != null) {
-      map.put("arguments", item.arguments());
-    }
-    if (item.output() != null) {
-      map.put("output", item.output());
-    }
-    if (!item.content().isEmpty()) {
-      List<Map<String, Object>> parts = new ArrayList<>();
-      for (ContentPart part : item.content()) {
-        parts.add(serializePart(part));
-      }
-      map.put("content", parts);
-    }
-    return map;
-  }
-
-  private static Map<String, Object> serializePart(ContentPart part) {
-    Map<String, Object> map = new LinkedHashMap<>();
-    switch (part) {
-      case TextPart tp -> {
-        map.put("type", "text");
-        map.put("isDone", tp.isDone());
-      }
-      case AudioPart ap -> {
-        map.put("type", "audio");
-        map.put("isDone", ap.isDone());
-        // Spec: snapshot carries transcript only; raw PCM chunks are non-goal for recovery.
-        if (ap.transcript() != null) {
-          map.put("transcript", ap.transcript());
-        }
-      }
-      case ImagePart ip -> {
-        map.put("type", "image");
-        map.put("imageUrl", ip.imageUrl());
-        map.put("detail", ip.detail());
-      }
-    }
-    return map;
-  }
-
-  private static String wireItemType(RealtimeThread.ItemType type) {
-    return switch (type) {
-      case MESSAGE -> "message";
-      case FUNCTION_CALL -> "functionCall";
-      case FUNCTION_CALL_OUTPUT -> "functionCallOutput";
-    };
   }
 }

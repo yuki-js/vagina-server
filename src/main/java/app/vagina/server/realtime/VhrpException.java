@@ -31,8 +31,7 @@ public abstract sealed class VhrpException extends RuntimeException
         VhrpException.ToolCallNotFound,
         VhrpException.ExtensionUnsupported,
         VhrpException.GenerationInterrupted,
-        VhrpException.ResumeNotAvailable,
-        VhrpException.StateOutOfSync {
+        VhrpException.ResumeNotAvailable {
 
   protected VhrpException(String message) {
     super(message);
@@ -161,7 +160,7 @@ public abstract sealed class VhrpException extends RuntimeException
     }
   }
 
-  /** {@code resume.not_available}: requested session/log is no longer retained. */
+  /** {@code resume.not_available}: requested session is no longer retained. */
   public static final class ResumeNotAvailable extends VhrpException {
     public ResumeNotAvailable(String message) {
       super(message);
@@ -170,18 +169,6 @@ public abstract sealed class VhrpException extends RuntimeException
     @Override
     public String wireCode() {
       return "resume.not_available";
-    }
-  }
-
-  /** {@code state.out_of_sync}: local thread revision/streamSeq diverged from canonical. */
-  public static final class StateOutOfSync extends VhrpException {
-    public StateOutOfSync(String message) {
-      super(message);
-    }
-
-    @Override
-    public String wireCode() {
-      return "state.out_of_sync";
     }
   }
 }
