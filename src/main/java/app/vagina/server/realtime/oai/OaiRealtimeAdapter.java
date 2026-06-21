@@ -103,6 +103,32 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   private final Set<String> locallyCancelledItemIds = new HashSet<>();
   private final Set<String> locallyCancelledCallIds = new HashSet<>();
 
+  /**
+   * Three-state active-response guard used to suppress spurious {@code response.cancel} when no
+   * response is in flight.
+   *
+   * <ul>
+   *   <li>{@code UNKNOWN} – initial state; also the state before the first {@code response.created}
+   *       ever arrives (i.e. the provider does not emit that event, or no response has started yet).
+   *       In this state {@link #interrupt()} behaves like the legacy path (sends cancel), so we
+   *       do not accidentally break providers that do not surface {@code response.created}.
+   *   <li>{@code ACTIVE} – {@code response.created} received; a cancel is meaningful.
+   *   <li>{@code INACTIVE} – {@code response.done} (or equivalent terminal event) received; no
+   *       in-flight response exists, so cancel is skipped with a debug log.
+   * </ul>
+   *
+   * <p>Written from Vert.x event-loop callbacks (event subscriptions) and read from whatever thread
+   * calls {@code interrupt()}. Declared {@code volatile} for safe cross-thread visibility of the
+   * single-assignment write.
+   */
+  enum ResponseState {
+    UNKNOWN,
+    ACTIVE,
+    INACTIVE
+  }
+
+  private volatile ResponseState responseState = ResponseState.UNKNOWN;
+
   private long localIdCounter = 0;
   private String conversationId;
   private boolean isUserSpeaking = false;
@@ -119,6 +145,19 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     this.modelConfig = modelConfig;
     this.client = new OaiRealtimeClient(new OaiWebSocketTransport(vertx, json), json);
     this.thread = new RealtimeThread("thread_" + UUID.randomUUID());
+    this.patch = new ThreadPatchBuilder(thread);
+    subscribeClient();
+  }
+
+  /**
+   * Package-private constructor for unit tests: accepts a pre-built {@link OaiRealtimeClient}
+   * backed by a stub transport so tests can feed synthetic events without a live socket.
+   */
+  OaiRealtimeAdapter(OaiRealtimeClient client) {
+    this.modelId = "test";
+    this.modelConfig = null;
+    this.client = client;
+    this.thread = new RealtimeThread("thread_test");
     this.patch = new ThreadPatchBuilder(thread);
     subscribeClient();
   }
@@ -191,6 +230,14 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
         client.events(OaiRealtimeEvent.ResponseFunctionCallArgumentsDone.class),
         this::onFunctionArgsDone,
         "fnDone");
+    sub(
+        client.events(OaiRealtimeEvent.ResponseCreated.class),
+        e -> responseState = ResponseState.ACTIVE,
+        "responseCreated");
+    sub(
+        client.events(OaiRealtimeEvent.ResponseDone.class),
+        e -> responseState = ResponseState.INACTIVE,
+        "responseDone");
   }
 
   private <T> void sub(Multi<T> stream, Consumer<T> onItem, String label) {
@@ -524,7 +571,22 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   @Override
   public Uni<Void> interrupt() {
     ensureNotDisposed();
+    ResponseState state = responseState;
+    if (state == ResponseState.INACTIVE) {
+      // No active response; sending response.cancel would produce the
+      // "no active response found" error on the Azure/OpenAI side.
+      Log.debugf("OAI adapter interrupt() skipped: responseState=%s", state);
+      return Uni.createFrom().voidItem();
+    }
+    // ACTIVE  → cancel is warranted.
+    // UNKNOWN → legacy fallback: send cancel to avoid silently swallowing the interrupt on
+    //           providers that do not emit response.created (keeps previous behaviour).
     return client.cancelResponse();
+  }
+
+  /** Package-private: returns the current response-tracking state (test seam). */
+  ResponseState responseStateForTest() {
+    return responseState;
   }
 
   // ---------------------------------------------------------------------------
@@ -1003,9 +1065,7 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       if (tool.description() != null) {
         toolMap.put("description", tool.description());
       }
-      if (tool.parameters() != null) {
-        toolMap.put("parameters", tool.parameters());
-      }
+      toolMap.put("parameters", normalizeParametersSchema(tool.parameters()));
       toolMaps.add(toolMap);
     }
     session.put("tools", toolMaps);
@@ -1038,6 +1098,45 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Ensures the parameters map passed to the provider is a valid JSON Schema object.
+   *
+   * <p>Rules (no strict-ification — only fills missing structure):
+   * <ul>
+   *   <li>null or empty map → {@code {"type":"object","properties":{}}}</li>
+   *   <li>Missing {@code type} field → {@code type} set to {@code "object"}</li>
+   *   <li>{@code type == "object"} but missing {@code properties} → empty map added</li>
+   *   <li>Otherwise returned as-is (preserves existing args schemas)</li>
+   * </ul>
+   *
+   * <p>This is the last line of defence before provider submission; it guards against any
+   * schema corruption that occurred upstream (e.g. CBOR round-trip, client bug).
+   */
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> normalizeParametersSchema(Map<String, Object> params) {
+    if (params == null || params.isEmpty()) {
+      Map<String, Object> minimal = new LinkedHashMap<>();
+      minimal.put("type", "object");
+      minimal.put("properties", new LinkedHashMap<String, Object>());
+      return minimal;
+    }
+    Object type = params.get("type");
+    if (type == null) {
+      Map<String, Object> result = new LinkedHashMap<>(params);
+      result.put("type", "object");
+      if (!result.containsKey("properties")) {
+        result.put("properties", new LinkedHashMap<String, Object>());
+      }
+      return result;
+    }
+    if ("object".equals(type) && !params.containsKey("properties")) {
+      Map<String, Object> result = new LinkedHashMap<>(params);
+      result.put("properties", new LinkedHashMap<String, Object>());
+      return result;
+    }
+    return params;
+  }
 
   private boolean isConnected() {
     return connectionState.isConnected();

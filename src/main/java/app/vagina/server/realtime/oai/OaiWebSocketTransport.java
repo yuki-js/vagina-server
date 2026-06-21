@@ -8,12 +8,15 @@ import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.operators.multi.processors.BroadcastProcessor;
+import io.vertx.core.MultiMap;
+import io.vertx.core.http.UpgradeRejectedException;
 import io.vertx.core.http.WebSocketConnectOptions;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.core.http.WebSocket;
 import io.vertx.mutiny.core.http.WebSocketClient;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 /**
  * Vert.x WebSocket implementation of {@link OaiRealtimeTransport}, the server analogue of the Dart
@@ -77,10 +80,7 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
             .setURI(target.path())
             .setSsl(target.ssl());
 
-    String token = config.bearerToken();
-    if (token != null && !token.isBlank()) {
-      options.addHeader("Authorization", "Bearer " + token.trim());
-    }
+    applyAuthHeaders(options, config.bearerToken());
     for (Map.Entry<String, String> header : config.extraHeaders().entrySet()) {
       options.addHeader(header.getKey(), header.getValue());
     }
@@ -98,12 +98,85 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
         .onFailure()
         .invoke(
             error -> {
+              // ── DIAG: log rejected-upgrade responses (e.g. 302) ──────────
+              // Useful for diagnosing auth failures; kept as permanent WARN-level diagnostic.
+              if (error instanceof UpgradeRejectedException ure) {
+                StringBuilder diagResp = new StringBuilder();
+                diagResp.append("[DIAG-WS-REJECTED] status=").append(ure.getStatus());
+                MultiMap respHeaders = ure.getHeaders();
+                if (respHeaders != null) {
+                  diagResp.append(" response-headers: [");
+                  respHeaders.forEach(
+                      e ->
+                          diagResp
+                              .append(e.getKey())
+                              .append(": ")
+                              .append(maskHeaderValue(e.getKey(), e.getValue()))
+                              .append("; "));
+                  diagResp.append("]");
+                }
+                if (ure.getBody() != null && ure.getBody().length() > 0) {
+                  String bodyPrefix = ure.getBody().toString("UTF-8");
+                  if (bodyPrefix.length() > 512) {
+                    bodyPrefix = bodyPrefix.substring(0, 512) + "...(truncated)";
+                  }
+                  diagResp.append(" body-prefix=").append(bodyPrefix);
+                }
+                Log.warn(diagResp.toString());
+              }
+              // ── END DIAG ─────────────────────────────────────────────────
               Log.errorf(error, "OAI realtime transport failed to connect");
               emitState(
                   RealtimeAdapterModels.ConnectionState.failed(
                       "Failed to connect OpenAI realtime transport", error));
             })
         .replaceWithVoid();
+  }
+
+  /**
+   * Applies authentication headers to the given {@link WebSocketConnectOptions}.
+   *
+   * <p>Both {@code Authorization: Bearer <token>} (OpenAI public API) and {@code api-key: <token>}
+   * (Azure OpenAI / Azure AI Services) are added so that the same code works for both providers
+   * without any provider-specific branching.
+   *
+   * <p>Package-private to allow direct unit-testing without a running Vert.x instance.
+   */
+  static void applyAuthHeaders(WebSocketConnectOptions options, String token) {
+    if (token == null || token.isBlank()) {
+      return;
+    }
+    String trimmed = token.trim();
+    options.addHeader("Authorization", "Bearer " + trimmed);
+    options.addHeader("api-key", trimmed);
+  }
+
+  /** Pattern that matches {@code api-key=<value>} in a URL query string or fragment. */
+  private static final Pattern API_KEY_QUERY_PATTERN =
+      Pattern.compile("(api-key=)[^&\\s#\"']+", Pattern.CASE_INSENSITIVE);
+
+  /**
+   * Masks secret values in response headers for DIAG logging.
+   *
+   * <ul>
+   *   <li>{@code Authorization} and {@code api-key} header values are fully replaced with
+   *       {@code [REDACTED]}.
+   *   <li>For {@code Location} headers, any {@code api-key=<value>} query parameter is masked in
+   *       place so the URL structure is still visible.
+   * </ul>
+   */
+  static String maskHeaderValue(String headerName, String value) {
+    if (headerName == null || value == null) {
+      return value;
+    }
+    String lower = headerName.toLowerCase();
+    if (lower.equals("authorization") || lower.equals("api-key")) {
+      return "[REDACTED]";
+    }
+    if (lower.equals("location")) {
+      return API_KEY_QUERY_PATTERN.matcher(value).replaceAll("$1[REDACTED]");
+    }
+    return value;
   }
 
   private void bindSocket(WebSocket ws) {

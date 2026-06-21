@@ -109,6 +109,13 @@ public final class OaiRealtimeEventParser {
               text(payload, "call_id"),
               text(payload, "name"),
               text(payload, "arguments"));
+      case "response.created" ->
+          new OaiRealtimeEvent.ResponseCreated(
+              responseId(payload.get("response")));
+      case "response.done" ->
+          new OaiRealtimeEvent.ResponseDone(
+              responseId(payload.get("response")),
+              responseStatus(payload.get("response")));
       case "error" -> new OaiRealtimeEvent.ErrorEvent(errorDetail(payload.get("error")));
       // Unmodelled but well-formed: dropped, like the Dart binding having no stream for it.
       default -> null;
@@ -186,6 +193,20 @@ public final class OaiRealtimeEventParser {
         text(node, "name"),
         text(node, "arguments"),
         text(node, "output"));
+  }
+
+  private static String responseId(JsonNode node) {
+    if (node == null) {
+      return null;
+    }
+    return text(node, "id");
+  }
+
+  private static String responseStatus(JsonNode node) {
+    if (node == null) {
+      return null;
+    }
+    return text(node, "status");
   }
 
   // ---------------------------------------------------------------------------

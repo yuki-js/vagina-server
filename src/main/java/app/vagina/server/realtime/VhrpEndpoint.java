@@ -11,7 +11,9 @@ import io.quarkus.websockets.next.WebSocket;
 import io.quarkus.websockets.next.WebSocketConnection;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpClosedException;
 import jakarta.inject.Inject;
+import java.nio.channels.ClosedChannelException;
 
 /**
  * VHRP/1 exit portal: the hosted-realtime WebSocket endpoint.
@@ -170,6 +172,29 @@ public class VhrpEndpoint {
    */
   @OnError
   public Uni<Void> onError(WebSocketConnection connection, Throwable error) {
+    // Guard 1: if the transport is already gone, there is nothing to send and nothing to close.
+    // Attempting sendBinary on a closed socket would itself throw "WebSocket is closed", which
+    // Quarkus would re-route into this same @OnError handler — the self-recursive flood.
+    if (connection.isClosed()) {
+      Log.debugf(
+          "VHRP onError on already-closed connection %s (ignored): %s",
+          connection.id(), error.getMessage());
+      return Uni.createFrom().voidItem();
+    }
+
+    // Guard 2: transport-disconnect exceptions are NOT protocol violations. They mean the client
+    // disappeared (network drop, browser close, wrong-subprotocol close-handshake, etc.).
+    // Treating them as ProtocolBadMessage and sending an error frame would:
+    //   a) fail because the socket is closing/closed, and
+    //   b) re-enter @OnError → self-recursive loop.
+    // Silently absorb them at debug level instead.
+    if (isTransportClosedException(error)) {
+      Log.debugf(
+          "VHRP transport closed on connection %s (no error frame sent): %s",
+          connection.id(), error.getMessage());
+      return Uni.createFrom().voidItem();
+    }
+
     boolean bootstrapped = connection.userData().get(SESSION_KEY) != null;
 
     // Normalize to a VhrpException so reporting is uniform: a non-protocol fault (bug, unexpected
@@ -183,14 +208,65 @@ public class VhrpEndpoint {
     }
 
     boolean recoverable = bootstrapped;
+
+    // Recover send/close failures so that a "connection closed just now" race does not re-enter
+    // @OnError. Pattern mirrors VhrpSession.writeFrame(): fail → log debug → swallow.
     Uni<Void> report =
-        connection.sendBinary(
-            codec.encode(VhrpMessage.Error.of(ve.wireCode(), ve.getMessage(), recoverable)));
+        connection
+            .sendBinary(
+                codec.encode(VhrpMessage.Error.of(ve.wireCode(), ve.getMessage(), recoverable)))
+            .onFailure()
+            .recoverWithUni(
+                sendFailure -> {
+                  Log.debugf(
+                      "VHRP error-frame send failed on %s (connection likely closed mid-flight): %s",
+                      connection.id(), sendFailure.getMessage());
+                  return Uni.createFrom().voidItem();
+                });
+
     if (recoverable) {
       Log.debugf("VHRP recoverable error on %s: %s", connection.id(), ve.wireCode());
       return report;
     }
+
     Log.warnf("VHRP bootstrap error on %s: %s", connection.id(), ve.wireCode());
-    return report.call(() -> connection.close(CLOSE_BOOTSTRAP_FAILED));
+    return report
+        .chain(() -> connection.close(CLOSE_BOOTSTRAP_FAILED))
+        .onFailure()
+        .recoverWithUni(
+            closeFailure -> {
+              Log.debugf(
+                  "VHRP bootstrap close failed on %s (connection likely already closed): %s",
+                  connection.id(), closeFailure.getMessage());
+              return Uni.createFrom().voidItem();
+            });
+  }
+
+  /**
+   * Returns {@code true} when the throwable indicates that the WebSocket transport is already gone
+   * — i.e. the client disconnected, the underlying TCP channel was reset, or a close handshake
+   * already completed on the Vert.x side. These are <em>not</em> protocol violations and must NOT
+   * be converted to {@code protocol.bad_message} frames; the connection is already closed so any
+   * attempt to send would itself fail and re-enter {@code @OnError}, creating a self-recursive
+   * flood loop.
+   *
+   * <p>Checked types:
+   * <ul>
+   *   <li>{@link HttpClosedException} — Vert.x HTTP layer: "Connection was closed"</li>
+   *   <li>{@link ClosedChannelException} — NIO channel already closed</li>
+   *   <li>{@link io.vertx.core.impl.NoStackTraceThrowable} (and other plain {@link Throwable}s)
+   *       whose message is "WebSocket is closed" — Vert.x WebSocket layer</li>
+   * </ul>
+   */
+  private static boolean isTransportClosedException(Throwable t) {
+    if (t instanceof HttpClosedException || t instanceof ClosedChannelException) {
+      return true;
+    }
+    String msg = t.getMessage();
+    if (msg == null) {
+      return false;
+    }
+    // Vert.x NoStackTraceThrowable uses this exact string for a closed WebSocket.
+    return msg.contains("WebSocket is closed") || msg.contains("Connection was closed");
   }
 }

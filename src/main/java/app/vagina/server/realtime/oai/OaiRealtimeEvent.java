@@ -256,6 +256,32 @@ public sealed interface OaiRealtimeEvent {
   }
 
   // ---------------------------------------------------------------------------
+  // Response lifecycle
+  // ---------------------------------------------------------------------------
+
+  /**
+   * {@code response.created}: OpenAI started a new response. Marks the beginning of an active
+   * response; used by {@code OaiRealtimeAdapter} to guard {@code interrupt()} calls.
+   */
+  record ResponseCreated(String responseId) implements OaiRealtimeEvent {
+    @Override
+    public String type() {
+      return "response.created";
+    }
+  }
+
+  /**
+   * {@code response.done}: the in-flight response finished (status may be {@code completed},
+   * {@code cancelled}, or {@code failed}). Clears the active-response flag.
+   */
+  record ResponseDone(String responseId, String status) implements OaiRealtimeEvent {
+    @Override
+    public String type() {
+      return "response.done";
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Error
   // ---------------------------------------------------------------------------
 
