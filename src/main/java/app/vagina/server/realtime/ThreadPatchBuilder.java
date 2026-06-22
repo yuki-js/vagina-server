@@ -81,7 +81,17 @@ public final class ThreadPatchBuilder {
       RealtimeThread.ItemType type,
       RealtimeThread.ItemRole role,
       RealtimeThread.ItemStatus status) {
+    return addItem(id, type, role, status, RealtimeThread.ItemDisplayState.VISIBLE);
+  }
+
+  public RealtimeThread.Item addItem(
+      String id,
+      RealtimeThread.ItemType type,
+      RealtimeThread.ItemRole role,
+      RealtimeThread.ItemStatus status,
+      RealtimeThread.ItemDisplayState displayState) {
     RealtimeThread.Item item = new RealtimeThread.Item(id, type, role, status);
+    item.setDisplayState(displayState);
     thread.addItem(item);
     Map<String, Object> op = newOp("add_item");
     op.put("item", itemShape(item));
@@ -123,6 +133,12 @@ public final class ThreadPatchBuilder {
     Map<String, Object> op = newOp("set_role");
     op.put("itemId", item.id());
     op.put("role", roleToWire(role));
+  }
+
+  /** Sets item display state and records {@code set_field}. */
+  public void setDisplayState(RealtimeThread.Item item, RealtimeThread.ItemDisplayState displayState) {
+    item.setDisplayState(displayState);
+    recordSetField(item.id(), "displayState", item.displayState().wireValue());
   }
 
   // ---------------------------------------------------------------------------
@@ -394,6 +410,7 @@ public final class ThreadPatchBuilder {
     shape.put("type", itemTypeToWire(item.type()));
     putIfPresent(shape, "role", roleToWire(item.role()));
     shape.put("status", item.status().wireValue());
+    shape.put("displayState", item.displayState().wireValue());
     putIfPresent(shape, "callId", item.callId());
     putIfPresent(shape, "name", item.name());
     putIfPresent(shape, "arguments", item.arguments());
@@ -414,7 +431,7 @@ public final class ThreadPatchBuilder {
    * in {@code 02_vhrp_wire_protocol.md}:
    *
    * <pre>
-   * text:  { "type":"text",  "isDone": bool }
+   * text:  { "type":"text",  "isDone": bool, "text": ... }
    * audio: { "type":"audio", "isDone": bool }     (transcript carried when present)
    * image: { "type":"image", "imageUrl":..., "detail":... }
    * </pre>
@@ -427,8 +444,9 @@ public final class ThreadPatchBuilder {
     Map<String, Object> shape = new LinkedHashMap<>();
     shape.put("type", part.type());
     return switch (part) {
-      case RealtimeThread.TextPart ignored -> {
+      case RealtimeThread.TextPart text -> {
         shape.put("isDone", part.isDone());
+        shape.put("text", text.text());
         yield shape;
       }
       case RealtimeThread.AudioPart audio -> {

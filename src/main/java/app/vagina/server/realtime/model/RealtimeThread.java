@@ -32,6 +32,31 @@ public final class RealtimeThread {
     ASSISTANT
   }
 
+  /** UI projection state. Keeps the canonical item in the thread while controlling chat visibility. */
+  public enum ItemDisplayState {
+    VISIBLE("visible"),
+    PENDING("pending"),
+    HIDDEN("hidden");
+
+    private final String wireValue;
+
+    ItemDisplayState(String wireValue) {
+      this.wireValue = wireValue;
+    }
+
+    public String wireValue() {
+      return wireValue;
+    }
+
+    public static ItemDisplayState fromWire(String value) {
+      return switch (value) {
+        case "pending" -> PENDING;
+        case "hidden" -> HIDDEN;
+        default -> VISIBLE;
+      };
+    }
+  }
+
   /**
    * Item status; mirrors Dart {@code RealtimeThreadItemStatus} including the wire token. Progression
    * is one-way: {@code IN_PROGRESS -> COMPLETED} or {@code IN_PROGRESS -> INCOMPLETE}.
@@ -185,6 +210,7 @@ public final class RealtimeThread {
     private final ItemType type;
     private ItemRole role;
     private ItemStatus status;
+    private ItemDisplayState displayState = ItemDisplayState.VISIBLE;
     private final List<ContentPart> content = new ArrayList<>();
     private String callId;
     private String name;
@@ -222,6 +248,14 @@ public final class RealtimeThread {
 
     public void setStatus(ItemStatus status) {
       this.status = status;
+    }
+
+    public ItemDisplayState displayState() {
+      return displayState;
+    }
+
+    public void setDisplayState(ItemDisplayState displayState) {
+      this.displayState = displayState == null ? ItemDisplayState.VISIBLE : displayState;
     }
 
     public List<ContentPart> content() {

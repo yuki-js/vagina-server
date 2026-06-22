@@ -629,6 +629,9 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       return;
     }
     RealtimeThread.Item item = ensureUserMessageItem(itemId);
+    if (item.displayState() != RealtimeThread.ItemDisplayState.VISIBLE) {
+      patch.setDisplayState(item, RealtimeThread.ItemDisplayState.VISIBLE);
+    }
     patch.appendTranscript(item, event.contentIndex(), delta);
     flush();
   }
@@ -637,7 +640,10 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       OaiRealtimeEvent.InputAudioTranscriptionCompleted event) {
     String itemId = event.itemId();
     String transcript = event.transcript();
-    if (isBlank(itemId) || isBlank(transcript)) {
+    if (isBlank(itemId)) {
+      return;
+    }
+    if (isBlank(transcript)) {
       return;
     }
     RealtimeThread.Item item = ensureUserMessageItem(itemId);
@@ -649,6 +655,9 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
 
   private void onOutputItemDone(OaiRealtimeEvent.ResponseOutputItemDone event) {
     RealtimeThread.Item item = upsertConversationItem(event.item());
+    if (item == null) {
+      return;
+    }
     RealtimeThread.ItemStatus nextStatus = RealtimeThread.ItemStatus.fromWire(event.item().status());
     boolean locallyCancelled = isLocallyCancelled(item.id(), item.callId());
     if (!locallyCancelled || nextStatus == RealtimeThread.ItemStatus.INCOMPLETE) {
@@ -825,8 +834,13 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
         cancelledFunctionCall
             ? RealtimeThread.ItemStatus.INCOMPLETE
             : RealtimeThread.ItemStatus.fromWire(source.status());
+    RealtimeThread.ItemRole role = mapRole(source.role());
+    if (shouldDeferUserInputAudioProjection(itemType, role, source)) {
+      return null;
+    }
+    RealtimeThread.ItemDisplayState displayState = initialDisplayState(role, source);
     RealtimeThread.Item item =
-        patch.addItem(source.id(), itemType, mapRole(source.role()), status);
+        patch.addItem(source.id(), itemType, role, status, displayState);
     if (source.callId() != null) {
       patch.setCallId(item, source.callId());
     }
@@ -1145,6 +1159,53 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   private boolean isLocallyCancelled(String itemId, String callId) {
     return locallyCancelledItemIds.contains(itemId)
         || (callId != null && locallyCancelledCallIds.contains(callId));
+  }
+
+  private boolean shouldDeferUserInputAudioProjection(
+      RealtimeThread.ItemType itemType,
+      RealtimeThread.ItemRole role,
+      OaiRealtimeEvent.ConversationItem source) {
+    if (itemType != RealtimeThread.ItemType.MESSAGE
+        || role != RealtimeThread.ItemRole.USER
+        || source == null
+        || source.content().isEmpty()) {
+      return false;
+    }
+    boolean hasInputAudio = false;
+    for (OaiRealtimeEvent.ContentPart part : source.content()) {
+      if ("input_audio".equals(part.type())) {
+        hasInputAudio = true;
+        if (!isBlank(part.transcript())) {
+          return false;
+        }
+      } else if (!isBlank(part.text()) || !isBlank(part.transcript())) {
+        return false;
+      } else if (!"audio".equals(part.type())) {
+        return false;
+      }
+    }
+    return hasInputAudio;
+  }
+
+  private RealtimeThread.ItemDisplayState initialDisplayState(
+      RealtimeThread.ItemRole role, OaiRealtimeEvent.ConversationItem source) {
+    if (role != RealtimeThread.ItemRole.USER || source == null || source.content().isEmpty()) {
+      return RealtimeThread.ItemDisplayState.VISIBLE;
+    }
+    boolean hasInputAudio = false;
+    for (OaiRealtimeEvent.ContentPart part : source.content()) {
+      if ("input_audio".equals(part.type())) {
+        hasInputAudio = true;
+        if (!isBlank(part.transcript())) {
+          return RealtimeThread.ItemDisplayState.VISIBLE;
+        }
+      } else if (!isBlank(part.text()) || !isBlank(part.transcript())) {
+        return RealtimeThread.ItemDisplayState.VISIBLE;
+      } else if (!"audio".equals(part.type())) {
+        return RealtimeThread.ItemDisplayState.VISIBLE;
+      }
+    }
+    return hasInputAudio ? RealtimeThread.ItemDisplayState.PENDING : RealtimeThread.ItemDisplayState.VISIBLE;
   }
 
   private int lastAudioPartIndex(RealtimeThread.Item item) {

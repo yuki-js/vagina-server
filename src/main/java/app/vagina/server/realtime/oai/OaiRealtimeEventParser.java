@@ -43,7 +43,7 @@ public final class OaiRealtimeEventParser {
           new OaiRealtimeEvent.SessionCreated(session(payload.get("session")));
       case "conversation.created" ->
           new OaiRealtimeEvent.ConversationCreated(conversation(payload.get("conversation")));
-      case "conversation.item.created" ->
+      case "conversation.item.created", "conversation.item.added", "conversation.item.done" ->
           new OaiRealtimeEvent.ConversationItemCreated(
               text(payload, "previous_item_id"), item(payload.get("item")));
       case "conversation.item.deleted" ->
