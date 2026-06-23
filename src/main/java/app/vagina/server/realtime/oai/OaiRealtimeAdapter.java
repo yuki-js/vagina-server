@@ -410,8 +410,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   @Override
   public Uni<Void> setInstructions(String instructions) {
     ensureNotDisposed();
-    String normalized = instructions == null ? null : instructions.trim();
-    String next = normalized == null || normalized.isEmpty() ? null : normalized;
+    String normalized = instructions == null ? "" : instructions.trim();
+    String next = normalized.isEmpty() ? "" : normalized;
     if (Objects.equals(sessionInstructions, next)) {
       return Uni.createFrom().voidItem();
     }
@@ -1066,9 +1066,7 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     if (reasoningEffort != null) {
       session.put("reasoning", Map.of("effort", reasoningEffort));
     }
-    if (sessionInstructions != null) {
-      session.put("instructions", sessionInstructions);
-    }
+    session.put("instructions", sessionInstructions == null ? "" : sessionInstructions);
     session.put("output_modalities", List.of("audio"));
 
     List<Map<String, Object>> toolMaps = new ArrayList<>();
