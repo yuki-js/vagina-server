@@ -565,7 +565,6 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       String errorMessage) {
     ensureNotDisposed();
     String itemId = nextLocalId("tool");
-    stageLocalFunctionOutputItem(itemId, callId, output, disposition, errorMessage);
     Map<String, Object> item =
         Map.of("id", itemId, "type", "function_call_output", "call_id", callId, "output", output);
     return client
@@ -609,12 +608,6 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
 
   private Uni<Void> createInterruptedFunctionOutput(String callId) {
     String itemId = nextLocalId("tool");
-    stageLocalFunctionOutputItem(
-        itemId,
-        callId,
-        INTERRUPTED_TOOL_ERROR_OUTPUT,
-        RealtimeAdapterModels.ToolOutputDisposition.ERROR,
-        INTERRUPTED_TOOL_ERROR_MESSAGE);
     Map<String, Object> item =
         Map.of(
             "id", itemId,
@@ -1008,42 +1001,6 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       patch.setName(item, name);
     }
     return item;
-  }
-
-  private void stageLocalFunctionOutputItem(
-      String itemId,
-      String callId,
-      String output,
-      RealtimeAdapterModels.ToolOutputDisposition disposition,
-      String errorMessage) {
-    RealtimeThread.Item existing = thread.findItem(itemId);
-    if (existing != null) {
-      if (existing.role() == null) {
-        patch.setRole(existing, RealtimeThread.ItemRole.ASSISTANT);
-      }
-      patch.setStatus(existing, RealtimeThread.ItemStatus.COMPLETED);
-      patch.setCallId(existing, callId);
-      patch.setOutput(existing, output);
-      patch.setToolOutputDisposition(existing, disposition);
-      if (errorMessage != null) {
-        patch.setToolErrorMessage(existing, errorMessage);
-      }
-      flush();
-      return;
-    }
-    RealtimeThread.Item item =
-        patch.addItem(
-            itemId,
-            RealtimeThread.ItemType.FUNCTION_CALL_OUTPUT,
-            RealtimeThread.ItemRole.ASSISTANT,
-            RealtimeThread.ItemStatus.COMPLETED);
-    patch.setCallId(item, callId);
-    patch.setOutput(item, output);
-    patch.setToolOutputDisposition(item, disposition);
-    if (errorMessage != null) {
-      patch.setToolErrorMessage(item, errorMessage);
-    }
-    flush();
   }
 
   private void mergeContentPart(

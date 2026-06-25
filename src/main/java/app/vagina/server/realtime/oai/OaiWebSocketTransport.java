@@ -201,13 +201,10 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
         });
   }
 
-  private static final int DIAG_PREVIEW_LIMIT = 1000;
-
   private void handleText(String message) {
     try {
       JsonNode node = json.readTree(message);
       if (node != null && node.isObject()) {
-        Log.debugf("[DIAG-OAI-IN] %s", summarizePayload(node));
         inbound.onNext(node);
       } else {
         Log.warnf("OAI realtime transport dropped a non-object frame");
@@ -226,102 +223,7 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
       return Uni.createFrom()
           .failure(new IllegalStateException("Cannot send to OpenAI realtime while disconnected"));
     }
-    Log.debugf("[DIAG-OAI-OUT] %s", summarizePayload(payload));
     return ws.writeTextMessage(payload.toString());
-  }
-
-  private static String summarizePayload(JsonNode payload) {
-    if (payload == null || !payload.isObject()) {
-      return preview(String.valueOf(payload));
-    }
-
-    final String type = text(payload, "type");
-    return switch (type == null ? "" : type) {
-      case "input_audio_buffer.append" -> {
-        final String audio = text(payload, "audio");
-        yield "type=input_audio_buffer.append audioBase64Chars="
-            + (audio == null ? 0 : audio.length());
-      }
-      case "conversation.item.create" -> summarizeConversationItemCreate(payload);
-      case "response.text.delta", "response.output_text.delta" ->
-          "type="
-              + type
-              + " item_id="
-              + text(payload, "item_id")
-              + " content_index="
-              + payload.path("content_index").asText("?")
-              + " delta="
-              + preview(text(payload, "delta"));
-      case "response.text.done", "response.output_text.done" ->
-          "type="
-              + type
-              + " item_id="
-              + text(payload, "item_id")
-              + " content_index="
-              + payload.path("content_index").asText("?")
-              + " text="
-              + preview(text(payload, "text"));
-      case "response.audio.delta", "response.output_audio.delta" -> {
-        final String delta = text(payload, "delta");
-        yield "type="
-            + type
-            + " item_id="
-            + text(payload, "item_id")
-            + " content_index="
-            + payload.path("content_index").asText("?")
-            + " deltaBase64Chars="
-            + (delta == null ? 0 : delta.length());
-      }
-      case "response.audio_transcript.delta", "response.output_audio_transcript.delta" ->
-          "type="
-              + type
-              + " item_id="
-              + text(payload, "item_id")
-              + " content_index="
-              + payload.path("content_index").asText("?")
-              + " delta="
-              + preview(text(payload, "delta"));
-      default -> preview(payload.toString());
-    };
-  }
-
-  private static String summarizeConversationItemCreate(JsonNode payload) {
-    final JsonNode item = payload.get("item");
-    final JsonNode content = item == null ? null : item.get("content");
-    final JsonNode firstPart =
-        content != null && content.isArray() && !content.isEmpty() ? content.get(0) : null;
-    return "type=conversation.item.create item.id="
-        + text(item, "id")
-        + " item.type="
-        + text(item, "type")
-        + " role="
-        + text(item, "role")
-        + " firstPart.type="
-        + text(firstPart, "type")
-        + " firstPart.text="
-        + preview(text(firstPart, "text"));
-  }
-
-  private static String preview(String value) {
-    if (value == null) {
-      return "null";
-    }
-    final String normalized = value.replace("\n", "\\n").replace("\r", "\\r");
-    if (normalized.length() <= DIAG_PREVIEW_LIMIT) {
-      return normalized;
-    }
-    return normalized.substring(0, DIAG_PREVIEW_LIMIT)
-        + "...(truncated,"
-        + normalized.length()
-        + " chars)";
-  }
-
-  private static String text(JsonNode node, String field) {
-    if (node == null) {
-      return null;
-    }
-    final JsonNode value = node.get(field);
-    return value == null || value.isNull() ? null : value.asText();
   }
 
   @Override

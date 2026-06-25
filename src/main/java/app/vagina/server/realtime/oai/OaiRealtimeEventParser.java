@@ -183,16 +183,28 @@ public final class OaiRealtimeEventParser {
         }
       }
     }
+    String itemType = orEmpty(text(node, "type"));
     return new OaiRealtimeEvent.ConversationItem(
         orEmpty(text(node, "id")),
-        orEmpty(text(node, "type")),
-        text(node, "status"),
+        itemType,
+        itemStatus(node, itemType),
         text(node, "role"),
         content,
         text(node, "call_id"),
         text(node, "name"),
         text(node, "arguments"),
         text(node, "output"));
+  }
+
+  private String itemStatus(JsonNode node, String itemType) {
+    String status = text(node, "status");
+    if (status != null && !status.isBlank()) {
+      return status;
+    }
+    if ("function_call_output".equals(itemType)) {
+      return "completed";
+    }
+    return "in_progress";
   }
 
   private static String responseId(JsonNode node) {
