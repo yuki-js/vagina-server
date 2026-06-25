@@ -25,7 +25,8 @@ import java.util.Map;
  *
  * <p>It holds no business logic, no thread projection, and no provider-agnostic mapping — that is
  * the {@link OaiRealtimeAdapter}'s job. A single {@link BroadcastProcessor} fans every parsed event
- * out; {@link #events(Class)} filters by concrete type, matching the Dart {@code _typedStream<T>()}.
+ * out; {@link #events(Class)} filters by concrete type, matching the Dart {@code
+ * _typedStream<T>()}.
  */
 public final class OaiRealtimeClient {
 
@@ -43,7 +44,10 @@ public final class OaiRealtimeClient {
     this.parser = new OaiRealtimeEventParser();
     this.encoder = new OaiRealtimeCommand.Encoder(json);
     this.inboundSubscription =
-        transport.inboundMessages().subscribe().with(this::handleInbound, this::handleInboundFailure);
+        transport
+            .inboundMessages()
+            .subscribe()
+            .with(this::handleInbound, this::handleInboundFailure);
   }
 
   // ---------------------------------------------------------------------------

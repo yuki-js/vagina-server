@@ -3,7 +3,6 @@ package app.vagina.server.realtime;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -14,10 +13,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@link ConfigRealtimeAdapterFactory} (which has no explicit priority). No production code is
  * changed; this class lives entirely in {@code src/test/java}.
  *
- * <p>Every call to {@link #create(String)} allocates a fresh {@link FakeRealtimeAdapter},
- * registers it in the internal list, and returns it. Tests retrieve the latest (or a specific)
- * adapter via {@link #lastCreated()} / {@link #allCreated()} and drive it to simulate assistant
- * responses or errors.
+ * <p>Every call to {@link #create(String)} allocates a fresh {@link FakeRealtimeAdapter}, registers
+ * it in the internal list, and returns it. Tests retrieve the latest (or a specific) adapter via
+ * {@link #lastCreated()} / {@link #allCreated()} and drive it to simulate assistant responses or
+ * errors.
  *
  * <p>The factory is {@code @ApplicationScoped} so it outlives individual sessions and test methods;
  * call {@link #reset()} in {@code @AfterEach} to clear adapter history between tests.
@@ -50,8 +49,8 @@ public class FakeRealtimeAdapterFactory implements RealtimeAdapterFactory {
   // =========================================================================
 
   /**
-   * Returns the most recently created adapter, or {@code null} if none has been created yet.
-   * Use this after a WebSocket {@code session.open} has been processed.
+   * Returns the most recently created adapter, or {@code null} if none has been created yet. Use
+   * this after a WebSocket {@code session.open} has been processed.
    */
   public FakeRealtimeAdapter lastCreated() {
     if (created.isEmpty()) {

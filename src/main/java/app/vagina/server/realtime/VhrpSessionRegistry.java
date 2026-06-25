@@ -28,8 +28,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ol>
  *   <li>authenticate {@code session.open.body.token} (reuses {@link AuthService}, whose String
  *       overload is documented for exactly this in-band VHRP token);
- *   <li>resolve the driver from {@code modelId} (the {@code RealtimeAdapter} mirror), keeping vendor
- *       choice server-side;
+ *   <li>resolve the driver from {@code modelId} (the {@code RealtimeAdapter} mirror), keeping
+ *       vendor choice server-side;
  *   <li>create a new session or rebind a retained one, returning it for the endpoint to attach.
  * </ol>
  */
@@ -72,15 +72,15 @@ public class VhrpSessionRegistry {
    *
    * <p>The returned {@link Uni} fails with a {@link VhrpException} carrying the right code
    * (auth/unknown-model/resume); the endpoint reports it and, because no session is bound yet,
-   * closes. The
-   * endpoint stamps the binding pointer and then calls {@link VhrpSession#attachConnection}.
+   * closes. The endpoint stamps the binding pointer and then calls {@link
+   * VhrpSession#attachConnection}.
    */
-  public Uni<VhrpSession> openOrResume(VhrpMessage.SessionOpen open, WebSocketConnection connection) {
+  public Uni<VhrpSession> openOrResume(
+      VhrpMessage.SessionOpen open, WebSocketConnection connection) {
     Optional<User> user = authService.authenticateFromJwt(open.token());
     if (user.isEmpty()) {
       return Uni.createFrom()
-          .failure(
-              new VhrpException.AuthInvalidJwt("Invalid or missing session.open token"));
+          .failure(new VhrpException.AuthInvalidJwt("Invalid or missing session.open token"));
     }
 
     sweepExpired();
@@ -96,8 +96,7 @@ public class VhrpSessionRegistry {
       adapter = adapterFactory.create(open.modelId());
     } catch (RealtimeAdapterFactory.UnknownModelException e) {
       return Uni.createFrom()
-          .failure(
-              new VhrpException.SessionUnknownModel("Unknown modelId: " + open.modelId()));
+          .failure(new VhrpException.SessionUnknownModel("Unknown modelId: " + open.modelId()));
     }
 
     String sessionId = newSessionId();
@@ -105,10 +104,10 @@ public class VhrpSessionRegistry {
     VhrpSession session = new VhrpSession(sessionId, threadId, codec, adapter);
     sessions.put(sessionId, new Entry(session, user.getId().toString()));
     Log.infof(
-        "VHRP session %s created for user %s on model %s",
-        sessionId, user.getId(), open.modelId());
+        "VHRP session %s created for user %s on model %s", sessionId, user.getId(), open.modelId());
 
-    // Apply the session.open initial turn mode before connect(): while disconnected the adapter only
+    // Apply the session.open initial turn mode before connect(): while disconnected the adapter
+    // only
     // records the mode, so the first session.update connect() sends already carries it — no second
     // update, no missed initial mode. Then connect() opens the downstream vendor connection and
     // applies voice/instructions; the session is returned once the adapter is ready to be driven.
@@ -147,8 +146,9 @@ public class VhrpSessionRegistry {
   }
 
   /**
-   * Marks the session detached and starts its retention timer. The session is kept (not disposed) so
-   * a later {@code session.open.resume} can rebind it; disposal happens on expiry or explicit close.
+   * Marks the session detached and starts its retention timer. The session is kept (not disposed)
+   * so a later {@code session.open.resume} can rebind it; disposal happens on expiry or explicit
+   * close.
    */
   public void onConnectionDetached(VhrpSession session, WebSocketConnection connection) {
     session.detach(connection);
@@ -164,9 +164,9 @@ public class VhrpSessionRegistry {
    * Lazily disposes any detached session whose retention window has elapsed, releasing its
    * downstream vendor connection via {@link VhrpSession#dispose()}. Run opportunistically on
    * registry mutation (open/resume/detach) rather than on a timer: scheduling/eviction policy is
-   * outside the clean-room scope, but a real downstream socket must not leak past its window, so the
-   * minimum viable reclamation is done here. An attached session is never swept; a session re-bound
-   * by a fast resume has its {@code detachedAt} cleared and is therefore skipped.
+   * outside the clean-room scope, but a real downstream socket must not leak past its window, so
+   * the minimum viable reclamation is done here. An attached session is never swept; a session
+   * re-bound by a fast resume has its {@code detachedAt} cleared and is therefore skipped.
    */
   private void sweepExpired() {
     Instant now = Instant.now();
@@ -186,8 +186,7 @@ public class VhrpSessionRegistry {
             .with(
                 ignored -> {},
                 error ->
-                    Log.errorf(
-                        error, "VHRP session %s dispose failed", entry.session.sessionId()));
+                    Log.errorf(error, "VHRP session %s dispose failed", entry.session.sessionId()));
       }
     }
   }

@@ -6,8 +6,8 @@ import java.util.Map;
 /**
  * Adapter-facing shared value types, aggregated to avoid a swarm of tiny files (judgment 8). This
  * mirrors the Dart {@code realtime_adapter_models.dart} plus the few enums that live alongside the
- * Dart {@code RealtimeAdapter}, kept VHRP-agnostic so the {@code oai/} translation body never sees a
- * wire type.
+ * Dart {@code RealtimeAdapter}, kept VHRP-agnostic so the {@code oai/} translation body never sees
+ * a wire type.
  */
 public final class RealtimeAdapterModels {
 
@@ -56,7 +56,8 @@ public final class RealtimeAdapterModels {
 
   /**
    * Turn-taking mode. Mirrors the Dart top-level {@code RealtimeAudioTurnMode}; {@link
-   * #fromWire(String)} maps the VHRP {@code audio.turn.mode.set.mode} token at the session boundary.
+   * #fromWire(String)} maps the VHRP {@code audio.turn.mode.set.mode} token at the session
+   * boundary.
    */
   public enum AudioTurnMode {
     VOICE_ACTIVITY,

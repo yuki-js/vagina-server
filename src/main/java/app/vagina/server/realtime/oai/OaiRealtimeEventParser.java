@@ -21,7 +21,9 @@ import java.util.List;
  */
 public final class OaiRealtimeEventParser {
 
-  /** Thrown only for a structurally invalid frame (missing {@code type}); unknown types are dropped. */
+  /**
+   * Thrown only for a structurally invalid frame (missing {@code type}); unknown types are dropped.
+   */
   public static final class ProtocolException extends RuntimeException {
     public ProtocolException(String message) {
       super(message);
@@ -110,14 +112,12 @@ public final class OaiRealtimeEventParser {
               text(payload, "name"),
               text(payload, "arguments"));
       case "response.created" ->
-          new OaiRealtimeEvent.ResponseCreated(
-              responseId(payload.get("response")));
+          new OaiRealtimeEvent.ResponseCreated(responseId(payload.get("response")));
       case "response.done" ->
           new OaiRealtimeEvent.ResponseDone(
-              responseId(payload.get("response")),
-              responseStatus(payload.get("response")));
+              responseId(payload.get("response")), responseStatus(payload.get("response")));
       case "error" -> new OaiRealtimeEvent.ErrorEvent(errorDetail(payload.get("error")));
-      // Unmodelled but well-formed: dropped, like the Dart binding having no stream for it.
+        // Unmodelled but well-formed: dropped, like the Dart binding having no stream for it.
       default -> null;
     };
   }

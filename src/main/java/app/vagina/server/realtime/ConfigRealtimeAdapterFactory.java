@@ -23,10 +23,10 @@ import jakarta.inject.Inject;
  * <em>not</em> read or interpret {@code baseUrl}/{@code apiKey}/{@code transcriptionModel}/default
  * voice+instructions, and it does <em>not</em> build the canonical {@code RealtimeThread} or its
  * {@link ThreadPatchBuilder}. All of that is the driver's own concern: the OAI body takes the
- * {@code modelId}, injects {@link RealtimeModelsConfig} itself, and resolves its own connection info
- * — mirroring how the Dart {@code OaiRealtimeAdapter} owns its config and constructs its own thread.
- * Keeping connection details out of the factory is what lets a new provider be added here in two
- * lines without the factory learning any vendor's connection shape.
+ * {@code modelId}, injects {@link RealtimeModelsConfig} itself, and resolves its own connection
+ * info — mirroring how the Dart {@code OaiRealtimeAdapter} owns its config and constructs its own
+ * thread. Keeping connection details out of the factory is what lets a new provider be added here
+ * in two lines without the factory learning any vendor's connection shape.
  *
  * <p>{@link VhrpEndpoint}, the wire, and the Flutter client are untouched by provider changes,
  * because everything downstream only ever sees the {@link RealtimeAdapter} type. The client never

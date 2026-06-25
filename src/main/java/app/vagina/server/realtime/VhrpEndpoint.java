@@ -38,10 +38,10 @@ import java.nio.channels.ClosedChannelException;
  *       userData}.
  * </ul>
  *
- * <p>Consequently {@link WebSocketConnection#userData()} only stores a <em>binding pointer</em> from
- * the current connection to its {@link VhrpSession}; the registry remains the source of truth.
- * {@link #onClose(WebSocketConnection)} detaches rather than destroys, which is precisely what makes
- * resume possible.
+ * <p>Consequently {@link WebSocketConnection#userData()} only stores a <em>binding pointer</em>
+ * from the current connection to its {@link VhrpSession}; the registry remains the source of truth.
+ * {@link #onClose(WebSocketConnection)} detaches rather than destroys, which is precisely what
+ * makes resume possible.
  *
  * <h2>One error funnel, context decides close</h2>
  *
@@ -54,8 +54,8 @@ import java.nio.channels.ClosedChannelException;
  * no close reason carried on the exception.
  *
  * <p>Wire contract (see {@code 02_vhrp_wire_protocol.md}): scheme {@code wss}, path {@code
- * /api/hosted-realtime/v1/connect}, subprotocol {@code vhrp.cbor.v1}, one binary frame per CBOR map,
- * first application message MUST be {@code session.open}.
+ * /api/hosted-realtime/v1/connect}, subprotocol {@code vhrp.cbor.v1}, one binary frame per CBOR
+ * map, first application message MUST be {@code session.open}.
  */
 @WebSocket(path = "/api/hosted-realtime/v1/connect")
 public class VhrpEndpoint {
@@ -75,7 +75,10 @@ public class VhrpEndpoint {
   private static final CloseReason CLOSE_BAD_SUBPROTOCOL =
       new CloseReason(4406, "Subprotocol must be " + VHRP_SUBPROTOCOL);
 
-  /** Close sent when bootstrap fails; the specific reason already went out as an {@code error} frame. */
+  /**
+   * Close sent when bootstrap fails; the specific reason already went out as an {@code error}
+   * frame.
+   */
   private static final CloseReason CLOSE_BOOTSTRAP_FAILED =
       new CloseReason(4400, "Session bootstrap failed");
 
@@ -126,7 +129,8 @@ public class VhrpEndpoint {
    * session.open}". Token verification, driver resolution, new-vs-resume, and the {@code
    * session.ready}/{@code session.resumed} reply all belong to {@link VhrpSessionRegistry} and
    * {@link VhrpSession}; resume in particular is deliberately invisible here. Any failure simply
-   * propagates as a failed {@link Uni} to {@link #onError}, which closes because no session is bound.
+   * propagates as a failed {@link Uni} to {@link #onError}, which closes because no session is
+   * bound.
    */
   private Uni<Void> bootstrap(WebSocketConnection connection, VhrpMessage message) {
     if (!(message instanceof VhrpMessage.SessionOpen open)) {
@@ -143,7 +147,8 @@ public class VhrpEndpoint {
         .invoke(session -> connection.userData().put(SESSION_KEY, session))
         // attachConnection makes the session start writing to this socket: it replies session.ready
         // (new) or session.resumed (resume), correlated via this open's messageId, then the ongoing
-        // thread.patch / assistant.audio.chunk / vad.state stream. The endpoint stays stateless; the
+        // thread.patch / assistant.audio.chunk / vad.state stream. The endpoint stays stateless;
+        // the
         // session owns that subscription so it survives reconnects.
         .chain(session -> session.attachConnection(connection, open.messageId()));
   }
@@ -251,11 +256,12 @@ public class VhrpEndpoint {
    * flood loop.
    *
    * <p>Checked types:
+   *
    * <ul>
-   *   <li>{@link HttpClosedException} — Vert.x HTTP layer: "Connection was closed"</li>
-   *   <li>{@link ClosedChannelException} — NIO channel already closed</li>
+   *   <li>{@link HttpClosedException} — Vert.x HTTP layer: "Connection was closed"
+   *   <li>{@link ClosedChannelException} — NIO channel already closed
    *   <li>{@link io.vertx.core.impl.NoStackTraceThrowable} (and other plain {@link Throwable}s)
-   *       whose message is "WebSocket is closed" — Vert.x WebSocket layer</li>
+   *       whose message is "WebSocket is closed" — Vert.x WebSocket layer
    * </ul>
    */
   private static boolean isTransportClosedException(Throwable t) {

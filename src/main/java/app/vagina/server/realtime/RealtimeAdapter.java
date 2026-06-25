@@ -24,9 +24,9 @@ import java.util.Set;
  * The Dart adapter projects a thread and emits whole-thread updates; the server must instead emit
  * VHRP {@code thread.patch} deltas. So this interface adds projection accessors ({@link
  * #conversationId()}, {@link #supportedExtensions()}) and a delta stream ({@link #threadPatches()})
- * the session frames as patches, while {@link #thread()} remains the canonical snapshot source. Live
- * mic input is a single-chunk push ({@link #pushLiveAudioChunk}, judgment 6) rather than a bound
- * stream.
+ * the session frames as patches, while {@link #thread()} remains the canonical snapshot source.
+ * Live mic input is a single-chunk push ({@link #pushLiveAudioChunk}, judgment 6) rather than a
+ * bound stream.
  *
  * <p>There is no thread revision/sequence here: a {@code thread.patch} is a fire-and-forget live
  * delta, and the only recovery for any delivery gap is reconnect + a fresh full {@code
@@ -66,9 +66,9 @@ public interface RealtimeAdapter {
   RealtimeThread thread();
 
   /**
-   * Emits one batch of patch ops per flush point (judgment 5: ops are appended at mutation sites and
-   * flushed where the Dart code emitted a whole-thread update). The session wraps each batch in a
-   * VHRP {@code thread.patch} and writes it live. Ops are kept as generic maps so the wire-shape
+   * Emits one batch of patch ops per flush point (judgment 5: ops are appended at mutation sites
+   * and flushed where the Dart code emitted a whole-thread update). The session wraps each batch in
+   * a VHRP {@code thread.patch} and writes it live. Ops are kept as generic maps so the wire-shape
    * stays in the session/codec, not in the adapter. There is no revision on a batch: a patch is a
    * fire-and-forget live delta, and a delivery gap is recovered by reconnect + full snapshot.
    */
@@ -89,10 +89,15 @@ public interface RealtimeAdapter {
 
   Uni<Void> setAudioTurnMode(RealtimeAdapterModels.AudioTurnMode mode);
 
-  /** Assistant PCM output, framed per item/part so the session can emit {@code assistant.audio.chunk}. */
+  /**
+   * Assistant PCM output, framed per item/part so the session can emit {@code
+   * assistant.audio.chunk}.
+   */
   Multi<RealtimeAdapterModels.AssistantAudioFrame> assistantAudioStream();
 
-  /** Fires when the current assistant audio response has no more chunks (per item/part boundary). */
+  /**
+   * Fires when the current assistant audio response has no more chunks (per item/part boundary).
+   */
   Multi<RealtimeAdapterModels.AssistantAudioFrame> assistantAudioCompleted();
 
   boolean isUserSpeaking();
@@ -107,7 +112,9 @@ public interface RealtimeAdapter {
 
   Uni<Void> setInstructions(String instructions);
 
-  /** Applies an opaque provider extension; resolves {@code false} when unsupported by this driver. */
+  /**
+   * Applies an opaque provider extension; resolves {@code false} when unsupported by this driver.
+   */
   Uni<Boolean> applyProviderExtension(String extensionType, Map<String, Object> payload);
 
   // ---------------------------------------------------------------------------
@@ -126,12 +133,18 @@ public interface RealtimeAdapter {
       RealtimeAdapterModels.ToolOutputDisposition disposition,
       String errorMessage);
 
-  /** Marks pending/running function calls locally cancelled (projection concern; no wire). */
-  void cancelFunctionCalls(Set<String> itemIds, Set<String> callIds);
-
   // ---------------------------------------------------------------------------
   // Response control
   // ---------------------------------------------------------------------------
 
+  /**
+   * Interrupts the model's current response.
+   *
+   * <p>Implementations must cancel generation, clear any buffered output audio, resolve
+   * provider-visible completed function calls that are still awaiting output with a
+   * cancellation/error function output, and transition unfinished function-call items that belong
+   * to the interrupted response to {@link RealtimeThread.ItemStatus#INCOMPLETE}. This keeps
+   * interrupt behavior provider-independent for callers.
+   */
   Uni<Void> interrupt();
 }

@@ -7,11 +7,11 @@ import java.util.Map;
  * The VHRP/1 application message set, as decoded/encoded by {@link VhrpCborCodec}.
  *
  * <p>Each permitted record is one message kind from the wire protocol ({@code
- * client/docs/hosted_realtime/02_vhrp_wire_protocol.md}). On the wire every message is a single CBOR
- * map {@code { type, [messageId], [replyTo], body }}; here the envelope is flattened into typed
- * fields so the rest of the server never touches raw maps. There is no {@code streamSeq} or thread
- * revision on the envelope: recovery is reconnect + full {@code thread.snapshot}, not versioned
- * catch-up.
+ * client/docs/hosted_realtime/02_vhrp_wire_protocol.md}). On the wire every message is a single
+ * CBOR map {@code { type, [messageId], [replyTo], body }}; here the envelope is flattened into
+ * typed fields so the rest of the server never touches raw maps. There is no {@code streamSeq} or
+ * thread revision on the envelope: recovery is reconnect + full {@code thread.snapshot}, not
+ * versioned catch-up.
  *
  * <p>Direction is encoded by the marker sub-interfaces {@link C2S} and {@link S2C}. The endpoint
  * only constructs {@link Error} and pattern-matches {@link SessionOpen}; the codec maps every
@@ -82,7 +82,10 @@ public sealed interface VhrpMessage {
     }
   }
 
-  /** {@code session.instructions.set}: mid-session instructions update; {@code instructions} nullable. */
+  /**
+   * {@code session.instructions.set}: mid-session instructions update; {@code instructions}
+   * nullable.
+   */
   record SessionInstructionsSet(String messageId, String instructions) implements C2S {
     @Override
     public String type() {
@@ -90,7 +93,9 @@ public sealed interface VhrpMessage {
     }
   }
 
-  /** {@code live.audio.chunk}: one live mic PCM chunk; valid only in {@code voice_activity} mode. */
+  /**
+   * {@code live.audio.chunk}: one live mic PCM chunk; valid only in {@code voice_activity} mode.
+   */
   record LiveAudioChunk(byte[] pcm, long sequence) implements C2S {
     @Override
     public String type() {
@@ -166,8 +171,8 @@ public sealed interface VhrpMessage {
 
   /**
    * {@code thread.sync.request}: asks the server for the current full thread state. In the
-   * snapshot-only recovery model it carries no cursor or revision — the reply is always a fresh full
-   * {@code thread.snapshot}. {@code reason} is advisory only.
+   * snapshot-only recovery model it carries no cursor or revision — the reply is always a fresh
+   * full {@code thread.snapshot}. {@code reason} is advisory only.
    */
   record ThreadSyncRequest(String messageId, String reason) implements C2S {
     @Override
@@ -197,11 +202,11 @@ public sealed interface VhrpMessage {
   /**
    * {@code session.resumed}: reply to a {@code session.open} that carried {@code resume}. It only
    * announces the rebind; the client then asks for a fresh full {@code thread.snapshot} via {@code
-   * thread.sync.request}. No revision/strategy is carried because the single recovery path is a full
-   * snapshot, not a versioned catch-up.
+   * thread.sync.request}. No revision/strategy is carried because the single recovery path is a
+   * full snapshot, not a versioned catch-up.
    */
-  record SessionResumed(
-      String replyTo, String sessionId, String threadId, String conversationId) implements S2C {
+  record SessionResumed(String replyTo, String sessionId, String threadId, String conversationId)
+      implements S2C {
     @Override
     public String type() {
       return "session.resumed";
@@ -222,8 +227,8 @@ public sealed interface VhrpMessage {
    * the client replaces its local thread wholesale. It is the single recovery primitive — there is
    * no revision or sequence to validate it against.
    */
-  record ThreadSnapshot(
-      String threadId, String conversationId, List<Map<String, Object>> items) implements S2C {
+  record ThreadSnapshot(String threadId, String conversationId, List<Map<String, Object>> items)
+      implements S2C {
     @Override
     public String type() {
       return "thread.snapshot";
@@ -281,7 +286,8 @@ public sealed interface VhrpMessage {
     /**
      * One-off, connection-level error not tied to a particular request: {@code replyTo} is absent
      * because the endpoint emits this around bootstrap. {@code code} is a {@link
-     * VhrpException#wireCode()} string and {@code recoverable} is passed by the caller from context.
+     * VhrpException#wireCode()} string and {@code recoverable} is passed by the caller from
+     * context.
      */
     public static Error of(String code, String message, boolean recoverable) {
       return new Error(null, code, message, recoverable);

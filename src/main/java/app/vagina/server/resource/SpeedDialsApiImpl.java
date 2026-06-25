@@ -47,7 +47,8 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
   @Override
   public Response saveSpeedDial(String speedDialId, SpeedDial speedDial) {
     Long userId = authenticatedUser.get().getId();
-    SpeedDialPreset saved = speedDialUsecase.saveSpeedDial(userId, speedDialId, toEntity(speedDial));
+    SpeedDialPreset saved =
+        speedDialUsecase.saveSpeedDial(userId, speedDialId, toEntity(speedDial));
     return Response.ok(toGeneratedModel(saved)).build();
   }
 

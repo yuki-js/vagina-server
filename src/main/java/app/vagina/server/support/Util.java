@@ -45,8 +45,7 @@ public final class Util {
 
   public static String requireJsonField(JsonNode doc, String field, String sourceDescription) {
     if (!doc.has(field) || doc.get(field).isNull()) {
-      throw new IllegalStateException(
-          sourceDescription + " is missing required field: " + field);
+      throw new IllegalStateException(sourceDescription + " is missing required field: " + field);
     }
     return doc.get(field).asText();
   }

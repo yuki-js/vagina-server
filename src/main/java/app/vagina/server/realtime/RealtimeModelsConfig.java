@@ -22,9 +22,9 @@ import java.util.Optional;
  * vagina.realtime.models.voice-agent-prod.transcription-model=gpt-4o-mini-transcribe
  * </pre>
  *
- * <p>The map key is the literal {@code modelId} segment, so {@code models().get("voice-agent-prod")}
- * resolves that group. A {@code modelId} absent from this map is an unknown model and becomes {@code
- * error(session.unknown_model)} upstream.
+ * <p>The map key is the literal {@code modelId} segment, so {@code
+ * models().get("voice-agent-prod")} resolves that group. A {@code modelId} absent from this map is
+ * an unknown model and becomes {@code error(session.unknown_model)} upstream.
  */
 @ConfigMapping(prefix = "vagina.realtime")
 public interface RealtimeModelsConfig {
@@ -39,7 +39,9 @@ public interface RealtimeModelsConfig {
    */
   interface ModelConfig {
 
-    /** Driver discriminator, e.g. {@code "oai"}; {@link RealtimeAdapterFactory} switches on this. */
+    /**
+     * Driver discriminator, e.g. {@code "oai"}; {@link RealtimeAdapterFactory} switches on this.
+     */
     String provider();
 
     /** Downstream vendor base URL; opaque to the factory, interpreted by the driver. */

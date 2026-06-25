@@ -1,6 +1,5 @@
 package app.vagina.server.realtime;
 
-import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.realtime.model.RealtimeAdapterModels.AssistantAudioFrame;
 import app.vagina.server.realtime.model.RealtimeAdapterModels.AudioTurnMode;
 import app.vagina.server.realtime.model.RealtimeAdapterModels.ConnectionState;
@@ -27,19 +26,22 @@ import java.util.concurrent.atomic.AtomicReference;
  * FakeRealtimeAdapterFactory}. The test retrieves the current instance from the factory and drives
  * it to simulate assistant responses without any real vendor connection.
  *
- * <p>Design: each observable stream is backed by a {@link MultiEmitter} stored via
- * {@link AtomicReference}. The emitter is wired when {@link VhrpSession} subscribes to the
- * respective {@link Multi} during {@link VhrpSession#subscribeAdapterOutput()} — which happens
- * synchronously in the {@code VhrpSession} constructor. After the session is created the test can
- * push patches / errors at will via {@link #emitPatch(List)} / {@link #emitError(String, String)}.
+ * <p>Design: each observable stream is backed by a {@link MultiEmitter} stored via {@link
+ * AtomicReference}. The emitter is wired when {@link VhrpSession} subscribes to the respective
+ * {@link Multi} during {@link VhrpSession#subscribeAdapterOutput()} — which happens synchronously
+ * in the {@code VhrpSession} constructor. After the session is created the test can push patches /
+ * errors at will via {@link #emitPatch(List)} / {@link #emitError(String, String)}.
  */
 public final class FakeRealtimeAdapter implements RealtimeAdapter {
 
   // --- controllable emitters ---
 
-  private final AtomicReference<MultiEmitter<ThreadPatchOps>> patchEmitter = new AtomicReference<>();
-  private final AtomicReference<MultiEmitter<AssistantAudioFrame>> audioEmitter = new AtomicReference<>();
-  private final AtomicReference<MultiEmitter<AssistantAudioFrame>> audioDoneEmitter = new AtomicReference<>();
+  private final AtomicReference<MultiEmitter<ThreadPatchOps>> patchEmitter =
+      new AtomicReference<>();
+  private final AtomicReference<MultiEmitter<AssistantAudioFrame>> audioEmitter =
+      new AtomicReference<>();
+  private final AtomicReference<MultiEmitter<AssistantAudioFrame>> audioDoneEmitter =
+      new AtomicReference<>();
   private final AtomicReference<MultiEmitter<Boolean>> vadEmitter = new AtomicReference<>();
   private final AtomicReference<MultiEmitter<Error>> errorEmitter = new AtomicReference<>();
 
@@ -49,28 +51,28 @@ public final class FakeRealtimeAdapter implements RealtimeAdapter {
 
   @SuppressWarnings("unchecked")
   private final Multi<ThreadPatchOps> patches =
-      Multi.createFrom().<ThreadPatchOps>emitter(
-          e -> patchEmitter.set((MultiEmitter<ThreadPatchOps>) e));
+      Multi.createFrom()
+          .<ThreadPatchOps>emitter(e -> patchEmitter.set((MultiEmitter<ThreadPatchOps>) e));
 
   @SuppressWarnings("unchecked")
   private final Multi<AssistantAudioFrame> audioStream =
-      Multi.createFrom().<AssistantAudioFrame>emitter(
-          e -> audioEmitter.set((MultiEmitter<AssistantAudioFrame>) e));
+      Multi.createFrom()
+          .<AssistantAudioFrame>emitter(
+              e -> audioEmitter.set((MultiEmitter<AssistantAudioFrame>) e));
 
   @SuppressWarnings("unchecked")
   private final Multi<AssistantAudioFrame> audioDone =
-      Multi.createFrom().<AssistantAudioFrame>emitter(
-          e -> audioDoneEmitter.set((MultiEmitter<AssistantAudioFrame>) e));
+      Multi.createFrom()
+          .<AssistantAudioFrame>emitter(
+              e -> audioDoneEmitter.set((MultiEmitter<AssistantAudioFrame>) e));
 
   @SuppressWarnings("unchecked")
   private final Multi<Boolean> vadUpdates =
-      Multi.createFrom().<Boolean>emitter(
-          e -> vadEmitter.set((MultiEmitter<Boolean>) e));
+      Multi.createFrom().<Boolean>emitter(e -> vadEmitter.set((MultiEmitter<Boolean>) e));
 
   @SuppressWarnings("unchecked")
   private final Multi<Error> errors =
-      Multi.createFrom().<Error>emitter(
-          e -> errorEmitter.set((MultiEmitter<Error>) e));
+      Multi.createFrom().<Error>emitter(e -> errorEmitter.set((MultiEmitter<Error>) e));
 
   // --- canonical thread (minimal, used only for snapshot) ---
 
@@ -83,14 +85,11 @@ public final class FakeRealtimeAdapter implements RealtimeAdapter {
   private volatile String conversationId;
 
   /**
-   * Immutable record of a single {@link #sendFunctionOutput} call, keyed by {@code callId}.
-   * Used by E2E tests to assert that tool results sent by the client reached the adapter.
+   * Immutable record of a single {@link #sendFunctionOutput} call, keyed by {@code callId}. Used by
+   * E2E tests to assert that tool results sent by the client reached the adapter.
    */
   public record ToolResult(
-      String callId,
-      String output,
-      ToolOutputDisposition disposition,
-      String errorMessage) {}
+      String callId, String output, ToolOutputDisposition disposition, String errorMessage) {}
 
   public FakeRealtimeAdapter(String threadId) {
     this.thread = new RealtimeThread(threadId);
@@ -101,8 +100,8 @@ public final class FakeRealtimeAdapter implements RealtimeAdapter {
   // =========================================================================
 
   /**
-   * Push a batch of patch ops to the session, which wraps them in a {@code thread.patch} frame
-   * and sends it to the connected WebSocket client.
+   * Push a batch of patch ops to the session, which wraps them in a {@code thread.patch} frame and
+   * sends it to the connected WebSocket client.
    */
   public void emitPatch(List<Map<String, Object>> ops) {
     MultiEmitter<ThreadPatchOps> e = patchEmitter.get();
@@ -111,9 +110,7 @@ public final class FakeRealtimeAdapter implements RealtimeAdapter {
     }
   }
 
-  /**
-   * Push a recoverable error to the session.
-   */
+  /** Push a recoverable error to the session. */
   public void emitError(String code, String message) {
     MultiEmitter<Error> e = errorEmitter.get();
     if (e != null) {
@@ -171,10 +168,9 @@ public final class FakeRealtimeAdapter implements RealtimeAdapter {
   /**
    * Emit a function-call patch that represents the AI requesting a tool invocation.
    *
-   * <p>Wire shape: {@code add_item}(type=functionCall) + {@code set_field} for each of
-   * {@code callId}, {@code name}, {@code arguments} + {@code set_status}(requires_action).
-   * The {@code callId} is the primary key that the client echoes back in
-   * {@code tool.result.submit}.
+   * <p>Wire shape: {@code add_item}(type=functionCall) + {@code set_field} for each of {@code
+   * callId}, {@code name}, {@code arguments} + {@code set_status}(requires_action). The {@code
+   * callId} is the primary key that the client echoes back in {@code tool.result.submit}.
    */
   public void emitFunctionCall(String itemId, String callId, String name, String arguments) {
     Map<String, Object> addItem = new LinkedHashMap<>();
@@ -340,17 +336,9 @@ public final class FakeRealtimeAdapter implements RealtimeAdapter {
 
   @Override
   public Uni<String> sendFunctionOutput(
-      String callId,
-      String output,
-      ToolOutputDisposition disposition,
-      String errorMessage) {
+      String callId, String output, ToolOutputDisposition disposition, String errorMessage) {
     sentToolResults.add(new ToolResult(callId, output, disposition, errorMessage));
     return Uni.createFrom().item("fake-output-" + System.nanoTime());
-  }
-
-  @Override
-  public void cancelFunctionCalls(Set<String> itemIds, Set<String> callIds) {
-    // no-op in fake
   }
 
   @Override

@@ -7,10 +7,11 @@ import java.util.Map;
  * Opaque connection configuration for the OpenAI Realtime protocol family, the server mirror of the
  * Dart {@code realtime_connect_config.dart}.
  *
- * <p>{@code baseUri} is treated as completely opaque: the transport never inspects its contents. The
- * {@code epFragment} is appended to the base path and the scheme is upgraded to {@code ws}/{@code
- * wss} as needed by {@link #resolveTarget()}. {@code bearerToken} becomes the {@code Authorization:
- * Bearer} header and {@code extraHeaders} are added verbatim during the WebSocket handshake.
+ * <p>{@code baseUri} is treated as completely opaque: the transport never inspects its contents.
+ * The {@code epFragment} is appended to the base path and the scheme is upgraded to {@code
+ * ws}/{@code wss} as needed by {@link #resolveTarget()}. {@code bearerToken} becomes the {@code
+ * Authorization: Bearer} header and {@code extraHeaders} are added verbatim during the WebSocket
+ * handshake.
  */
 public record OaiRealtimeConnectConfig(
     String baseUri, String epFragment, String bearerToken, Map<String, String> extraHeaders) {

@@ -8,8 +8,8 @@ import java.util.List;
  *
  * <p>Only the events {@link OaiRealtimeAdapter} actually projects are modelled here — the same set
  * the Dart adapter subscribes to. {@link OaiRealtimeEventParser} maps a raw OpenAI JSON frame onto
- * one of these; an unmodelled {@code type} is dropped by the parser rather than represented, exactly
- * as the Dart binding ignores events it has no typed stream for.
+ * one of these; an unmodelled {@code type} is dropped by the parser rather than represented,
+ * exactly as the Dart binding ignores events it has no typed stream for.
  */
 public sealed interface OaiRealtimeEvent {
 
@@ -23,7 +23,9 @@ public sealed interface OaiRealtimeEvent {
   /** A conversation handle; only {@code id} is consumed. */
   record Conversation(String id) {}
 
-  /** A session handle; identity/voice/instructions are kept for completeness, id is what matters. */
+  /**
+   * A session handle; identity/voice/instructions are kept for completeness, id is what matters.
+   */
   record Session(String id, String model, String voice, String instructions) {}
 
   /** OpenAI error detail; {@code code} falls back to {@code type} when absent. */
@@ -37,7 +39,10 @@ public sealed interface OaiRealtimeEvent {
   record ContentPart(
       String type, String text, String audio, String transcript, String detail, String imageUrl) {}
 
-  /** One conversation item as echoed by OpenAI; mirrors the Dart {@code OaiRealtimeConversationItem}. */
+  /**
+   * One conversation item as echoed by OpenAI; mirrors the Dart {@code
+   * OaiRealtimeConversationItem}.
+   */
   record ConversationItem(
       String id,
       String type,
@@ -271,8 +276,8 @@ public sealed interface OaiRealtimeEvent {
   }
 
   /**
-   * {@code response.done}: the in-flight response finished (status may be {@code completed},
-   * {@code cancelled}, or {@code failed}). Clears the active-response flag.
+   * {@code response.done}: the in-flight response finished (status may be {@code completed}, {@code
+   * cancelled}, or {@code failed}). Clears the active-response flag.
    */
   record ResponseDone(String responseId, String status) implements OaiRealtimeEvent {
     @Override

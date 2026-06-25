@@ -18,7 +18,9 @@ import java.util.List;
  */
 public final class RealtimeThread {
 
-  /** Item kinds; mirrors Dart {@code RealtimeThreadItemType}. Only these three exist on the wire. */
+  /**
+   * Item kinds; mirrors Dart {@code RealtimeThreadItemType}. Only these three exist on the wire.
+   */
   public enum ItemType {
     MESSAGE,
     FUNCTION_CALL,
@@ -32,7 +34,9 @@ public final class RealtimeThread {
     ASSISTANT
   }
 
-  /** UI projection state. Keeps the canonical item in the thread while controlling chat visibility. */
+  /**
+   * UI projection state. Keeps the canonical item in the thread while controlling chat visibility.
+   */
   public enum ItemDisplayState {
     VISIBLE("visible"),
     PENDING("pending"),
@@ -58,8 +62,8 @@ public final class RealtimeThread {
   }
 
   /**
-   * Item status; mirrors Dart {@code RealtimeThreadItemStatus} including the wire token. Progression
-   * is one-way: {@code IN_PROGRESS -> COMPLETED} or {@code IN_PROGRESS -> INCOMPLETE}.
+   * Item status; mirrors Dart {@code RealtimeThreadItemStatus} including the wire token.
+   * Progression is one-way: {@code IN_PROGRESS -> COMPLETED} or {@code IN_PROGRESS -> INCOMPLETE}.
    */
   public enum ItemStatus {
     IN_PROGRESS("in_progress"),
@@ -90,8 +94,7 @@ public final class RealtimeThread {
   // ---------------------------------------------------------------------------
 
   /** Base of the three content part kinds. {@code done} marks a part as stable. */
-  public abstract static sealed class ContentPart
-      permits TextPart, AudioPart, ImagePart {
+  public abstract static sealed class ContentPart permits TextPart, AudioPart, ImagePart {
     private final String type;
     private boolean done;
 
@@ -204,7 +207,9 @@ public final class RealtimeThread {
   // Item
   // ---------------------------------------------------------------------------
 
-  /** One thread item. Mirrors Dart {@code RealtimeThreadItem}; fields are semi-mutable for deltas. */
+  /**
+   * One thread item. Mirrors Dart {@code RealtimeThreadItem}; fields are semi-mutable for deltas.
+   */
   public static final class Item {
     private final String id;
     private final ItemType type;
@@ -322,7 +327,9 @@ public final class RealtimeThread {
       return content.get(contentIndex);
     }
 
-    /** Upserts {@code part} at {@code contentIndex}; appends when the index is absent/out of range. */
+    /**
+     * Upserts {@code part} at {@code contentIndex}; appends when the index is absent/out of range.
+     */
     public void putContentPart(ContentPart part, Integer contentIndex) {
       if (contentIndex == null || contentIndex < 0 || contentIndex >= content.size()) {
         content.add(part);

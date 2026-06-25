@@ -11,8 +11,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,10 +24,11 @@ import org.junit.jupiter.api.Test;
  *
  * <p>This test class verifies byte-level interoperability between the Dart {@code cbor} package
  * (client) and Java Jackson CBOR (server) by exchanging fixtures stored in {@code
- * .private.local/vhrp_fixtures/}. Failure here means a real WebSocket client would receive or
- * send frames that the other side cannot decode correctly.
+ * .private.local/vhrp_fixtures/}. Failure here means a real WebSocket client would receive or send
+ * frames that the other side cannot decode correctly.
  *
  * <p>Two axes are tested:
+ *
  * <ol>
  *   <li><b>C2S decode</b> — Dart-generated {@code c2s/*.cbor} are decoded by {@link VhrpCborCodec}
  *       and every field is asserted against the paired {@code *.json} expectation file.
@@ -94,7 +93,7 @@ class VhrpCrossCodecTest {
     assertEquals(body.get("token").asText(), open.token());
     assertEquals(body.get("modelId").asText(), open.modelId());
     assertNull(open.voice(), "voice should be absent → null");
-    assertNull(open.instructions(), "instructions should be absent → null");
+    assertEquals("", open.instructions(), "absent instructions decode to canonical empty string");
     assertEquals(body.get("audioTurnMode").asText(), open.audioTurnMode());
     assertNull(open.resume(), "no resume field → null ResumeRequest");
 
@@ -131,8 +130,7 @@ class VhrpCrossCodecTest {
     assertEquals(expected.get("messageId").asText(), open.messageId());
     assertNotNull(open.resume(), "resume object must be present");
     assertEquals(
-        expected.get("body").get("resume").get("sessionId").asText(),
-        open.resume().sessionId());
+        expected.get("body").get("resume").get("sessionId").asText(), open.resume().sessionId());
   }
 
   // --- session.open (with Japanese instructions) ---
@@ -173,8 +171,7 @@ class VhrpCrossCodecTest {
 
     assertInstanceOf(VhrpMessage.AudioTurnModeSet.class, msg);
     assertEquals(
-        expected.get("body").get("mode").asText(),
-        ((VhrpMessage.AudioTurnModeSet) msg).mode());
+        expected.get("body").get("mode").asText(), ((VhrpMessage.AudioTurnModeSet) msg).mode());
   }
 
   // --- audio.turn.mode.set (manual) ---
@@ -187,8 +184,7 @@ class VhrpCrossCodecTest {
 
     assertInstanceOf(VhrpMessage.AudioTurnModeSet.class, msg);
     assertEquals(
-        expected.get("body").get("mode").asText(),
-        ((VhrpMessage.AudioTurnModeSet) msg).mode());
+        expected.get("body").get("mode").asText(), ((VhrpMessage.AudioTurnModeSet) msg).mode());
   }
 
   // --- session.instructions.set (basic) ---
@@ -224,8 +220,7 @@ class VhrpCrossCodecTest {
 
     assertEquals(expected.get("messageId").asText(), set.messageId());
     assertFalse(
-        expected.get("body").has("instructions"),
-        "Fixture JSON must not contain instructions key");
+        expected.get("body").has("instructions"), "Fixture JSON must not contain instructions key");
     assertNull(set.instructions(), "instructions absent in CBOR → Java null");
   }
 
@@ -247,9 +242,7 @@ class VhrpCrossCodecTest {
 
     byte[] expectedPcm = HEX.parseHex(expected.get("body").get("pcm").asText());
     assertArrayEquals(
-        expectedPcm,
-        chunk.pcm(),
-        "PCM bytes from CBOR bstr must match hex fixture exactly");
+        expectedPcm, chunk.pcm(), "PCM bytes from CBOR bstr must match hex fixture exactly");
     assertEquals(expected.get("body").get("sequence").asLong(), chunk.sequence());
   }
 
@@ -257,8 +250,8 @@ class VhrpCrossCodecTest {
 
   /**
    * Contract: sequence is {@code long} on both sides. Dart encodes 2147483648 (= Integer.MAX_VALUE
-   * + 1) as a CBOR major-type-0 uint. Java must decode it as {@code asLong()}, not truncate to
-   * int. Failure → sequence wraps to negative, server audio ordering broken.
+   * + 1) as a CBOR major-type-0 uint. Java must decode it as {@code asLong()}, not truncate to int.
+   * Failure → sequence wraps to negative, server audio ordering broken.
    */
   @Test
   @DisplayName("C2S decode: live_audio_chunk__large_sequence (sequence > Integer.MAX_VALUE)")
@@ -277,9 +270,8 @@ class VhrpCrossCodecTest {
   // --- turn.audio.submit (with pcm bstr) ---
 
   /**
-   * Contract: Same bstr guarantee as live.audio.chunk, plus sampleRate/channels/bitDepth
-   * defaults. Failure → audio submit with wrong encoding parameters, model receives undecodable
-   * audio.
+   * Contract: Same bstr guarantee as live.audio.chunk, plus sampleRate/channels/bitDepth defaults.
+   * Failure → audio submit with wrong encoding parameters, model receives undecodable audio.
    */
   @Test
   @DisplayName("C2S decode: turn_audio_submit__with_pcm")
@@ -340,8 +332,8 @@ class VhrpCrossCodecTest {
   // --- turn.image.submit (with JPEG bstr) ---
 
   /**
-   * Contract: imageBytes is CBOR bstr; magic bytes 0xFF 0xD8 must be present at offset 0.
-   * Failure → image upload delivers corrupted bytes, MIME detection fails.
+   * Contract: imageBytes is CBOR bstr; magic bytes 0xFF 0xD8 must be present at offset 0. Failure →
+   * image upload delivers corrupted bytes, MIME detection fails.
    */
   @Test
   @DisplayName("C2S decode: turn_image_submit__with_jpeg (bstr JPEG magic bytes)")
@@ -397,10 +389,7 @@ class VhrpCrossCodecTest {
 
     VhrpMessage.ToolSpec weatherTool = set.tools().get(0);
     assertEquals("get_weather", weatherTool.name());
-    assertEquals(
-        "現在の天気を取得する",
-        weatherTool.description(),
-        "Japanese description must be preserved");
+    assertEquals("現在の天気を取得する", weatherTool.description(), "Japanese description must be preserved");
     assertNotNull(weatherTool.parameters());
     assertEquals("object", weatherTool.parameters().get("type"));
 
@@ -416,12 +405,12 @@ class VhrpCrossCodecTest {
   // --- tools.set (no-args tool — empty properties map must not be string "{}") ---
 
   /**
-   * Regression contract: a tool with {@code parameters: {type:object, properties:{}}} must
-   * survive the CBOR round-trip with {@code properties} as an empty {@code Map<String,Object>},
-   * NOT as the string literal {@code "{}"}. The bug was that Dart's {@code _dartToCbor} fell
-   * through to {@code value.toString()} for const maps whose runtime type is
-   * {@code _ConstMap<dynamic,dynamic>}, producing the string {@code "{}"} on the wire.
-   * Failure → provider rejects tool with "invalid schema for function".
+   * Regression contract: a tool with {@code parameters: {type:object, properties:{}}} must survive
+   * the CBOR round-trip with {@code properties} as an empty {@code Map<String,Object>}, NOT as the
+   * string literal {@code "{}"}. The bug was that Dart's {@code _dartToCbor} fell through to {@code
+   * value.toString()} for const maps whose runtime type is {@code _ConstMap<dynamic,dynamic>},
+   * producing the string {@code "{}"} on the wire. Failure → provider rejects tool with "invalid
+   * schema for function".
    */
   @Test
   @DisplayName("C2S decode: tools_set__no_args_tool (empty properties map, not string)")
@@ -445,7 +434,10 @@ class VhrpCrossCodecTest {
         Map.class,
         props,
         "properties must be a Map<String,Object>, not the string \"{}\" — "
-            + "actual type: " + props.getClass().getName() + ", value: " + props);
+            + "actual type: "
+            + props.getClass().getName()
+            + ", value: "
+            + props);
 
     @SuppressWarnings("unchecked")
     Map<String, Object> propsMap = (Map<String, Object>) props;
@@ -515,9 +507,9 @@ class VhrpCrossCodecTest {
   // --- assistant.interrupt (barge-in, no messageId) ---
 
   /**
-   * Contract: messageId is optional on the envelope; when absent the codec must return null for
-   * the field (which is not exposed on AssistantInterrupt). The reason field must decode. Failure
-   * → interrupt silently dropped or misrouted.
+   * Contract: messageId is optional on the envelope; when absent the codec must return null for the
+   * field (which is not exposed on AssistantInterrupt). The reason field must decode. Failure →
+   * interrupt silently dropped or misrouted.
    */
   @Test
   @DisplayName("C2S decode: assistant_interrupt__barge_in (no messageId on envelope)")
@@ -570,11 +562,7 @@ class VhrpCrossCodecTest {
   void generateSessionReadyFull() throws IOException {
     VhrpMessage.SessionReady msg =
         new VhrpMessage.SessionReady(
-            "open-001",
-            "sess_abc123",
-            "thread_xyz789",
-            "conv_def456",
-            List.of("vad", "barge_in"));
+            "open-001", "sess_abc123", "thread_xyz789", "conv_def456", List.of("vad", "barge_in"));
 
     byte[] cbor = encode(msg);
     writeFixture(
@@ -623,9 +611,7 @@ class VhrpCrossCodecTest {
             }));
   }
 
-  /**
-   * Contract: session.resumed — confirms session rebind; Dart sends thread.sync.request next.
-   */
+  /** Contract: session.resumed — confirms session rebind; Dart sends thread.sync.request next. */
   @Test
   @DisplayName("S2C generate: session_resumed__basic")
   void generateSessionResumedBasic() throws IOException {
@@ -672,9 +658,7 @@ class VhrpCrossCodecTest {
             }));
   }
 
-  /**
-   * Contract: ack rejected — accepted=false must be CBOR false, not 0.
-   */
+  /** Contract: ack rejected — accepted=false must be CBOR false, not 0. */
   @Test
   @DisplayName("S2C generate: ack__rejected (accepted=false CBOR bool)")
   void generateAckRejected() throws IOException {
@@ -696,9 +680,7 @@ class VhrpCrossCodecTest {
             }));
   }
 
-  /**
-   * Contract: thread.snapshot carries full thread state; items[] is a list of opaque maps.
-   */
+  /** Contract: thread.snapshot carries full thread state; items[] is a list of opaque maps. */
   @Test
   @DisplayName("S2C generate: thread_snapshot__with_items")
   void generateThreadSnapshotWithItems() throws IOException {
@@ -739,8 +721,8 @@ class VhrpCrossCodecTest {
   }
 
   /**
-   * Contract: thread.patch ops[] carries add_item + append_text ops. Dart applies them
-   * sequentially to the projected thread; op type and fields must survive opaque-map encoding.
+   * Contract: thread.patch ops[] carries add_item + append_text ops. Dart applies them sequentially
+   * to the projected thread; op type and fields must survive opaque-map encoding.
    */
   @Test
   @DisplayName("S2C generate: thread_patch__add_item_and_append_text")
@@ -843,8 +825,8 @@ class VhrpCrossCodecTest {
   }
 
   /**
-   * Contract: assistant.audio.done signals end of audio stream for a part; Dart finalises
-   * playback buffer.
+   * Contract: assistant.audio.done signals end of audio stream for a part; Dart finalises playback
+   * buffer.
    */
   @Test
   @DisplayName("S2C generate: assistant_audio_done__basic")
@@ -887,9 +869,7 @@ class VhrpCrossCodecTest {
             }));
   }
 
-  /**
-   * Contract: vad.state isSpeaking=false must be CBOR bool false. Same concern as above.
-   */
+  /** Contract: vad.state isSpeaking=false must be CBOR bool false. Same concern as above. */
   @Test
   @DisplayName("S2C generate: vad_state__silent (isSpeaking = CBOR false bool)")
   void generateVadStateSilent() throws IOException {
@@ -1009,7 +989,9 @@ class VhrpCrossCodecTest {
    * </ul>
    */
   private ObjectNode buildS2cJson(
-      String messageType, List<String> bstrFields, java.util.function.Consumer<ObjectNode> populator) {
+      String messageType,
+      List<String> bstrFields,
+      java.util.function.Consumer<ObjectNode> populator) {
     ObjectNode root = JSON.createObjectNode();
     root.put("_bstr_encoding", "hex");
     if (bstrFields != null && !bstrFields.isEmpty()) {

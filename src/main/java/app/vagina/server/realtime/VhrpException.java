@@ -12,14 +12,15 @@ package app.vagina.server.realtime;
  *
  * <h2>Close is contextual, not per-type</h2>
  *
- * <p>Whether the connection closes is deliberately <em>not</em> encoded on these types. Auditing the
- * wire spec shows the only failures that close the socket are those raised while a session is still
- * being bootstrapped from {@code session.open}; once a session exists every failure is reported
- * in-band and the connection is kept. So {@link VhrpEndpoint} decides close-vs-keep by "was a
- * session bound yet?", and these exceptions carry neither a recoverable flag nor a close reason.
+ * <p>Whether the connection closes is deliberately <em>not</em> encoded on these types. Auditing
+ * the wire spec shows the only failures that close the socket are those raised while a session is
+ * still being bootstrapped from {@code session.open}; once a session exists every failure is
+ * reported in-band and the connection is kept. So {@link VhrpEndpoint} decides close-vs-keep by
+ * "was a session bound yet?", and these exceptions carry neither a recoverable flag nor a close
+ * reason.
  *
- * <p>Unchecked so the codec and adapters can throw from non-blocking paths; the endpoint's {@code
- * @OnError} is the single funnel that turns any of them into an {@code error} frame.
+ * <p>Unchecked so the codec and adapters can throw from non-blocking paths; the endpoint's
+ * {@code @OnError} is the single funnel that turns any of them into an {@code error} frame.
  */
 public abstract sealed class VhrpException extends RuntimeException
     permits VhrpException.AuthInvalidJwt,
@@ -88,7 +89,9 @@ public abstract sealed class VhrpException extends RuntimeException
     }
   }
 
-  /** {@code protocol.unsupported_message_type}: well-formed envelope with an unknown {@code type}. */
+  /**
+   * {@code protocol.unsupported_message_type}: well-formed envelope with an unknown {@code type}.
+   */
   public static final class ProtocolUnsupportedMessageType extends VhrpException {
     public ProtocolUnsupportedMessageType(String message) {
       super(message);
@@ -112,7 +115,9 @@ public abstract sealed class VhrpException extends RuntimeException
     }
   }
 
-  /** {@code media.unsupported_image}: submitted image could not be decoded to a supported format. */
+  /**
+   * {@code media.unsupported_image}: submitted image could not be decoded to a supported format.
+   */
   public static final class MediaUnsupportedImage extends VhrpException {
     public MediaUnsupportedImage(String message) {
       super(message);

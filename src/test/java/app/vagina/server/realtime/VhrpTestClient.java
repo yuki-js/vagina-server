@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * Test-side VHRP/1 WebSocket client.
  *
  * <p>Combines:
+ *
  * <ul>
  *   <li>A Vert.x {@link HttpClient} that connects to the running Quarkus test server;
  *   <li>A CBOR C2S frame encoder (mirrors the wire shape that {@link VhrpCborCodec#encode} emits
@@ -40,8 +41,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>Decoded inbound frames are queued in a thread-safe list; {@link #waitForMessage(String, long,
  * TimeUnit)} blocks until a frame of the given {@code type} arrives or the timeout elapses.
  *
- * <p>Call {@link #connect(int, String)} to open the WebSocket and {@link #close()} when done.
- * The client is not thread-safe beyond its inbound queue; do not send from multiple threads.
+ * <p>Call {@link #connect(int, String)} to open the WebSocket and {@link #close()} when done. The
+ * client is not thread-safe beyond its inbound queue; do not send from multiple threads.
  */
 public final class VhrpTestClient implements Closeable {
 
@@ -123,9 +124,8 @@ public final class VhrpTestClient implements Closeable {
                   .closeHandler(
                       v -> {
                         closed.set(true);
-                        closeCode.set(socket.closeStatusCode() != null
-                            ? socket.closeStatusCode()
-                            : -1);
+                        closeCode.set(
+                            socket.closeStatusCode() != null ? socket.closeStatusCode() : -1);
                         synchronized (receiveLock) {
                           receiveLock.notifyAll();
                         }
@@ -149,8 +149,8 @@ public final class VhrpTestClient implements Closeable {
   }
 
   /**
-   * The sub-protocol negotiated by the server during the WebSocket handshake.
-   * Null if the connection failed before the handshake completed.
+   * The sub-protocol negotiated by the server during the WebSocket handshake. Null if the
+   * connection failed before the handshake completed.
    */
   public String negotiatedSubProtocol() {
     return closedSubProtocol.get();
@@ -175,10 +175,10 @@ public final class VhrpTestClient implements Closeable {
    * Sends a raw C2S CBOR envelope. The {@code body} map is encoded as a nested CBOR map. Callers
    * that need a {@code messageId} should include it in the top-level fields map.
    *
-   * @param type        the VHRP message type string
-   * @param body        body key/value pairs; values can be String, Number, Boolean, byte[], Map,
-   *                    List, or null.
-   * @param topLevel    optional extra top-level fields (e.g. {@code messageId}); may be null
+   * @param type the VHRP message type string
+   * @param body body key/value pairs; values can be String, Number, Boolean, byte[], Map, List, or
+   *     null.
+   * @param topLevel optional extra top-level fields (e.g. {@code messageId}); may be null
    */
   public void send(String type, Map<String, Object> body, Map<String, Object> topLevel) {
     ObjectNode root = cbor.createObjectNode();
@@ -206,10 +206,7 @@ public final class VhrpTestClient implements Closeable {
   /** Convenience: send {@code session.open}. */
   public String sendSessionOpen(String jwt, String modelId) {
     String msgId = UUID.randomUUID().toString();
-    send(
-        "session.open",
-        Map.of("token", jwt, "modelId", modelId),
-        Map.of("messageId", msgId));
+    send("session.open", Map.of("token", jwt, "modelId", modelId), Map.of("messageId", msgId));
     return msgId;
   }
 
@@ -235,9 +232,9 @@ public final class VhrpTestClient implements Closeable {
    * {@code disposition} ({@code "success"} or {@code "error"}).
    *
    * @param clientItemId caller-assigned client item id (echoed in ack)
-   * @param callId       the function-call primary key emitted by the server in the thread.patch
-   * @param output       the tool's output string
-   * @param disposition  {@code "success"} or {@code "error"}
+   * @param callId the function-call primary key emitted by the server in the thread.patch
+   * @param output the tool's output string
+   * @param disposition {@code "success"} or {@code "error"}
    */
   public String sendToolResultSubmit(
       String clientItemId, String callId, String output, String disposition) {
@@ -255,9 +252,7 @@ public final class VhrpTestClient implements Closeable {
   // Receive helpers
   // =========================================================================
 
-  /**
-   * Returns all decoded frames received so far, in arrival order.
-   */
+  /** Returns all decoded frames received so far, in arrival order. */
   public List<JsonNode> allReceived() {
     return Collections.unmodifiableList(new ArrayList<>(received));
   }

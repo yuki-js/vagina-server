@@ -77,7 +77,8 @@ public class VfsApiImpl implements VfsApi {
   private Response listResponse(Long userId, VfsRpcRequest request) {
     List<String> entries =
         vfsUsecase.list(userId, request.getParams().getPath(), request.getParams().getRecursive());
-    return Response.ok(successResponse(request.getId(), new VfsRpcResult().entries(entries))).build();
+    return Response.ok(successResponse(request.getId(), new VfsRpcResult().entries(entries)))
+        .build();
   }
 
   private Response readResponse(Long userId, VfsRpcRequest request) {
@@ -93,14 +94,16 @@ public class VfsApiImpl implements VfsApi {
     }
 
     return Response.ok(
-            successResponse(request.getId(), new VfsRpcResult()._file(toGeneratedFile(entity.get()))))
+            successResponse(
+                request.getId(), new VfsRpcResult()._file(toGeneratedFile(entity.get()))))
         .build();
   }
 
   private Response writeResponse(Long userId, VfsRpcRequest request) {
     VfsFileEntity entity =
         vfsUsecase.write(userId, request.getParams().getPath(), request.getParams().getContent());
-    return Response.ok(successResponse(request.getId(), new VfsRpcResult()._file(toGeneratedFile(entity))))
+    return Response.ok(
+            successResponse(request.getId(), new VfsRpcResult()._file(toGeneratedFile(entity))))
         .build();
   }
 
@@ -133,8 +136,10 @@ public class VfsApiImpl implements VfsApi {
     return new VfsRpcResponse().jsonrpc(JsonRpcVersion._2_0).id(requestId).result(result);
   }
 
-  private VfsRpcResponse errorResponse(String requestId, int code, String message, Map<String, Object> data) {
-    VfsRpcError error = new VfsRpcError().code(code).message(message).data(new LinkedHashMap<>(data));
+  private VfsRpcResponse errorResponse(
+      String requestId, int code, String message, Map<String, Object> data) {
+    VfsRpcError error =
+        new VfsRpcError().code(code).message(message).data(new LinkedHashMap<>(data));
     return new VfsRpcResponse().jsonrpc(JsonRpcVersion._2_0).id(requestId).error(error);
   }
 

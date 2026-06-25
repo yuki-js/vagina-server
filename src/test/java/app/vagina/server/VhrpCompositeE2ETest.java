@@ -40,26 +40,30 @@ import org.junit.jupiter.api.Test;
  * test-only {@link FakeRealtimeAdapterFactory} via CDI {@code @Alternative @Priority(1)}.
  *
  * <h2>Layer 2 — Real WebSocket handshake</h2>
+ *
  * <ul>
  *   <li>Subprotocol {@code vhrp.cbor.v1} negotiate succeeds.
  *   <li>Connection without (or with wrong) subprotocol is closed by the server.
  * </ul>
  *
  * <h2>Layer 3 — Real JWT authentication</h2>
+ *
  * <ul>
- *   <li>Valid JWT (obtained via the Harigata OIDC mock flow) + {@code session.open} →
- *       {@code session.ready}.
+ *   <li>Valid JWT (obtained via the Harigata OIDC mock flow) + {@code session.open} → {@code
+ *       session.ready}.
  *   <li>Invalid JWT → {@code error(auth.invalid_jwt)} + connection closed.
  * </ul>
  *
  * <h2>Layer 4 — Conversation flow via fake provider</h2>
+ *
  * <ul>
- *   <li>{@code turn.text.submit} → {@code ack} → fake adapter pushes {@code thread.patch} →
- *       client receives patch with correct content.
+ *   <li>{@code turn.text.submit} → {@code ack} → fake adapter pushes {@code thread.patch} → client
+ *       receives patch with correct content.
  *   <li>{@code thread.sync.request} → {@code thread.snapshot} (additional scenario).
  * </ul>
  *
  * <h2>No production code was changed</h2>
+ *
  * <p>{@link FakeRealtimeAdapterFactory} lives entirely in {@code src/test/java} and overrides
  * {@link app.vagina.server.realtime.ConfigRealtimeAdapterFactory} via CDI
  * {@code @Alternative @Priority(1)} — the injection point in {@code VhrpSessionRegistry} is the
@@ -73,8 +77,8 @@ class VhrpCompositeE2ETest {
   @Inject FakeRealtimeAdapterFactory fakeFactory;
 
   /**
-   * HTTP base URL of the running Quarkus test server. Port is random ({@code test-port=0}).
-   * We extract the port from this URL and reuse it for WebSocket connections.
+   * HTTP base URL of the running Quarkus test server. Port is random ({@code test-port=0}). We
+   * extract the port from this URL and reuse it for WebSocket connections.
    */
   @TestHTTPResource("/")
   URL testServerUrl;
@@ -86,10 +90,10 @@ class VhrpCompositeE2ETest {
    * JWT obtained via Harigata OIDC mock flow.
    *
    * <p>Intentionally an instance field (not {@code static}). Each test method acquires a fresh
-   * token in {@link #setUp()}, so the token is always minted against the same Quarkus instance
-   * and Dev-Services DB that will validate it. A static cache would break whenever Quarkus is
-   * restarted between test runs (new DB → old uid no longer exists) and would introduce
-   * hidden order-dependency between test methods.
+   * token in {@link #setUp()}, so the token is always minted against the same Quarkus instance and
+   * Dev-Services DB that will validate it. A static cache would break whenever Quarkus is restarted
+   * between test runs (new DB → old uid no longer exists) and would introduce hidden
+   * order-dependency between test methods.
    */
   private String validJwt;
 
@@ -180,8 +184,7 @@ class VhrpCompositeE2ETest {
     assertNotNull(ready.get("body"), "session.ready must have a body");
     assertNotNull(
         ready.get("body").get("sessionId"), "session.ready.body.sessionId must be present");
-    assertNotNull(
-        ready.get("body").get("threadId"), "session.ready.body.threadId must be present");
+    assertNotNull(ready.get("body").get("threadId"), "session.ready.body.threadId must be present");
     assertEquals(
         openMsgId,
         ready.get("replyTo") != null ? ready.get("replyTo").asText() : null,
@@ -189,9 +192,9 @@ class VhrpCompositeE2ETest {
   }
 
   /**
-   * Contract: An invalid JWT must cause the server to respond with an error frame carrying
-   * {@code auth.invalid_jwt} and then close the connection. Without this, an attacker with a
-   * malformed token could trick the server into allocating a session.
+   * Contract: An invalid JWT must cause the server to respond with an error frame carrying {@code
+   * auth.invalid_jwt} and then close the connection. Without this, an attacker with a malformed
+   * token could trick the server into allocating a session.
    */
   @Test
   void layer3_invalidJwtSessionOpenGivesErrorAndClose() throws Exception {
@@ -217,8 +220,8 @@ class VhrpCompositeE2ETest {
   }
 
   /**
-   * Contract: A session.open that omits the JWT field must also cause auth failure. The token
-   * field being absent must not cause a NullPointerException — it must be handled gracefully.
+   * Contract: A session.open that omits the JWT field must also cause auth failure. The token field
+   * being absent must not cause a NullPointerException — it must be handled gracefully.
    */
   @Test
   void layer3_missingJwtFieldCausesAuthError() throws Exception {
@@ -315,8 +318,8 @@ class VhrpCompositeE2ETest {
 
   /**
    * Contract: thread.sync.request must cause the server to respond with a thread.snapshot
-   * containing the current canonical state of the thread. This is the only recovery mechanism
-   * when a client's local projection diverges — e.g. after reconnect or a dropped patch.
+   * containing the current canonical state of the thread. This is the only recovery mechanism when
+   * a client's local projection diverges — e.g. after reconnect or a dropped patch.
    */
   @Test
   void layer4_threadSyncRequestReturnsThreadSnapshot() throws Exception {
@@ -334,8 +337,7 @@ class VhrpCompositeE2ETest {
     JsonNode snapshot = client.waitForMessage("thread.snapshot", 10, TimeUnit.SECONDS);
     assertNotNull(snapshot.get("body"), "thread.snapshot must have a body");
     assertNotNull(
-        snapshot.get("body").get("threadId"),
-        "thread.snapshot.body.threadId must be present");
+        snapshot.get("body").get("threadId"), "thread.snapshot.body.threadId must be present");
     assertTrue(
         snapshot.get("body").get("items").isArray(),
         "thread.snapshot.body.items must be an array (empty for a fresh session)");
@@ -358,13 +360,14 @@ class VhrpCompositeE2ETest {
    *
    * <p>This test connects {@value #WRONG_SUBPROTOCOL_REPEAT} times with a wrong subprotocol and
    * verifies that:
+   *
    * <ul>
    *   <li>Each connection is closed by the server (no hang = no infinite loop blocking the event
    *       loop).
    *   <li>No {@code error} application frame is received (the server must not send an error frame
    *       for a transport-level close; it must just close).
-   *   <li>The entire batch completes well within the generous timeout, proving no recursive storm is
-   *       causing per-connection overhead.
+   *   <li>The entire batch completes well within the generous timeout, proving no recursive storm
+   *       is causing per-connection overhead.
    * </ul>
    */
   @Test
@@ -402,7 +405,8 @@ class VhrpCompositeE2ETest {
         assertEquals(
             0,
             errorFrames,
-            "No error application frame must be sent for a transport-close event (iteration " + i
+            "No error application frame must be sent for a transport-close event (iteration "
+                + i
                 + ")");
       } finally {
         bad.close();
@@ -414,13 +418,17 @@ class VhrpCompositeE2ETest {
     // thousands of log lines and visible processing overhead; a clean run finishes in < 5 s total.
     assertTrue(
         elapsedMs < 20_000,
-        "All " + WRONG_SUBPROTOCOL_REPEAT + " wrong-subprotocol connections must be handled quickly"
-            + " (elapsed " + elapsedMs + " ms). A recursive loop would cause this to stall.");
+        "All "
+            + WRONG_SUBPROTOCOL_REPEAT
+            + " wrong-subprotocol connections must be handled quickly"
+            + " (elapsed "
+            + elapsedMs
+            + " ms). A recursive loop would cause this to stall.");
   }
 
   /**
-   * Contract: A second turn in the same session must also produce an ack and allow the fake
-   * adapter to push multiple patches independently. Session state must survive across turns.
+   * Contract: A second turn in the same session must also produce an ack and allow the fake adapter
+   * to push multiple patches independently. Session state must survive across turns.
    */
   @Test
   void layer4_multipleTextTurnsInOneSesstion() throws Exception {
@@ -463,11 +471,11 @@ class VhrpCompositeE2ETest {
 
   /**
    * Contract: After session.ready the fake adapter can emit a {@code thread.patch} carrying a
-   * {@code functionCall} item (add_item + set_field × 3 + set_status). The client must receive
-   * the patch, be able to read the callId/name/arguments, and then send {@code tool.result.submit}
-   * (CBOR, callId as primary key). The server must route the tool result to the adapter via
-   * {@link app.vagina.server.realtime.RealtimeAdapter#sendFunctionOutput}. The adapter records the
-   * call so the test can verify end-to-end delivery.
+   * {@code functionCall} item (add_item + set_field × 3 + set_status). The client must receive the
+   * patch, be able to read the callId/name/arguments, and then send {@code tool.result.submit}
+   * (CBOR, callId as primary key). The server must route the tool result to the adapter via {@link
+   * app.vagina.server.realtime.RealtimeAdapter#sendFunctionOutput}. The adapter records the call so
+   * the test can verify end-to-end delivery.
    *
    * <p>After step 6 (tool result arrives at adapter), the test additionally drives the adapter to
    * emit a follow-up assistant text response (step 7) to verify the session remains operational
@@ -496,7 +504,7 @@ class VhrpCompositeE2ETest {
     // ── Step 3: fake emits a function-call thread.patch ───────────────────
     // callId is the primary key linking this function call to the tool result.
     String fcItemId = "fc_item_" + UUID.randomUUID();
-    String callId   = "call_" + UUID.randomUUID();
+    String callId = "call_" + UUID.randomUUID();
     String toolName = "get_weather";
     String toolArgs = "{\"location\":\"Tokyo\"}";
     adapter.emitFunctionCall(fcItemId, callId, toolName, toolArgs);
@@ -530,7 +538,8 @@ class VhrpCompositeE2ETest {
 
     JsonNode argsFieldOp = findSetFieldOp(ops, "arguments");
     assertNotNull(argsFieldOp, "thread.patch must contain set_field(arguments)");
-    assertEquals(toolArgs, argsFieldOp.get("value").asText(), "set_field arguments value must match");
+    assertEquals(
+        toolArgs, argsFieldOp.get("value").asText(), "set_field arguments value must match");
 
     // set_status op must indicate requires_action
     JsonNode setStatusOp = findOp(ops, "set_status");
@@ -576,7 +585,7 @@ class VhrpCompositeE2ETest {
     String followUpItemId = "ai_followup_" + UUID.randomUUID();
     adapter.emitTextResponse(followUpItemId, "The weather in Tokyo is 22°C and sunny.");
 
-    JsonNode followUpPatch = waitForNthPatch(2, 10, TimeUnit.SECONDS);  // second patch in session
+    JsonNode followUpPatch = waitForNthPatch(2, 10, TimeUnit.SECONDS); // second patch in session
     assertNotNull(followUpPatch, "A second thread.patch must arrive after the tool result");
   }
 
@@ -600,15 +609,17 @@ class VhrpCompositeE2ETest {
   }
 
   /**
-   * Finds the first {@code set_field} op in {@code ops} whose {@code field} value equals
-   * {@code fieldName}.
+   * Finds the first {@code set_field} op in {@code ops} whose {@code field} value equals {@code
+   * fieldName}.
    */
   private static JsonNode findSetFieldOp(JsonNode ops, String fieldName) {
     for (JsonNode op : ops) {
       JsonNode opField = op.get("op");
-      JsonNode field   = op.get("field");
-      if (opField != null && "set_field".equals(opField.asText())
-          && field != null && fieldName.equals(field.asText())) {
+      JsonNode field = op.get("field");
+      if (opField != null
+          && "set_field".equals(opField.asText())
+          && field != null
+          && fieldName.equals(field.asText())) {
         return op;
       }
     }
@@ -667,12 +678,12 @@ class VhrpCompositeE2ETest {
 
   /**
    * Runs the Harigata OIDC mock authorization code flow against the running Quarkus server and
-   * returns a real, DB-backed access JWT. This is the same flow used by
-   * {@code AuthenticationIntegrationTest} and produces a token that {@code AuthService} will
-   * accept because the corresponding user record exists in the Dev Services PostgreSQL database.
+   * returns a real, DB-backed access JWT. This is the same flow used by {@code
+   * AuthenticationIntegrationTest} and produces a token that {@code AuthService} will accept
+   * because the corresponding user record exists in the Dev Services PostgreSQL database.
    *
-   * <p>The static cache has been removed: {@link #setUp()} calls this before each test so each
-   * test method gets a freshly minted token that is guaranteed to match the current DB state.
+   * <p>The static cache has been removed: {@link #setUp()} calls this before each test so each test
+   * method gets a freshly minted token that is guaranteed to match the current DB state.
    */
   private String obtainValidJwt() {
     if (validJwt != null) {
@@ -712,9 +723,9 @@ class VhrpCompositeE2ETest {
             .extract()
             .response();
 
-    String location = URLDecoder.decode(authorizeResp.getHeader("Location"), StandardCharsets.UTF_8);
-    Map<String, String> locationParams =
-        parseQueryParams(URI.create(location).getRawQuery());
+    String location =
+        URLDecoder.decode(authorizeResp.getHeader("Location"), StandardCharsets.UTF_8);
+    Map<String, String> locationParams = parseQueryParams(URI.create(location).getRawQuery());
     String code = locationParams.get("code");
 
     // Exchange code for tokens

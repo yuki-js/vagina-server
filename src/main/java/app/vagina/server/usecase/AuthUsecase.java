@@ -40,10 +40,7 @@ public class AuthUsecase {
   @Inject AuthService authService;
 
   public StartOidcLoginResult startOidcLogin(
-      String provider,
-      ClientType clientType,
-      String codeChallenge,
-      String codeChallengeMethod) {
+      String provider, ClientType clientType, String codeChallenge, String codeChallengeMethod) {
     authService.resolveProvider(provider);
     var createdState =
         authService.createState(provider, clientType, codeChallenge, codeChallengeMethod);
@@ -67,10 +64,7 @@ public class AuthUsecase {
 
     var tokenSet =
         authService.exchangeAuthorizationCode(
-            provider,
-            code,
-            consumedState.getRedirectUri(),
-            codeVerifier);
+            provider, code, consumedState.getRedirectUri(), codeVerifier);
     OidcUserInfo oidcUserInfo = authService.fetchUserInfo(provider, tokenSet.accessToken());
 
     User user = userService.getOrCreateOidcUser(provider, oidcUserInfo);
@@ -146,11 +140,7 @@ public class AuthUsecase {
         user.getAccountLifecycle() == null ? null : user.getAccountLifecycle().getValue();
     OffsetDateTime createdAt = user.getCreatedAt().atOffset(ZoneOffset.UTC);
     return new AuthUserView(
-        String.valueOf(user.getId()),
-        accountLifecycle,
-        displayName,
-        avatarUrl,
-        createdAt);
+        String.valueOf(user.getId()), accountLifecycle, displayName, avatarUrl, createdAt);
   }
 
   private String blankToNull(String value) {

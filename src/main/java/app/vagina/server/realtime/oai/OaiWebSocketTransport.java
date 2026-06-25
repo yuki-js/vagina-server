@@ -22,11 +22,12 @@ import java.util.regex.Pattern;
  * Vert.x WebSocket implementation of {@link OaiRealtimeTransport}, the server analogue of the Dart
  * {@code websocket_realtime_transport.dart}.
  *
- * <p>It owns the single downstream socket to OpenAI and nothing else: inbound text frames are parsed
- * to {@link JsonNode} and pushed onto {@link #inboundMessages()}; outbound {@link ObjectNode}s are
- * written as text frames. Unlike the Dart client there is no in-transport reconnect loop — the
- * Qua↔Oai leg is the stable server-server link (the backend-spec audio-relay judgment), so a drop
- * surfaces as a {@code FAILED}/{@code DISCONNECTED} state and the adapter/session decide what to do.
+ * <p>It owns the single downstream socket to OpenAI and nothing else: inbound text frames are
+ * parsed to {@link JsonNode} and pushed onto {@link #inboundMessages()}; outbound {@link
+ * ObjectNode}s are written as text frames. Unlike the Dart client there is no in-transport
+ * reconnect loop — the Qua↔Oai leg is the stable server-server link (the backend-spec audio-relay
+ * judgment), so a drop surfaces as a {@code FAILED}/{@code DISCONNECTED} state and the
+ * adapter/session decide what to do.
  *
  * <p>Threading: Vert.x delivers socket callbacks on an event-loop thread; the {@link
  * BroadcastProcessor}s simply forward to subscribers, so no extra synchronization is needed beyond
@@ -159,8 +160,8 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
    * Masks secret values in response headers for DIAG logging.
    *
    * <ul>
-   *   <li>{@code Authorization} and {@code api-key} header values are fully replaced with
-   *       {@code [REDACTED]}.
+   *   <li>{@code Authorization} and {@code api-key} header values are fully replaced with {@code
+   *       [REDACTED]}.
    *   <li>For {@code Location} headers, any {@code api-key=<value>} query parameter is masked in
    *       place so the URL structure is still visible.
    * </ul>
@@ -187,7 +188,8 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
         () -> {
           if (!disposed) {
             emitState(
-                RealtimeAdapterModels.ConnectionState.disconnected("OpenAI realtime socket closed"));
+                RealtimeAdapterModels.ConnectionState.disconnected(
+                    "OpenAI realtime socket closed"));
           }
         });
     ws.exceptionHandler(
@@ -335,7 +337,8 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
     }
     return ws.close()
         .onItemOrFailure()
-        .invoke((ignored, error) -> emitState(RealtimeAdapterModels.ConnectionState.disconnected(null)))
+        .invoke(
+            (ignored, error) -> emitState(RealtimeAdapterModels.ConnectionState.disconnected(null)))
         .replaceWithVoid();
   }
 
@@ -351,7 +354,9 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
     this.client = null;
 
     Uni<Void> closeSocket =
-        ws == null ? Uni.createFrom().voidItem() : ws.close().onFailure().recoverWithNull().replaceWithVoid();
+        ws == null
+            ? Uni.createFrom().voidItem()
+            : ws.close().onFailure().recoverWithNull().replaceWithVoid();
     return closeSocket
         .onItemOrFailure()
         .invoke(

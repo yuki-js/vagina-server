@@ -32,10 +32,10 @@ import java.util.function.Consumer;
  * difference from the Dart original is judgment 4: where Dart mutated the thread and called {@code
  * _emitThreadUpdate()} to push the whole thread, here every mutation goes through a {@link
  * ThreadPatchBuilder} and {@link #flush()} drains the buffered ops into a {@link
- * RealtimeAdapterModels.ThreadPatchOps} on {@link #threadPatches()}, which the session writes as one
- * live {@code thread.patch}. There is no revision counter: a patch is a fire-and-forget live delta,
- * and any delivery gap is recovered by reconnect + a fresh full {@code thread.snapshot} built from
- * the canonical thread.
+ * RealtimeAdapterModels.ThreadPatchOps} on {@link #threadPatches()}, which the session writes as
+ * one live {@code thread.patch}. There is no revision counter: a patch is a fire-and-forget live
+ * delta, and any delivery gap is recovered by reconnect + a fresh full {@code thread.snapshot}
+ * built from the canonical thread.
  *
  * <p>Assistant PCM does not ride a patch op: the audio bytes are base64-decoded from the OAI delta
  * (this downstream leg still uses base64) and pushed on {@link #assistantAudioStream()} as a {@link
@@ -53,6 +53,10 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   private static final String EXT_REQUIRED_KEY = "required";
 
   private static final String DEFAULT_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
+  private static final String INTERRUPTED_TOOL_ERROR_MESSAGE =
+      "Tool call cancelled by user interrupt.";
+  private static final String INTERRUPTED_TOOL_ERROR_OUTPUT =
+      "{\"error\":\"Tool call cancelled by user interrupt.\"}";
 
   private enum NoiseReduction {
     OFF,
@@ -80,7 +84,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       BroadcastProcessor.create();
   private final BroadcastProcessor<RealtimeAdapterModels.ConnectionState> connectionBus =
       BroadcastProcessor.create();
-  private final BroadcastProcessor<RealtimeAdapterModels.Error> errorBus = BroadcastProcessor.create();
+  private final BroadcastProcessor<RealtimeAdapterModels.Error> errorBus =
+      BroadcastProcessor.create();
   private final BroadcastProcessor<RealtimeAdapterModels.AssistantAudioFrame> audioBus =
       BroadcastProcessor.create();
   private final BroadcastProcessor<RealtimeAdapterModels.AssistantAudioFrame> audioDoneBus =
@@ -100,18 +105,15 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   private RealtimeAdapterModels.AudioTurnMode audioTurnMode =
       RealtimeAdapterModels.AudioTurnMode.VOICE_ACTIVITY;
 
-  private final Set<String> locallyCancelledItemIds = new HashSet<>();
-  private final Set<String> locallyCancelledCallIds = new HashSet<>();
-
   /**
    * Three-state active-response guard used to suppress spurious {@code response.cancel} when no
    * response is in flight.
    *
    * <ul>
    *   <li>{@code UNKNOWN} – initial state; also the state before the first {@code response.created}
-   *       ever arrives (i.e. the provider does not emit that event, or no response has started yet).
-   *       In this state {@link #interrupt()} behaves like the legacy path (sends cancel), so we
-   *       do not accidentally break providers that do not surface {@code response.created}.
+   *       ever arrives (i.e. the provider does not emit that event, or no response has started
+   *       yet). In this state {@link #interrupt()} behaves like the legacy path (sends cancel), so
+   *       we do not accidentally break providers that do not surface {@code response.created}.
    *   <li>{@code ACTIVE} – {@code response.created} received; a cancel is meaningful.
    *   <li>{@code INACTIVE} – {@code response.done} (or equivalent terminal event) received; no
    *       in-flight response exists, so cancel is skipped with a debug log.
@@ -128,6 +130,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   }
 
   private volatile ResponseState responseState = ResponseState.UNKNOWN;
+  private final Set<String> activeResponseFunctionItemIds = new HashSet<>();
+  private final Set<String> activeResponseFunctionCallIds = new HashSet<>();
 
   private long localIdCounter = 0;
   private String conversationId;
@@ -169,7 +173,10 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   private void subscribeClient() {
     sub(client.connectionStateUpdates(), this::onConnectionState, "connectionState");
     sub(client.events(OaiRealtimeEvent.ErrorEvent.class), this::onErrorEvent, "error");
-    sub(client.events(OaiRealtimeEvent.ConversationCreated.class), this::onConversationCreated, "convCreated");
+    sub(
+        client.events(OaiRealtimeEvent.ConversationCreated.class),
+        this::onConversationCreated,
+        "convCreated");
     sub(
         client.events(OaiRealtimeEvent.ConversationItemCreated.class),
         this::onConversationItemCreated,
@@ -197,11 +204,15 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     sub(
         client.events(OaiRealtimeEvent.ResponseOutputItemAdded.class),
         e -> {
-          upsertConversationItem(e.item());
+          RealtimeThread.Item item = upsertConversationItem(e.item());
+          trackActiveFunctionCall(item);
           flush();
         },
         "itemAdded");
-    sub(client.events(OaiRealtimeEvent.ResponseOutputItemDone.class), this::onOutputItemDone, "itemDone");
+    sub(
+        client.events(OaiRealtimeEvent.ResponseOutputItemDone.class),
+        this::onOutputItemDone,
+        "itemDone");
     sub(
         client.events(OaiRealtimeEvent.ResponseContentPartAdded.class),
         e -> onContentPart(e.itemId(), e.contentIndex(), e.part(), false),
@@ -210,10 +221,19 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
         client.events(OaiRealtimeEvent.ResponseContentPartDone.class),
         e -> onContentPart(e.itemId(), e.contentIndex(), e.part(), true),
         "partDone");
-    sub(client.events(OaiRealtimeEvent.ResponseOutputTextDelta.class), this::onTextDelta, "textDelta");
+    sub(
+        client.events(OaiRealtimeEvent.ResponseOutputTextDelta.class),
+        this::onTextDelta,
+        "textDelta");
     sub(client.events(OaiRealtimeEvent.ResponseOutputTextDone.class), this::onTextDone, "textDone");
-    sub(client.events(OaiRealtimeEvent.ResponseOutputAudioDelta.class), this::onAudioDelta, "audioDelta");
-    sub(client.events(OaiRealtimeEvent.ResponseOutputAudioDone.class), this::onAudioDone, "audioDoneEvt");
+    sub(
+        client.events(OaiRealtimeEvent.ResponseOutputAudioDelta.class),
+        this::onAudioDelta,
+        "audioDelta");
+    sub(
+        client.events(OaiRealtimeEvent.ResponseOutputAudioDone.class),
+        this::onAudioDone,
+        "audioDoneEvt");
     sub(
         client.events(OaiRealtimeEvent.ResponseOutputAudioTranscriptDelta.class),
         this::onAudioTranscriptDelta,
@@ -232,7 +252,11 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
         "fnDone");
     sub(
         client.events(OaiRealtimeEvent.ResponseCreated.class),
-        e -> responseState = ResponseState.ACTIVE,
+        e -> {
+          responseState = ResponseState.ACTIVE;
+          activeResponseFunctionItemIds.clear();
+          activeResponseFunctionCallIds.clear();
+        },
         "responseCreated");
     sub(
         client.events(OaiRealtimeEvent.ResponseDone.class),
@@ -327,7 +351,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
           .failure(new IllegalStateException("Realtime model " + modelId + " has no base-url"));
     }
     OaiRealtimeConnectConfig connectConfig =
-        new OaiRealtimeConnectConfig(baseUrl, "/realtime", modelConfig.apiKey().orElse(null), Map.of());
+        new OaiRealtimeConnectConfig(
+            baseUrl, "/realtime", modelConfig.apiKey().orElse(null), Map.of());
 
     return client.connect(connectConfig).chain(() -> client.updateSession(buildSessionConfig()));
   }
@@ -441,7 +466,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
         if (selection != null && !(selection instanceof String)) {
           return Uni.createFrom()
               .failure(
-                  new IllegalArgumentException("Reasoning effort selection must be a string or null"));
+                  new IllegalArgumentException(
+                      "Reasoning effort selection must be a string or null"));
         }
         String value = (String) selection;
         changed = !Objects.equals(reasoningEffort, value);
@@ -494,10 +520,14 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     String itemId = nextLocalId("msg");
     Map<String, Object> item =
         Map.of(
-            "id", itemId,
-            "type", "message",
-            "role", "user",
-            "content", List.of(Map.of("type", "input_text", "text", text)));
+            "id",
+            itemId,
+            "type",
+            "message",
+            "role",
+            "user",
+            "content",
+            List.of(Map.of("type", "input_text", "text", text)));
     return client
         .createConversationItem(null, item)
         .chain(() -> client.createResponse(null))
@@ -509,14 +539,18 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     ensureNotDisposed();
     String itemId = nextLocalId("msg");
     String mimeType = sniffImageMime(imageBytes);
-    String dataUri = "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(imageBytes);
+    String dataUri =
+        "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(imageBytes);
     Map<String, Object> item =
         Map.of(
-            "id", itemId,
-            "type", "message",
-            "role", "user",
+            "id",
+            itemId,
+            "type",
+            "message",
+            "role",
+            "user",
             "content",
-                List.of(Map.of("type", "input_image", "image_url", dataUri, "detail", "auto")));
+            List.of(Map.of("type", "input_image", "image_url", dataUri, "detail", "auto")));
     return client
         .createConversationItem(null, item)
         .chain(() -> client.createResponse(null))
@@ -540,20 +574,93 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
         .replaceWith(itemId);
   }
 
+  // ---------------------------------------------------------------------------
+  // Response control
+  // ---------------------------------------------------------------------------
+
   @Override
-  public void cancelFunctionCalls(Set<String> itemIds, Set<String> callIds) {
+  public Uni<Void> interrupt() {
     ensureNotDisposed();
-    locallyCancelledItemIds.addAll(itemIds);
-    locallyCancelledCallIds.addAll(callIds);
+    ResponseState state = responseState;
+    Uni<Void> cancelGeneration;
+    if (state == ResponseState.INACTIVE) {
+      // No active response; sending response.cancel would produce the
+      // "no active response found" error on the Azure/OpenAI side.
+      Log.debugf("OAI adapter interrupt() skipped: responseState=%s", state);
+      cancelGeneration = Uni.createFrom().voidItem();
+    } else {
+      // ACTIVE  → cancel is warranted.
+      // UNKNOWN → legacy fallback: send cancel to avoid silently swallowing the interrupt on
+      //           providers that do not emit response.created (keeps previous behaviour).
+      cancelGeneration = client.cancelResponse();
+    }
+    return cancelGeneration
+        .chain(this::resolveCompletedPendingFunctionCallsAsInterrupted)
+        .invoke(this::markPendingFunctionCallsIncomplete);
+  }
+
+  private Uni<Void> resolveCompletedPendingFunctionCallsAsInterrupted() {
+    Uni<Void> chain = Uni.createFrom().voidItem();
+    for (String callId : completedPendingFunctionCallIds()) {
+      chain = chain.chain(() -> createInterruptedFunctionOutput(callId));
+    }
+    return chain;
+  }
+
+  private Uni<Void> createInterruptedFunctionOutput(String callId) {
+    String itemId = nextLocalId("tool");
+    stageLocalFunctionOutputItem(
+        itemId,
+        callId,
+        INTERRUPTED_TOOL_ERROR_OUTPUT,
+        RealtimeAdapterModels.ToolOutputDisposition.ERROR,
+        INTERRUPTED_TOOL_ERROR_MESSAGE);
+    Map<String, Object> item =
+        Map.of(
+            "id", itemId,
+            "type", "function_call_output",
+            "call_id", callId,
+            "output", INTERRUPTED_TOOL_ERROR_OUTPUT);
+    return client.createConversationItem(null, item);
+  }
+
+  private List<String> completedPendingFunctionCallIds() {
+    Set<String> outputCallIds = outputCallIds();
+    List<String> pendingCallIds = new ArrayList<>();
+    for (RealtimeThread.Item item : thread.items()) {
+      String callId = item.callId();
+      if (item.type() != RealtimeThread.ItemType.FUNCTION_CALL
+          || item.status() != RealtimeThread.ItemStatus.COMPLETED
+          || callId == null
+          || callId.isEmpty()
+          || outputCallIds.contains(callId)
+          || !isActiveResponseFunctionCall(item)) {
+        continue;
+      }
+      pendingCallIds.add(callId);
+    }
+    return pendingCallIds;
+  }
+
+  private Set<String> outputCallIds() {
+    Set<String> outputCallIds = new HashSet<>();
+    for (RealtimeThread.Item item : thread.items()) {
+      if (item.type() == RealtimeThread.ItemType.FUNCTION_CALL_OUTPUT && item.callId() != null) {
+        outputCallIds.add(item.callId());
+      }
+    }
+    return outputCallIds;
+  }
+
+  private void markPendingFunctionCallsIncomplete() {
+    Set<String> outputCallIds = outputCallIds();
     boolean changed = false;
     for (RealtimeThread.Item item : thread.items()) {
-      if (item.type() != RealtimeThread.ItemType.FUNCTION_CALL) {
-        continue;
-      }
-      if (!isLocallyCancelled(item.id(), item.callId())) {
-        continue;
-      }
-      if (item.status() == RealtimeThread.ItemStatus.INCOMPLETE) {
+      String callId = item.callId();
+      if (item.type() != RealtimeThread.ItemType.FUNCTION_CALL
+          || item.status() == RealtimeThread.ItemStatus.INCOMPLETE
+          || !isActiveResponseFunctionCall(item)
+          || (callId != null && outputCallIds.contains(callId))) {
         continue;
       }
       patch.setStatus(item, RealtimeThread.ItemStatus.INCOMPLETE);
@@ -564,24 +671,23 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Response control
-  // ---------------------------------------------------------------------------
-
-  @Override
-  public Uni<Void> interrupt() {
-    ensureNotDisposed();
-    ResponseState state = responseState;
-    if (state == ResponseState.INACTIVE) {
-      // No active response; sending response.cancel would produce the
-      // "no active response found" error on the Azure/OpenAI side.
-      Log.debugf("OAI adapter interrupt() skipped: responseState=%s", state);
-      return Uni.createFrom().voidItem();
+  private void trackActiveFunctionCall(RealtimeThread.Item item) {
+    if (item == null
+        || item.type() != RealtimeThread.ItemType.FUNCTION_CALL
+        || responseState == ResponseState.INACTIVE) {
+      return;
     }
-    // ACTIVE  → cancel is warranted.
-    // UNKNOWN → legacy fallback: send cancel to avoid silently swallowing the interrupt on
-    //           providers that do not emit response.created (keeps previous behaviour).
-    return client.cancelResponse();
+    activeResponseFunctionItemIds.add(item.id());
+    String callId = item.callId();
+    if (callId != null && !callId.isEmpty()) {
+      activeResponseFunctionCallIds.add(callId);
+    }
+  }
+
+  private boolean isActiveResponseFunctionCall(RealtimeThread.Item item) {
+    String callId = item.callId();
+    return activeResponseFunctionItemIds.contains(item.id())
+        || (callId != null && activeResponseFunctionCallIds.contains(callId));
   }
 
   /** Package-private: returns the current response-tracking state (test seam). */
@@ -658,11 +764,9 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     if (item == null) {
       return;
     }
-    RealtimeThread.ItemStatus nextStatus = RealtimeThread.ItemStatus.fromWire(event.item().status());
-    boolean locallyCancelled = isLocallyCancelled(item.id(), item.callId());
-    if (!locallyCancelled || nextStatus == RealtimeThread.ItemStatus.INCOMPLETE) {
-      patch.setStatus(item, nextStatus);
-    }
+    RealtimeThread.ItemStatus nextStatus =
+        RealtimeThread.ItemStatus.fromWire(event.item().status());
+    patch.setStatus(item, nextStatus);
     flush();
   }
 
@@ -729,7 +833,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     }
     RealtimeThread.Item item = ensureAssistantMessageItem(itemId);
     patch.markPartDone(item, event.contentIndex());
-    int contentIndex = event.contentIndex() != null ? event.contentIndex() : lastAudioPartIndex(item);
+    int contentIndex =
+        event.contentIndex() != null ? event.contentIndex() : lastAudioPartIndex(item);
     audioDoneBus.onNext(
         new RealtimeAdapterModels.AssistantAudioFrame(item.id(), contentIndex, new byte[0]));
     flush();
@@ -765,6 +870,7 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       return;
     }
     RealtimeThread.Item item = ensureFunctionCallItem(itemId, event.callId(), null);
+    trackActiveFunctionCall(item);
     patch.setArguments(item, (item.arguments() == null ? "" : item.arguments()) + delta);
     flush();
   }
@@ -784,6 +890,7 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     if (event.arguments() != null) {
       patch.setArguments(item, event.arguments());
     }
+    trackActiveFunctionCall(item);
     flush();
   }
 
@@ -814,10 +921,7 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       if (source.output() != null) {
         patch.setOutput(existing, source.output());
       }
-      boolean locallyCancelled = isLocallyCancelled(existing.id(), existing.callId());
-      if (!locallyCancelled || nextStatus == RealtimeThread.ItemStatus.INCOMPLETE) {
-        patch.setStatus(existing, nextStatus);
-      }
+      patch.setStatus(existing, nextStatus);
       if (existing.content().isEmpty() && !source.content().isEmpty()) {
         for (OaiRealtimeEvent.ContentPart part : source.content()) {
           mergeContentPart(existing, part, null, true);
@@ -827,20 +931,13 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     }
 
     RealtimeThread.ItemType itemType = mapItemType(source.type());
-    boolean cancelledFunctionCall =
-        itemType == RealtimeThread.ItemType.FUNCTION_CALL
-            && isLocallyCancelled(source.id(), source.callId());
-    RealtimeThread.ItemStatus status =
-        cancelledFunctionCall
-            ? RealtimeThread.ItemStatus.INCOMPLETE
-            : RealtimeThread.ItemStatus.fromWire(source.status());
+    RealtimeThread.ItemStatus status = RealtimeThread.ItemStatus.fromWire(source.status());
     RealtimeThread.ItemRole role = mapRole(source.role());
     if (shouldDeferUserInputAudioProjection(itemType, role, source)) {
       return null;
     }
     RealtimeThread.ItemDisplayState displayState = initialDisplayState(role, source);
-    RealtimeThread.Item item =
-        patch.addItem(source.id(), itemType, role, status, displayState);
+    RealtimeThread.Item item = patch.addItem(source.id(), itemType, role, status, displayState);
     if (source.callId() != null) {
       patch.setCallId(item, source.callId());
     }
@@ -895,19 +992,15 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       if (name != null) {
         patch.setName(existing, name);
       }
-      if (isLocallyCancelled(existing.id(), existing.callId())
-          && existing.status() != RealtimeThread.ItemStatus.INCOMPLETE) {
-        patch.setStatus(existing, RealtimeThread.ItemStatus.INCOMPLETE);
-      }
       return existing;
     }
-    RealtimeThread.ItemStatus status =
-        isLocallyCancelled(itemId, callId)
-            ? RealtimeThread.ItemStatus.INCOMPLETE
-            : RealtimeThread.ItemStatus.IN_PROGRESS;
+    RealtimeThread.ItemStatus status = RealtimeThread.ItemStatus.IN_PROGRESS;
     RealtimeThread.Item item =
         patch.addItem(
-            itemId, RealtimeThread.ItemType.FUNCTION_CALL, RealtimeThread.ItemRole.ASSISTANT, status);
+            itemId,
+            RealtimeThread.ItemType.FUNCTION_CALL,
+            RealtimeThread.ItemRole.ASSISTANT,
+            status);
     if (callId != null) {
       patch.setCallId(item, callId);
     }
@@ -954,7 +1047,10 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   }
 
   private void mergeContentPart(
-      RealtimeThread.Item item, OaiRealtimeEvent.ContentPart part, Integer contentIndex, boolean isDone) {
+      RealtimeThread.Item item,
+      OaiRealtimeEvent.ContentPart part,
+      Integer contentIndex,
+      boolean isDone) {
     if (part == null) {
       return;
     }
@@ -1081,7 +1177,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       toolMaps.add(toolMap);
     }
     session.put("tools", toolMaps);
-    session.put("tool_choice", tools.isEmpty() ? "none" : (toolChoiceRequired ? "required" : "auto"));
+    session.put(
+        "tool_choice", tools.isEmpty() ? "none" : (toolChoiceRequired ? "required" : "auto"));
     return session;
   }
 
@@ -1115,15 +1212,16 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
    * Ensures the parameters map passed to the provider is a valid JSON Schema object.
    *
    * <p>Rules (no strict-ification — only fills missing structure):
+   *
    * <ul>
-   *   <li>null or empty map → {@code {"type":"object","properties":{}}}</li>
-   *   <li>Missing {@code type} field → {@code type} set to {@code "object"}</li>
-   *   <li>{@code type == "object"} but missing {@code properties} → empty map added</li>
-   *   <li>Otherwise returned as-is (preserves existing args schemas)</li>
+   *   <li>null or empty map → {@code {"type":"object","properties":{}}}
+   *   <li>Missing {@code type} field → {@code type} set to {@code "object"}
+   *   <li>{@code type == "object"} but missing {@code properties} → empty map added
+   *   <li>Otherwise returned as-is (preserves existing args schemas)
    * </ul>
    *
-   * <p>This is the last line of defence before provider submission; it guards against any
-   * schema corruption that occurred upstream (e.g. CBOR round-trip, client bug).
+   * <p>This is the last line of defence before provider submission; it guards against any schema
+   * corruption that occurred upstream (e.g. CBOR round-trip, client bug).
    */
   @SuppressWarnings("unchecked")
   private static Map<String, Object> normalizeParametersSchema(Map<String, Object> params) {
@@ -1152,11 +1250,6 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
 
   private boolean isConnected() {
     return connectionState.isConnected();
-  }
-
-  private boolean isLocallyCancelled(String itemId, String callId) {
-    return locallyCancelledItemIds.contains(itemId)
-        || (callId != null && locallyCancelledCallIds.contains(callId));
   }
 
   private boolean shouldDeferUserInputAudioProjection(
@@ -1203,7 +1296,9 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
         return RealtimeThread.ItemDisplayState.VISIBLE;
       }
     }
-    return hasInputAudio ? RealtimeThread.ItemDisplayState.PENDING : RealtimeThread.ItemDisplayState.VISIBLE;
+    return hasInputAudio
+        ? RealtimeThread.ItemDisplayState.PENDING
+        : RealtimeThread.ItemDisplayState.VISIBLE;
   }
 
   private int lastAudioPartIndex(RealtimeThread.Item item) {

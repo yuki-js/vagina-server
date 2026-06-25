@@ -1,7 +1,6 @@
 package app.vagina.server.service.oidcprovider;
 
 import io.smallrye.config.ConfigMapping;
-import io.smallrye.config.WithName;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Optional;
@@ -23,8 +22,7 @@ public class HarigataOidcProvider extends OidcProviderBase {
     Optional<String> userinfoEndpoint();
   }
 
-  @Inject
-  HarigataOidcProviderInfo harigataOidcProviderInfo;
+  @Inject HarigataOidcProviderInfo harigataOidcProviderInfo;
 
   @Override
   public String getProviderKey() {

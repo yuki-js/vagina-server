@@ -11,9 +11,9 @@ import java.util.Map;
  * Judgment 4 made concrete: the per-session, stateful mutation sink.
  *
  * <p>The Dart {@code OaiRealtimeAdapter} mutates its {@code RealtimeThread} destructively and then
- * calls {@code _emitThreadUpdate()} to push the <em>whole</em> thread. VHRP instead requires a delta
- * op stream ({@code thread.patch}). This class absorbs that clash exactly where the backend spec
- * says to: it wraps the thread's mutation helpers so that every mutation simultaneously
+ * calls {@code _emitThreadUpdate()} to push the <em>whole</em> thread. VHRP instead requires a
+ * delta op stream ({@code thread.patch}). This class absorbs that clash exactly where the backend
+ * spec says to: it wraps the thread's mutation helpers so that every mutation simultaneously
  *
  * <ol>
  *   <li>updates the canonical {@link RealtimeThread}, and
@@ -22,10 +22,10 @@ import java.util.Map;
  *
  * <p>Where the Dart code called {@code _emitThreadUpdate()}, the {@code oai/} mirror calls {@link
  * #drainOps()} and the session flushes the buffered ops as one {@code thread.patch} (this builder
- * owns only the op <em>content</em>; the patch carries no revision/sequence — it is a fire-and-forget
- * live delta, recovered on gap by reconnect + full snapshot). One builder belongs to one session, so
- * it is intentionally mutable and not thread-safe; the {@code oai/} body funnels all mutations
- * through this one place.
+ * owns only the op <em>content</em>; the patch carries no revision/sequence — it is a
+ * fire-and-forget live delta, recovered on gap by reconnect + full snapshot). One builder belongs
+ * to one session, so it is intentionally mutable and not thread-safe; the {@code oai/} body funnels
+ * all mutations through this one place.
  *
  * <p>The op wire shapes here mirror the {@code thread.patch.ops} table in {@code
  * 02_vhrp_wire_protocol.md}. PCM bytes never enter an op: assistant audio rides its own {@code
@@ -108,7 +108,8 @@ public final class ThreadPatchBuilder {
     if (existing != null) {
       return existing;
     }
-    return addItem(id, RealtimeThread.ItemType.MESSAGE, role, RealtimeThread.ItemStatus.IN_PROGRESS);
+    return addItem(
+        id, RealtimeThread.ItemType.MESSAGE, role, RealtimeThread.ItemStatus.IN_PROGRESS);
   }
 
   /** Removes an item and records {@code remove_item}; no-op (and no op) when the item is absent. */
@@ -136,7 +137,8 @@ public final class ThreadPatchBuilder {
   }
 
   /** Sets item display state and records {@code set_field}. */
-  public void setDisplayState(RealtimeThread.Item item, RealtimeThread.ItemDisplayState displayState) {
+  public void setDisplayState(
+      RealtimeThread.Item item, RealtimeThread.ItemDisplayState displayState) {
     item.setDisplayState(displayState);
     recordSetField(item.id(), "displayState", item.displayState().wireValue());
   }
@@ -261,8 +263,8 @@ public final class ThreadPatchBuilder {
 
   /**
    * Appends assistant PCM to an audio part <em>without</em> recording an op. The bytes ride their
-   * own {@code assistant.audio.chunk} frame, never a patch op; only the part's existence (via {@link
-   * #ensureAudioPart}) and its transcript are reflected in patches.
+   * own {@code assistant.audio.chunk} frame, never a patch op; only the part's existence (via
+   * {@link #ensureAudioPart}) and its transcript are reflected in patches.
    */
   public void appendAudioChunk(RealtimeThread.AudioPart part, byte[] pcm) {
     part.appendAudioDelta(pcm);
@@ -272,9 +274,9 @@ public final class ThreadPatchBuilder {
    * Marks the located part done and re-records {@code put_part} so the client observes {@code
    * isDone:true}. Mirrors the Dart adapter calling {@code part.markDone()} on {@code
    * content_part.done} / {@code output_text.done} / {@code output_audio.done}: the only wire shape
-   * carrying {@code isDone} is {@code put_part}, so a done transition re-upserts the same part. With
-   * a {@code null} index the last part of any kind is used, matching {@link #findPart} semantics for
-   * an unspecified index. No-op (and no op) when no part is located.
+   * carrying {@code isDone} is {@code put_part}, so a done transition re-upserts the same part.
+   * With a {@code null} index the last part of any kind is used, matching {@link #findPart}
+   * semantics for an unspecified index. No-op (and no op) when no part is located.
    */
   public void markPartDone(RealtimeThread.Item item, Integer contentIndex) {
     RealtimeThread.ContentPart part = locatePart(item, contentIndex);
@@ -309,9 +311,11 @@ public final class ThreadPatchBuilder {
   // Op buffer plumbing
   // ---------------------------------------------------------------------------
 
-  /** Creates an op map seeded with {@code op}, registers it in the buffer, and returns it for the
+  /**
+   * Creates an op map seeded with {@code op}, registers it in the buffer, and returns it for the
    * caller to enrich with op-specific fields. Because the same reference is buffered, post-return
-   * {@code put}s are visible at drain time. */
+   * {@code put}s are visible at drain time.
+   */
   private Map<String, Object> newOp(String opName) {
     Map<String, Object> op = new LinkedHashMap<>();
     op.put("op", opName);
@@ -401,8 +405,8 @@ public final class ThreadPatchBuilder {
    *
    * <p>Only fields that are set appear, so a plain message item stays small and a functionCall /
    * functionCallOutput item carries its callId/name/arguments/output and tool dispositions. The
-   * content parts are projected via {@link #partShape}, so an item shape embeds the same part shapes
-   * a standalone {@code put_part} would emit.
+   * content parts are projected via {@link #partShape}, so an item shape embeds the same part
+   * shapes a standalone {@code put_part} would emit.
    */
   static Map<String, Object> itemShape(RealtimeThread.Item item) {
     Map<String, Object> shape = new LinkedHashMap<>();

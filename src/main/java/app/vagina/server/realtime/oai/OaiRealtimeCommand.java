@@ -10,8 +10,8 @@ import java.util.Map;
  * Outbound OpenAI Realtime commands and their JSON encoder, aggregated into one file (judgment 8).
  * Mirrors the Dart {@code realtime_command.dart} + {@code realtime_command_encoder.dart}.
  *
- * <p>Each permitted record is one {@code type} the client sends to OpenAI. {@link Encoder} renders a
- * command to the {@link ObjectNode} the transport writes as a single text frame. Audio bytes are
+ * <p>Each permitted record is one {@code type} the client sends to OpenAI. {@link Encoder} renders
+ * a command to the {@link ObjectNode} the transport writes as a single text frame. Audio bytes are
  * base64-encoded here (OpenAI carries PCM as base64 strings in JSON); the VHRP {@code bstr} →
  * {@code byte[]} path means no base64 ever appears on the VHRP side, only on this downstream leg.
  */

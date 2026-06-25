@@ -1,13 +1,13 @@
 package app.vagina.server.service.oidcprovider;
 
 import app.vagina.server.domain.error.ExternalServiceException;
+import app.vagina.server.support.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.ext.web.client.HttpResponse;
 import io.vertx.mutiny.ext.web.client.WebClient;
-import app.vagina.server.support.Util;
 import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -19,14 +19,10 @@ public abstract class OidcProviderBase {
 
   @Inject protected ObjectMapper objectMapper;
 
-  /**
-   * Represents a set of tokens returned by the OIDC provider.
-   */
+  /** Represents a set of tokens returned by the OIDC provider. */
   public record OidcTokenSet(String accessToken, String idToken, long expiresIn) {}
 
-  /**
-   * Represents user information returned by the OIDC provider.
-   */
+  /** Represents user information returned by the OIDC provider. */
   public record OidcUserInfo(
       String subject,
       String providerLogin,
@@ -38,12 +34,19 @@ public abstract class OidcProviderBase {
 
   public interface OidcProviderInfo {
     String clientId();
+
     String clientSecret();
+
     Optional<String> configurationUrl();
+
     Optional<String> jwksUrl();
+
     Optional<String> issuer();
+
     Optional<String> authorizationEndpoint();
+
     Optional<String> tokenEndpoint();
+
     Optional<String> userinfoEndpoint();
   }
 
@@ -105,7 +108,8 @@ public abstract class OidcProviderBase {
       String sourceDesc = "OIDC discovery document from " + discoveryUrl;
       String jwksUrl = Util.requireJsonField(doc, "jwks_uri", sourceDesc);
       String issuer = Util.requireJsonField(doc, "issuer", sourceDesc);
-      String authorizationEndpoint = Util.requireJsonField(doc, "authorization_endpoint", sourceDesc);
+      String authorizationEndpoint =
+          Util.requireJsonField(doc, "authorization_endpoint", sourceDesc);
       String tokenEndpoint = Util.requireJsonField(doc, "token_endpoint", sourceDesc);
       Optional<String> userinfoEndpoint =
           doc.has("userinfo_endpoint") && !doc.get("userinfo_endpoint").isNull()
@@ -159,12 +163,9 @@ public abstract class OidcProviderBase {
 
   // ── Abstract interface ───────────────────────────────────────────────────────
 
-  /**
-   * Builds the authorization URL.
-   */
+  /** Builds the authorization URL. */
   public String buildAuthorizationUrl(
-      String redirectUri, String state, String codeChallenge, String codeChallengeMethod
-  ) {
+      String redirectUri, String state, String codeChallenge, String codeChallengeMethod) {
     ConfiguredOidcProviderInfo provider = configureProvider();
 
     Map<String, String> queryParams = new LinkedHashMap<>();
@@ -183,9 +184,7 @@ public abstract class OidcProviderBase {
     return provider.authorizationEndpoint() + "?" + Util.formEncode(queryParams);
   }
 
-  /**
-   * Exchanges the authorization code for tokens.
-   */
+  /** Exchanges the authorization code for tokens. */
   public OidcTokenSet exchangeAuthorizationCode(
       String code, String redirectUri, String codeVerifier) {
     ConfiguredOidcProviderInfo provider = configureProvider();
@@ -236,8 +235,7 @@ public abstract class OidcProviderBase {
    * endpoint, this method must either unpack the user info from the ID token or throw {@link
    * UnsupportedOperationException}.
    */
-  public OidcUserInfo fetchUserInfo(String accessToken)
-      throws UnsupportedOperationException {
+  public OidcUserInfo fetchUserInfo(String accessToken) throws UnsupportedOperationException {
     ConfiguredOidcProviderInfo provider = configureProvider();
     String userinfoEndpoint =
         provider

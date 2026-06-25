@@ -30,12 +30,13 @@ import java.util.stream.Collectors;
  *
  * <p>This session keeps <em>no</em> replay log and stamps <em>no</em> stream sequence or thread
  * revision. A {@code thread.patch} is a fire-and-forget live delta. The one and only recovery for
- * any delivery gap — a dropped frame, a desync, a reconnect — is a fresh full {@code thread.snapshot}
- * built on demand from the adapter's canonical thread (which is always live in memory). That makes
- * two things follow:
+ * any delivery gap — a dropped frame, a desync, a reconnect — is a fresh full {@code
+ * thread.snapshot} built on demand from the adapter's canonical thread (which is always live in
+ * memory). That makes two things follow:
  *
  * <ul>
- *   <li>{@link #handleSyncRequest} always answers with a full snapshot; there is no cursor to honor;
+ *   <li>{@link #handleSyncRequest} always answers with a full snapshot; there is no cursor to
+ *       honor;
  *   <li>{@link #writeFrame} logs and absorbs a live-frame write failure rather than closing the
  *       socket itself. A genuinely dead socket is reclaimed by Quarkus via {@code @OnClose} →
  *       {@link VhrpEndpoint#onClose} → detach (after which the client reconnects and resyncs), so a
@@ -45,8 +46,8 @@ import java.util.stream.Collectors;
  * </ul>
  *
  * <p>Threading: a single connection delivers frames serially (the endpoint's {@code
- * InboundProcessingMode.SERIAL} default), but the adapter pushes outbound on its own threads, so the
- * current-connection reference is volatile.
+ * InboundProcessingMode.SERIAL} default), but the adapter pushes outbound on its own threads, so
+ * the current-connection reference is volatile.
  */
 public class VhrpSession {
 
@@ -60,8 +61,8 @@ public class VhrpSession {
 
   /**
    * The vendor translation body for this session. Driven for C2S; it pushes S2C back through {@link
-   * #sendToClient}. Defined two levels deeper (the {@code oai/} mirror) and intentionally unresolved
-   * here.
+   * #sendToClient}. Defined two levels deeper (the {@code oai/} mirror) and intentionally
+   * unresolved here.
    */
   private final RealtimeAdapter adapter;
 
@@ -73,12 +74,13 @@ public class VhrpSession {
 
   /**
    * Subscriptions to the adapter's S2C output streams (patches/audio/vad/errors). Held for the
-   * session's lifetime and cancelled on {@link #dispose()}; the adapter pushes on its own threads so
-   * these feed straight into {@link #writeFrame}.
+   * session's lifetime and cancelled on {@link #dispose()}; the adapter pushes on its own threads
+   * so these feed straight into {@link #writeFrame}.
    */
   private final List<Cancellable> adapterSubscriptions = new ArrayList<>();
 
-  public VhrpSession(String sessionId, String threadId, VhrpCborCodec codec, RealtimeAdapter adapter) {
+  public VhrpSession(
+      String sessionId, String threadId, VhrpCborCodec codec, RealtimeAdapter adapter) {
     this.sessionId = sessionId;
     this.threadId = threadId;
     this.codec = codec;
@@ -95,8 +97,8 @@ public class VhrpSession {
   // ---------------------------------------------------------------------------
 
   /**
-   * Subscribes the adapter's observation points and frames each into an S2C message. This is the S2C
-   * half of the warp: the adapter (vendor body) speaks model types on Mutiny streams, and the
+   * Subscribes the adapter's observation points and frames each into an S2C message. This is the
+   * S2C half of the warp: the adapter (vendor body) speaks model types on Mutiny streams, and the
    * session turns them into wire frames written live to the current socket.
    *
    * <ul>
@@ -117,17 +119,23 @@ public class VhrpSession {
         adapter
             .threadPatches()
             .subscribe()
-            .with(this::emitThreadPatch, t -> Log.errorf(t, "VHRP %s threadPatches failed", sessionId)));
+            .with(
+                this::emitThreadPatch,
+                t -> Log.errorf(t, "VHRP %s threadPatches failed", sessionId)));
     adapterSubscriptions.add(
         adapter
             .assistantAudioStream()
             .subscribe()
-            .with(this::emitAssistantAudioChunk, t -> Log.errorf(t, "VHRP %s audioStream failed", sessionId)));
+            .with(
+                this::emitAssistantAudioChunk,
+                t -> Log.errorf(t, "VHRP %s audioStream failed", sessionId)));
     adapterSubscriptions.add(
         adapter
             .assistantAudioCompleted()
             .subscribe()
-            .with(this::emitAssistantAudioDone, t -> Log.errorf(t, "VHRP %s audioDone failed", sessionId)));
+            .with(
+                this::emitAssistantAudioDone,
+                t -> Log.errorf(t, "VHRP %s audioDone failed", sessionId)));
     adapterSubscriptions.add(
         adapter
             .isUserSpeakingUpdates()
@@ -142,29 +150,39 @@ public class VhrpSession {
 
   private void emitThreadPatch(RealtimeAdapterModels.ThreadPatchOps batch) {
     VhrpMessage.ThreadPatch patch = new VhrpMessage.ThreadPatch(batch.ops());
-    sendToClient(patch).subscribe().with(ignored -> {}, t -> Log.errorf(t, "VHRP %s patch write", sessionId));
+    sendToClient(patch)
+        .subscribe()
+        .with(ignored -> {}, t -> Log.errorf(t, "VHRP %s patch write", sessionId));
   }
 
   private void emitAssistantAudioChunk(RealtimeAdapterModels.AssistantAudioFrame frame) {
     VhrpMessage.AssistantAudioChunk chunk =
         new VhrpMessage.AssistantAudioChunk(frame.itemId(), frame.contentIndex(), frame.pcm());
-    sendToClient(chunk).subscribe().with(ignored -> {}, t -> Log.errorf(t, "VHRP %s audio write", sessionId));
+    sendToClient(chunk)
+        .subscribe()
+        .with(ignored -> {}, t -> Log.errorf(t, "VHRP %s audio write", sessionId));
   }
 
   private void emitAssistantAudioDone(RealtimeAdapterModels.AssistantAudioFrame frame) {
     VhrpMessage.AssistantAudioDone done =
         new VhrpMessage.AssistantAudioDone(frame.itemId(), frame.contentIndex());
-    sendToClient(done).subscribe().with(ignored -> {}, t -> Log.errorf(t, "VHRP %s audioDone write", sessionId));
+    sendToClient(done)
+        .subscribe()
+        .with(ignored -> {}, t -> Log.errorf(t, "VHRP %s audioDone write", sessionId));
   }
 
   private void emitVadState(Boolean speaking) {
     VhrpMessage.VadState vad = new VhrpMessage.VadState(Boolean.TRUE.equals(speaking));
-    sendToClient(vad).subscribe().with(ignored -> {}, t -> Log.errorf(t, "VHRP %s vad write", sessionId));
+    sendToClient(vad)
+        .subscribe()
+        .with(ignored -> {}, t -> Log.errorf(t, "VHRP %s vad write", sessionId));
   }
 
   private void emitError(RealtimeAdapterModels.Error error) {
     VhrpMessage.Error wire = new VhrpMessage.Error(null, error.code(), error.message(), true);
-    sendToClient(wire).subscribe().with(ignored -> {}, t -> Log.errorf(t, "VHRP %s error write", sessionId));
+    sendToClient(wire)
+        .subscribe()
+        .with(ignored -> {}, t -> Log.errorf(t, "VHRP %s error write", sessionId));
   }
 
   /**
@@ -192,8 +210,8 @@ public class VhrpSession {
    * the client then asks for a fresh full {@code thread.snapshot} via {@code thread.sync.request}
    * (handled by {@link #handleSyncRequest}). The endpoint chains this after {@link
    * VhrpSessionRegistry#openOrResume}, passing the open's {@code messageId} so the reply correlates
-   * to the right frame — on resume that is the resume open's own messageId, which is exactly why the
-   * id is threaded through per attach rather than stored at session creation.
+   * to the right frame — on resume that is the resume open's own messageId, which is exactly why
+   * the id is threaded through per attach rather than stored at session creation.
    */
   public Uni<Void> attachConnection(WebSocketConnection connection, String replyToMessageId) {
     this.currentConnection = connection;
@@ -211,7 +229,8 @@ public class VhrpSession {
     // Resume: announce the rebind only. The client resyncs by sending thread.sync.request, which we
     // answer with a fresh full snapshot; we push no state here.
     VhrpMessage.SessionResumed resumed =
-        new VhrpMessage.SessionResumed(replyToMessageId, sessionId, threadId, adapter.conversationId());
+        new VhrpMessage.SessionResumed(
+            replyToMessageId, sessionId, threadId, adapter.conversationId());
     return writeFrame(resumed);
   }
 
@@ -234,9 +253,10 @@ public class VhrpSession {
   /**
    * Routes one decoded C2S message to the bound adapter and replies where the protocol requires it.
    *
-   * <p>This is the dispatch table from the backend spec: each {@code turn.*}/{@code session.*}/{@code
-   * tools.set}/{@code tool.result.submit} is acknowledged via {@code ack}; one-way messages
-   * ({@code live.audio.chunk}, {@code audio.turn.mode.set}, {@code assistant.interrupt}) are not.
+   * <p>This is the dispatch table from the backend spec: each {@code turn.*}/{@code
+   * session.*}/{@code tools.set}/{@code tool.result.submit} is acknowledged via {@code ack};
+   * one-way messages ({@code live.audio.chunk}, {@code audio.turn.mode.set}, {@code
+   * assistant.interrupt}) are not.
    */
   public Uni<Void> dispatch(VhrpMessage.C2S message) {
     return switch (message) {
@@ -264,8 +284,10 @@ public class VhrpSession {
   }
 
   private Uni<Void> handleSessionInstructionsSet(VhrpMessage.SessionInstructionsSet m) {
-    return adapter.setInstructions(m.instructions())
-        .onItem().transformToUni(ignored -> ack(m.messageId()));
+    return adapter
+        .setInstructions(m.instructions())
+        .onItem()
+        .transformToUni(ignored -> ack(m.messageId()));
   }
 
   private Uni<Void> handleLiveAudioChunk(VhrpMessage.LiveAudioChunk m) {
@@ -274,18 +296,24 @@ public class VhrpSession {
   }
 
   private Uni<Void> handleTurnAudioSubmit(VhrpMessage.TurnAudioSubmit m) {
-    return adapter.sendAudioOneShot(m.pcm())
-        .onItem().transformToUni(itemId -> ackItem(m.messageId(), m.clientItemId()));
+    return adapter
+        .sendAudioOneShot(m.pcm())
+        .onItem()
+        .transformToUni(itemId -> ackItem(m.messageId(), m.clientItemId()));
   }
 
   private Uni<Void> handleTurnTextSubmit(VhrpMessage.TurnTextSubmit m) {
-    return adapter.sendText(m.text())
-        .onItem().transformToUni(itemId -> ackItem(m.messageId(), m.clientItemId()));
+    return adapter
+        .sendText(m.text())
+        .onItem()
+        .transformToUni(itemId -> ackItem(m.messageId(), m.clientItemId()));
   }
 
   private Uni<Void> handleTurnImageSubmit(VhrpMessage.TurnImageSubmit m) {
-    return adapter.sendImage(m.imageBytes())
-        .onItem().transformToUni(itemId -> ackItem(m.messageId(), m.clientItemId()));
+    return adapter
+        .sendImage(m.imageBytes())
+        .onItem()
+        .transformToUni(itemId -> ackItem(m.messageId(), m.clientItemId()));
   }
 
   private Uni<Void> handleToolsSet(VhrpMessage.ToolsSet m) {
@@ -293,35 +321,44 @@ public class VhrpSession {
     // type. The shapes are identical today; the mapping makes the dependency direction explicit.
     List<RealtimeAdapterModels.ToolDefinition> tools =
         m.tools().stream()
-            .map(t -> new RealtimeAdapterModels.ToolDefinition(t.name(), t.description(), t.parameters()))
+            .map(
+                t ->
+                    new RealtimeAdapterModels.ToolDefinition(
+                        t.name(), t.description(), t.parameters()))
             .collect(Collectors.toList());
     return adapter.registerTools(tools).onItem().transformToUni(ignored -> ack(m.messageId()));
   }
 
   private Uni<Void> handleSessionExtensionApply(VhrpMessage.SessionExtensionApply m) {
-    return adapter.applyProviderExtension(m.extensionType(), m.payload())
-        .onItem().transformToUni(applied -> {
-          if (!applied) {
-            return Uni.createFrom().failure(
-                new VhrpException.ExtensionUnsupported(
-                    "Unsupported extension: " + m.extensionType()));
-          }
-          return ack(m.messageId());
-        });
+    return adapter
+        .applyProviderExtension(m.extensionType(), m.payload())
+        .onItem()
+        .transformToUni(
+            applied -> {
+              if (!applied) {
+                return Uni.createFrom()
+                    .failure(
+                        new VhrpException.ExtensionUnsupported(
+                            "Unsupported extension: " + m.extensionType()));
+              }
+              return ack(m.messageId());
+            });
   }
 
   private Uni<Void> handleToolResultSubmit(VhrpMessage.ToolResultSubmit m) {
     // Boundary translation: wire disposition token -> model enum.
     RealtimeAdapterModels.ToolOutputDisposition disposition =
         RealtimeAdapterModels.ToolOutputDisposition.fromWire(m.disposition());
-    return adapter.sendFunctionOutput(m.callId(), m.output(), disposition, m.errorMessage())
-        .onItem().transformToUni(itemId -> ackItem(m.messageId(), m.clientItemId()));
+    return adapter
+        .sendFunctionOutput(m.callId(), m.output(), disposition, m.errorMessage())
+        .onItem()
+        .transformToUni(itemId -> ackItem(m.messageId(), m.clientItemId()));
   }
 
   /**
    * Answers a resync request with a fresh full snapshot. In the snapshot-only recovery model there
-   * is no cursor or partial catch-up: whatever the client's situation, the current full thread state
-   * fully reconstructs its projection.
+   * is no cursor or partial catch-up: whatever the client's situation, the current full thread
+   * state fully reconstructs its projection.
    */
   private Uni<Void> handleSyncRequest(VhrpMessage.ThreadSyncRequest request) {
     return writeFrame(buildSnapshot());
@@ -358,23 +395,24 @@ public class VhrpSession {
    * recovery path (reconnect + full snapshot) intact without churning live connections.
    *
    * <ul>
-   *   <li>detached (no socket / closed): drop the frame. Recovery is reconnect + full snapshot, so a
-   *       dropped live frame is intentionally not buffered.
+   *   <li>detached (no socket / closed): drop the frame. Recovery is reconnect + full snapshot, so
+   *       a dropped live frame is intentionally not buffered.
    *   <li>write failure: logged and absorbed. Two reasons not to escalate to a manual close here.
    *       First, a permanent socket fault is already surfaced by Quarkus as {@code @OnClose} →
-   *       {@link VhrpEndpoint#onClose} → detach, after which the client reconnects and resyncs via a
-   *       fresh full {@code thread.snapshot}; a manual close would only duplicate that. Second, a
-   *       manual close on a possibly-transient send failure would needlessly kill a live connection,
-   *       forcing a wasteful reconnect + snapshot (and the handshake cost that implies). Absorbing
-   *       the failure is the dominant choice: it never tears a healthy connection, and a genuinely
-   *       dead one is reclaimed by {@code @OnClose} regardless.
+   *       {@link VhrpEndpoint#onClose} → detach, after which the client reconnects and resyncs via
+   *       a fresh full {@code thread.snapshot}; a manual close would only duplicate that. Second, a
+   *       manual close on a possibly-transient send failure would needlessly kill a live
+   *       connection, forcing a wasteful reconnect + snapshot (and the handshake cost that
+   *       implies). Absorbing the failure is the dominant choice: it never tears a healthy
+   *       connection, and a genuinely dead one is reclaimed by {@code @OnClose} regardless.
    * </ul>
    *
    * <p>Note these audio/patch/vad frames are emitted from the adapter's own subscriptions (see
-   * {@link #subscribeAdapterOutput}), not from a {@code @On*} callback, so their failures never reach
-   * {@code @OnError}; logging here is the intended terminal handling. Failures on the request/reply
-   * path ({@code ack} etc.), which do ride a {@code @OnBinaryMessage} Uni, are governed instead by
-   * {@code quarkus.websockets-next.server.unhandled-failure-strategy} via {@code @OnError}.
+   * {@link #subscribeAdapterOutput}), not from a {@code @On*} callback, so their failures never
+   * reach {@code @OnError}; logging here is the intended terminal handling. Failures on the
+   * request/reply path ({@code ack} etc.), which do ride a {@code @OnBinaryMessage} Uni, are
+   * governed instead by {@code quarkus.websockets-next.server.unhandled-failure-strategy} via
+   * {@code @OnError}.
    */
   private Uni<Void> writeFrame(VhrpMessage.S2C message) {
     WebSocketConnection connection = currentConnection;
@@ -386,7 +424,10 @@ public class VhrpSession {
         .onFailure()
         .recoverWithUni(
             failure -> {
-              Log.warnf(failure, "VHRP %s frame write failed; dropping (recovery via reconnect+snapshot)", sessionId);
+              Log.warnf(
+                  failure,
+                  "VHRP %s frame write failed; dropping (recovery via reconnect+snapshot)",
+                  sessionId);
               return Uni.createFrom().voidItem();
             });
   }

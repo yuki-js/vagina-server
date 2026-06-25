@@ -127,10 +127,7 @@ public class AuthService {
 
   @Transactional
   public CreatedOidcState createState(
-      String providerKey,
-      ClientType clientType,
-      String codeChallenge,
-      String codeChallengeMethod) {
+      String providerKey, ClientType clientType, String codeChallenge, String codeChallengeMethod) {
     String rawState = Util.randomHexToken();
     LocalDateTime now = LocalDateTime.now();
     String redirectUri = resolveRedirectUri(clientType);
@@ -279,7 +276,8 @@ public class AuthService {
 
   @Transactional
   public Optional<RotateResult> rotateRefreshToken(String rawToken) {
-    Optional<RefreshToken> currentOpt = refreshTokenMapper.findByTokenHash(Util.sha256Hex(rawToken));
+    Optional<RefreshToken> currentOpt =
+        refreshTokenMapper.findByTokenHash(Util.sha256Hex(rawToken));
     if (currentOpt.isEmpty()) {
       return Optional.empty();
     }
@@ -342,7 +340,8 @@ public class AuthService {
   // ========================
 
   /**
-   * Authenticate a raw JWT string carried in-band (for example a VHRP/1 {@code session.open} token).
+   * Authenticate a raw JWT string carried in-band (for example a VHRP/1 {@code session.open}
+   * token).
    *
    * <p>REST requests are authenticated from the {@code Authorization} header, which MP-JWT parses
    * for us; an in-band token arrives as a raw string with no header. This {@link String} overload
@@ -445,5 +444,4 @@ public class AuthService {
     }
     return normalized;
   }
-
 }

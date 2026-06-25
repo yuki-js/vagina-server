@@ -16,13 +16,13 @@ import java.util.Map;
 /**
  * Translates VHRP/1 binary frames to/from the typed {@link VhrpMessage} set.
  *
- * <p>On the wire every application message is exactly one CBOR map with the common envelope {@code {
- * type, [messageId], [replyTo], body }} (see {@code
+ * <p>On the wire every application message is exactly one CBOR map with the common envelope {@code
+ * { type, [messageId], [replyTo], body }} (see {@code
  * client/docs/hosted_realtime/02_vhrp_wire_protocol.md}). This codec is the only place that touches
  * that raw shape; everything above it works with records. Binary payloads ride as CBOR {@code bstr}
  * and surface as {@code byte[]}, so base64 never appears server-side. There is no {@code streamSeq}
- * or thread revision on the envelope: a {@code thread.patch} is a fire-and-forget live delta and the
- * single recovery for any gap is reconnect + a fresh full {@code thread.snapshot}.
+ * or thread revision on the envelope: a {@code thread.patch} is a fire-and-forget live delta and
+ * the single recovery for any gap is reconnect + a fresh full {@code thread.snapshot}.
  *
  * <p>Decoding is strict on the envelope (missing {@code type}/{@code body} is a {@link
  * VhrpException.ProtocolBadMessage}) and on the set of client types (unknown type is a {@link
@@ -43,8 +43,9 @@ public class VhrpCborCodec {
    *
    * <p>Throws an unchecked {@link VhrpException} so the failure flows through the endpoint's single
    * {@code @OnError} funnel; the codec never decides whether the connection closes (that is the
-   * endpoint's contextual call). A malformed envelope is a {@link VhrpException.ProtocolBadMessage};
-   * an unknown {@code type} is a {@link VhrpException.ProtocolUnsupportedMessageType}.
+   * endpoint's contextual call). A malformed envelope is a {@link
+   * VhrpException.ProtocolBadMessage}; an unknown {@code type} is a {@link
+   * VhrpException.ProtocolUnsupportedMessageType}.
    */
   public VhrpMessage.C2S decode(Buffer frame) {
     JsonNode root;
@@ -201,8 +202,8 @@ public class VhrpCborCodec {
         body.put("message", m.message());
         body.put("recoverable", m.recoverable());
       }
-      // Client-to-server messages are never encoded by the server. Receiving one here is a server
-      // bug, not a wire condition, so fail loudly rather than emitting a malformed frame.
+        // Client-to-server messages are never encoded by the server. Receiving one here is a server
+        // bug, not a wire condition, so fail loudly rather than emitting a malformed frame.
       default ->
           throw new IllegalArgumentException(
               "Refusing to encode non-S2C VHRP message: " + message.type());

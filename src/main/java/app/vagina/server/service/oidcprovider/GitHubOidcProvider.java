@@ -37,8 +37,7 @@ public class GitHubOidcProvider extends OidcProviderBase {
     Optional<String> userEmailsEndpoint();
   }
 
-  @Inject
-  GitHubOidcProviderInfo gitHubOidcProviderInfo;
+  @Inject GitHubOidcProviderInfo gitHubOidcProviderInfo;
 
   @Override
   public String getProviderKey() {

@@ -31,7 +31,8 @@ public class SpeedDialUsecase {
   }
 
   @Transactional
-  public SpeedDialPreset saveSpeedDial(Long userId, String pathSpeedDialId, SpeedDialPreset candidate) {
+  public SpeedDialPreset saveSpeedDial(
+      Long userId, String pathSpeedDialId, SpeedDialPreset candidate) {
     if (!pathSpeedDialId.equals(candidate.getSpeedDialId())) {
       throw new ValidationException("Path/body speed dial id mismatch");
     }
