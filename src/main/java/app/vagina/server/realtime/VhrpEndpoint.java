@@ -99,7 +99,7 @@ public class VhrpEndpoint {
     }
     // No session yet: per the wire contract the session is bootstrapped by the first application
     // frame (session.open). No token exists before that frame, so no authentication happens here.
-    Log.infof("VHRP connection opened: %s", connection.id());
+    Log.debugf("VHRP connection opened: %s", connection.id());
     return Uni.createFrom().voidItem();
   }
 
@@ -157,14 +157,14 @@ public class VhrpEndpoint {
   public void onClose(WebSocketConnection connection) {
     VhrpSession bound = connection.userData().get(SESSION_KEY);
     if (bound == null) {
-      Log.infof("VHRP connection closed before session bootstrap: %s", connection.id());
+      Log.debugf("VHRP connection closed before session bootstrap: %s", connection.id());
       return;
     }
     // Detach, do NOT destroy: the session must outlive this socket so a later session.open with
     // body.resume can rebind it within the retention window. The registry decides eventual disposal
     // (explicit close or retention expiry). This is the single place detachment happens, so it
     // covers graceful close and the close we trigger from onError alike.
-    Log.infof("VHRP connection %s detaching from its session", connection.id());
+    Log.debugf("VHRP connection %s detaching from its session", connection.id());
     sessionRegistry.onConnectionDetached(bound, connection);
   }
 

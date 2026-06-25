@@ -8,7 +8,6 @@ import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.operators.multi.processors.BroadcastProcessor;
-import io.vertx.core.MultiMap;
 import io.vertx.core.http.UpgradeRejectedException;
 import io.vertx.core.http.WebSocketConnectOptions;
 import io.vertx.mutiny.core.Vertx;
@@ -99,33 +98,9 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
         .onFailure()
         .invoke(
             error -> {
-              // ── DIAG: log rejected-upgrade responses (e.g. 302) ──────────
-              // Useful for diagnosing auth failures; kept as permanent WARN-level diagnostic.
               if (error instanceof UpgradeRejectedException ure) {
-                StringBuilder diagResp = new StringBuilder();
-                diagResp.append("[DIAG-WS-REJECTED] status=").append(ure.getStatus());
-                MultiMap respHeaders = ure.getHeaders();
-                if (respHeaders != null) {
-                  diagResp.append(" response-headers: [");
-                  respHeaders.forEach(
-                      e ->
-                          diagResp
-                              .append(e.getKey())
-                              .append(": ")
-                              .append(maskHeaderValue(e.getKey(), e.getValue()))
-                              .append("; "));
-                  diagResp.append("]");
-                }
-                if (ure.getBody() != null && ure.getBody().length() > 0) {
-                  String bodyPrefix = ure.getBody().toString("UTF-8");
-                  if (bodyPrefix.length() > 1024) {
-                    bodyPrefix = bodyPrefix.substring(0, 1024) + "...(truncated)";
-                  }
-                  diagResp.append(" body-prefix=").append(bodyPrefix);
-                }
-                Log.warn(diagResp.toString());
+                Log.warnf("OAI realtime websocket upgrade rejected: status=%d", ure.getStatus());
               }
-              // ── END DIAG ─────────────────────────────────────────────────
               Log.errorf(error, "OAI realtime transport failed to connect");
               emitState(
                   RealtimeAdapterModels.ConnectionState.failed(
@@ -157,7 +132,7 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
       Pattern.compile("(api-key=)[^&\\s#\"']+", Pattern.CASE_INSENSITIVE);
 
   /**
-   * Masks secret values in response headers for DIAG logging.
+   * Masks secret values in response headers.
    *
    * <ul>
    *   <li>{@code Authorization} and {@code api-key} header values are fully replaced with {@code

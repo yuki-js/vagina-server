@@ -103,7 +103,7 @@ public class VhrpSessionRegistry {
     String threadId = newThreadId();
     VhrpSession session = new VhrpSession(sessionId, threadId, codec, adapter);
     sessions.put(sessionId, new Entry(session, user.getId().toString()));
-    Log.infof(
+    Log.debugf(
         "VHRP session %s created for user %s on model %s", sessionId, user.getId(), open.modelId());
 
     // Apply the session.open initial turn mode before connect(): while disconnected the adapter
@@ -141,7 +141,7 @@ public class VhrpSessionRegistry {
     }
     entry.attached = true;
     entry.detachedAt = null;
-    Log.infof("VHRP session %s resumed by user %s", request.sessionId(), user.getId());
+    Log.debugf("VHRP session %s resumed by user %s", request.sessionId(), user.getId());
     return Uni.createFrom().item(entry.session);
   }
 
@@ -178,7 +178,7 @@ public class VhrpSessionRegistry {
         continue;
       }
       if (sessions.remove(entry.session.sessionId(), entry)) {
-        Log.infof("VHRP session %s evicted after retention window", entry.session.sessionId());
+        Log.debugf("VHRP session %s evicted after retention window", entry.session.sessionId());
         entry
             .session
             .dispose()
