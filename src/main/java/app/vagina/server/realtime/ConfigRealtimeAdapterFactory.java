@@ -1,6 +1,7 @@
 package app.vagina.server.realtime;
 
 import app.vagina.server.realtime.oai.OaiRealtimeAdapter;
+import app.vagina.server.realtime.oai_cc.OaiCcRealtimeAdapter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.mutiny.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -53,6 +54,7 @@ public class ConfigRealtimeAdapterFactory implements RealtimeAdapterFactory {
     // handed to the driver, which interprets its own baseUrl/apiKey/transcription/defaults.
     return switch (model.provider()) {
       case "oai" -> buildOaiAdapter(modelId, model);
+      case "oai_cc" -> buildOaiCcAdapter(modelId, model);
       default -> throw new UnknownModelException(modelId);
     };
   }
@@ -66,5 +68,9 @@ public class ConfigRealtimeAdapterFactory implements RealtimeAdapterFactory {
    */
   private RealtimeAdapter buildOaiAdapter(String modelId, RealtimeModelsConfig.ModelConfig model) {
     return new OaiRealtimeAdapter(modelId, model, vertx, objectMapper);
+  }
+
+  private RealtimeAdapter buildOaiCcAdapter(String modelId, RealtimeModelsConfig.ModelConfig model) {
+    return new OaiCcRealtimeAdapter(modelId, model, objectMapper);
   }
 }

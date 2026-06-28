@@ -50,6 +50,9 @@ public interface RealtimeModelsConfig {
     /** Downstream vendor credential; opaque to the factory, interpreted by the driver. */
     Optional<String> apiKey();
 
+    /** Optional Chat Completions model override for drivers that issue HTTP completions. */
+    Optional<String> model();
+
     /** Optional ASR model override for drivers that transcribe input audio. */
     Optional<String> transcriptionModel();
 
