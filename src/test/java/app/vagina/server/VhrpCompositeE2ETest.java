@@ -343,6 +343,36 @@ class VhrpCompositeE2ETest {
         "thread.snapshot.body.items must be an array (empty for a fresh session)");
   }
 
+  /**
+   * Contract: session.end is a terminal one-way command. The server must not ack it; it must dispose
+   * the retained adapter and close the WebSocket so a later @OnClose does not retain the session for
+   * resume.
+   */
+  @Test
+  void layer4_sessionEndDisposesAdapterAndClosesSocket() throws Exception {
+    String jwt = obtainValidJwt();
+    client.connect(testPort(), "vhrp.cbor.v1");
+    client.sendSessionOpen(jwt, "voice-agent-fake");
+    client.waitForMessage("session.ready", 10, TimeUnit.SECONDS);
+    FakeRealtimeAdapter adapter = fakeFactory.lastCreated();
+    assertNotNull(adapter);
+
+    client.send("session.end", Map.of());
+
+    int closeCode = client.waitForClose(5, TimeUnit.SECONDS);
+    assertNotEquals(-1, closeCode, "session.end must close the WebSocket");
+    assertTrue(adapter.isDisposed(), "session.end must dispose the retained server adapter");
+    long ackFrames =
+        client.allReceived().stream()
+            .filter(
+                f -> {
+                  JsonNode type = f.get("type");
+                  return type != null && "ack".equals(type.asText());
+                })
+            .count();
+    assertEquals(0, ackFrames, "session.end is one-way and must not be acked");
+  }
+
   // =========================================================================
   // Layer 2 (robustness): bootstrap-before-close must not cause log floods
   // =========================================================================

@@ -102,6 +102,7 @@ public class VhrpCborCodec {
               text(body, "disposition"),
               text(body, "errorMessage"));
       case "assistant.interrupt" -> new VhrpMessage.AssistantInterrupt(text(body, "reason"));
+      case "session.end" -> new VhrpMessage.SessionEnd();
       case "thread.sync.request" ->
           new VhrpMessage.ThreadSyncRequest(messageId, text(body, "reason"));
       default ->

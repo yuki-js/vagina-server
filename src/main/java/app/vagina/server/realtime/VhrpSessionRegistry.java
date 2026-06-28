@@ -6,6 +6,7 @@ import app.vagina.server.service.AuthService;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.WebSocketConnection;
 import io.smallrye.mutiny.Uni;
+import io.vertx.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
@@ -36,8 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @ApplicationScoped
 public class VhrpSessionRegistry {
 
-  /** How long a detached session is retained for resume before disposal. */
-  private static final Duration RETENTION_WINDOW = Duration.ofMinutes(2);
+  private static final Duration RESUME_RETENTION = Duration.ofSeconds(15);
 
   /** Live and retained sessions keyed by stable sessionId. Concurrent: connections span threads. */
   private final ConcurrentHashMap<String, Entry> sessions = new ConcurrentHashMap<>();
@@ -45,6 +45,7 @@ public class VhrpSessionRegistry {
   @Inject AuthService authService;
   @Inject RealtimeAdapterFactory adapterFactory;
   @Inject VhrpCborCodec codec;
+  @Inject Vertx vertx;
 
   /** A session plus the bookkeeping the registry needs to police retention and ownership. */
   private static final class Entry {
@@ -83,7 +84,6 @@ public class VhrpSessionRegistry {
           .failure(new VhrpException.AuthInvalidJwt("Invalid or missing session.open token"));
     }
 
-    sweepExpired();
     if (open.resume() != null) {
       return resume(open, user.get());
     }
@@ -122,10 +122,11 @@ public class VhrpSessionRegistry {
     Entry entry = sessions.get(request.sessionId());
     if (entry == null) {
       // Either never existed or already evicted past the retention window.
-      return Uni.createFrom()
-          .failure(
-              new VhrpException.ResumeNotAvailable(
-                  "No retained session for " + request.sessionId()));
+      return resumeNotAvailable(request.sessionId());
+    }
+    if (isExpired(entry, Instant.now())) {
+      closeIfStillDetached(request.sessionId(), entry.detachedAt);
+      return resumeNotAvailable(request.sessionId());
     }
     // Ownership check: a resume must come from the same user that created the session, so a leaked
     // sessionId cannot be rebound under a different token. Report not-available rather than a
@@ -134,10 +135,7 @@ public class VhrpSessionRegistry {
       Log.warnf(
           "VHRP resume of %s rejected: user %s is not the owner",
           request.sessionId(), user.getId());
-      return Uni.createFrom()
-          .failure(
-              new VhrpException.ResumeNotAvailable(
-                  "No retained session for " + request.sessionId()));
+      return resumeNotAvailable(request.sessionId());
     }
     entry.attached = true;
     entry.detachedAt = null;
@@ -146,49 +144,55 @@ public class VhrpSessionRegistry {
   }
 
   /**
-   * Marks the session detached and starts its retention timer. The session is kept (not disposed)
-   * so a later {@code session.open.resume} can rebind it; disposal happens on expiry or explicit
-   * close.
+   * Marks the session detached. The session is kept (not disposed) so a later {@code
+   * session.open.resume} can rebind it until the retention timer performs terminal close.
    */
   public void onConnectionDetached(VhrpSession session, WebSocketConnection connection) {
     session.detach(connection);
     Entry entry = sessions.get(session.sessionId());
     if (entry != null) {
+      Instant detachedAt = Instant.now();
       entry.attached = false;
-      entry.detachedAt = Instant.now();
+      entry.detachedAt = detachedAt;
+      scheduleRetentionExpiry(session.sessionId(), detachedAt);
     }
-    sweepExpired();
   }
 
-  /**
-   * Lazily disposes any detached session whose retention window has elapsed, releasing its
-   * downstream vendor connection via {@link VhrpSession#dispose()}. Run opportunistically on
-   * registry mutation (open/resume/detach) rather than on a timer: scheduling/eviction policy is
-   * outside the clean-room scope, but a real downstream socket must not leak past its window, so
-   * the minimum viable reclamation is done here. An attached session is never swept; a session
-   * re-bound by a fast resume has its {@code detachedAt} cleared and is therefore skipped.
-   */
-  private void sweepExpired() {
-    Instant now = Instant.now();
-    for (Entry entry : sessions.values()) {
-      if (entry.attached || entry.detachedAt == null) {
-        continue;
-      }
-      if (Duration.between(entry.detachedAt, now).compareTo(RETENTION_WINDOW) < 0) {
-        continue;
-      }
-      if (sessions.remove(entry.session.sessionId(), entry)) {
-        Log.debugf("VHRP session %s evicted after retention window", entry.session.sessionId());
-        entry
-            .session
-            .dispose()
-            .subscribe()
-            .with(
-                ignored -> {},
-                error ->
-                    Log.errorf(error, "VHRP session %s dispose failed", entry.session.sessionId()));
-      }
+  /** Terminally closes a session after an explicit client {@code session.end}. Idempotent. */
+  public Uni<Void> closeExplicitly(VhrpSession session) {
+    Entry entry = sessions.get(session.sessionId());
+    if (entry == null || !sessions.remove(session.sessionId(), entry)) {
+      return Uni.createFrom().voidItem();
     }
+    Log.debugf("VHRP session %s explicitly ended", session.sessionId());
+    return entry.session.dispose();
+  }
+
+  private void scheduleRetentionExpiry(String sessionId, Instant detachedAt) {
+    vertx.setTimer(RESUME_RETENTION.toMillis(), ignored -> closeIfStillDetached(sessionId, detachedAt));
+  }
+
+  private void closeIfStillDetached(String sessionId, Instant detachedAt) {
+    Entry entry = sessions.get(sessionId);
+    if (entry == null || entry.attached || !Objects.equals(entry.detachedAt, detachedAt)) {
+      return;
+    }
+    if (!isExpired(entry, Instant.now()) || !sessions.remove(sessionId, entry)) {
+      return;
+    }
+    Log.debugf("VHRP session %s expired after detach retention", sessionId);
+    entry.session.dispose().subscribe().with(ignored -> {}, t -> Log.warnf(t, "VHRP %s dispose", sessionId));
+  }
+
+  private boolean isExpired(Entry entry, Instant now) {
+    return !entry.attached
+        && entry.detachedAt != null
+        && !entry.detachedAt.plus(RESUME_RETENTION).isAfter(now);
+  }
+
+  private Uni<VhrpSession> resumeNotAvailable(String sessionId) {
+    return Uni.createFrom()
+        .failure(new VhrpException.ResumeNotAvailable("No retained session for " + sessionId));
   }
 
   private String newSessionId() {

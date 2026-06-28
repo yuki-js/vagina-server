@@ -26,7 +26,20 @@ public sealed interface VhrpMessage {
   String type();
 
   /** Client-to-server marker. */
-  sealed interface C2S extends VhrpMessage {}
+  sealed interface C2S extends VhrpMessage
+      permits SessionOpen,
+          AudioTurnModeSet,
+          SessionInstructionsSet,
+          LiveAudioChunk,
+          TurnAudioSubmit,
+          TurnTextSubmit,
+          TurnImageSubmit,
+          ToolsSet,
+          SessionExtensionApply,
+          ToolResultSubmit,
+          AssistantInterrupt,
+          SessionEnd,
+          ThreadSyncRequest {}
 
   /** Server-to-client marker. */
   sealed interface S2C extends VhrpMessage {}
@@ -166,6 +179,14 @@ public sealed interface VhrpMessage {
     @Override
     public String type() {
       return "assistant.interrupt";
+    }
+  }
+
+  /** {@code session.end}: explicitly terminates the hosted session. One-way; no ack. */
+  record SessionEnd() implements C2S {
+    @Override
+    public String type() {
+      return "session.end";
     }
   }
 

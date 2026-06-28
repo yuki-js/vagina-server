@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -82,6 +83,7 @@ public final class FakeRealtimeAdapter implements RealtimeAdapter {
 
   private final CopyOnWriteArrayList<String> sentTexts = new CopyOnWriteArrayList<>();
   private final CopyOnWriteArrayList<ToolResult> sentToolResults = new CopyOnWriteArrayList<>();
+  private final AtomicBoolean disposed = new AtomicBoolean(false);
   private volatile String conversationId;
 
   /**
@@ -153,6 +155,11 @@ public final class FakeRealtimeAdapter implements RealtimeAdapter {
     setStatus.put("status", "completed");
 
     emitPatch(List.of(addItem, putPart, appendText, setStatus));
+  }
+
+  /** Returns whether {@link #dispose()} has been called. */
+  public boolean isDisposed() {
+    return disposed.get();
   }
 
   /** Returns the texts sent via {@link #sendText(String)} for test assertions. */
@@ -234,6 +241,7 @@ public final class FakeRealtimeAdapter implements RealtimeAdapter {
 
   @Override
   public Uni<Void> dispose() {
+    disposed.set(true);
     completeAll();
     return Uni.createFrom().voidItem();
   }

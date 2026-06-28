@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
 import io.vertx.core.buffer.Buffer;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -46,6 +47,9 @@ class VhrpCrossCodecTest {
 
   /** Plain JSON mapper for reading/writing {@code .json} fixture files. */
   private static final ObjectMapper JSON = new ObjectMapper();
+
+  /** CBOR mapper for ad-hoc C2S frames not covered by checked-in Dart fixtures yet. */
+  private static final ObjectMapper CBOR = new ObjectMapper(new CBORFactory());
 
   /** Hex formatter matching the Dart fixture convention (lower-case, no prefix). */
   private static final HexFormat HEX = HexFormat.of();
@@ -131,6 +135,21 @@ class VhrpCrossCodecTest {
     assertNotNull(open.resume(), "resume object must be present");
     assertEquals(
         expected.get("body").get("resume").get("sessionId").asText(), open.resume().sessionId());
+  }
+
+  // --- session.end ---
+
+  /**
+   * Contract: session.end is a terminal one-way command. It has no messageId and no ack payload; the
+   * server decodes it solely as an explicit close intent for the already-bound session.
+   */
+  @Test
+  @DisplayName("C2S decode: session_end")
+  void decodeSessionEnd() throws IOException {
+    VhrpCborCodec codec = new VhrpCborCodec();
+    VhrpMessage.C2S msg = codec.decode(cborEnvelope("session.end", null, Map.of()));
+
+    assertInstanceOf(VhrpMessage.SessionEnd.class, msg);
   }
 
   // --- session.open (with Japanese instructions) ---
@@ -953,6 +972,18 @@ class VhrpCrossCodecTest {
   /** Reads the paired {@code .json} fixture expectation file. */
   private JsonNode readJson(String name) throws IOException {
     return JSON.readTree(C2S_DIR.resolve(name + ".json").toFile());
+  }
+
+  /** Builds a minimal C2S CBOR envelope for decode-only tests. */
+  private static Buffer cborEnvelope(String type, String messageId, Map<String, Object> body)
+      throws IOException {
+    ObjectNode root = CBOR.createObjectNode();
+    root.put("type", type);
+    if (messageId != null) {
+      root.put("messageId", messageId);
+    }
+    root.set("body", CBOR.valueToTree(body));
+    return Buffer.buffer(CBOR.writeValueAsBytes(root));
   }
 
   /**

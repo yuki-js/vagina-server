@@ -270,6 +270,7 @@ public class VhrpSession {
       case VhrpMessage.SessionExtensionApply m -> handleSessionExtensionApply(m);
       case VhrpMessage.ToolResultSubmit m -> handleToolResultSubmit(m);
       case VhrpMessage.AssistantInterrupt m -> adapter.interrupt();
+      case VhrpMessage.SessionEnd ignored -> Uni.createFrom().voidItem();
       case VhrpMessage.ThreadSyncRequest m -> handleSyncRequest(m);
       case VhrpMessage.SessionOpen ignored ->
           Uni.createFrom()

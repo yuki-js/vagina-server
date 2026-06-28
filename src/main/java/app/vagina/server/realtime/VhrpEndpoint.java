@@ -82,6 +82,9 @@ public class VhrpEndpoint {
   private static final CloseReason CLOSE_BOOTSTRAP_FAILED =
       new CloseReason(4400, "Session bootstrap failed");
 
+  /** Close sent after an established client explicitly ends its VHRP session. */
+  private static final CloseReason CLOSE_SESSION_ENDED = new CloseReason(4401, "Session ended");
+
   @Inject VhrpSessionRegistry sessionRegistry;
   @Inject VhrpCborCodec codec;
 
@@ -116,6 +119,13 @@ public class VhrpEndpoint {
     VhrpSession bound = connection.userData().get(SESSION_KEY);
     if (bound == null) {
       return bootstrap(connection, message);
+    }
+    if (message instanceof VhrpMessage.SessionEnd) {
+      return sessionRegistry
+          .closeExplicitly(bound)
+          .chain(() -> connection.close(CLOSE_SESSION_ENDED))
+          .onFailure()
+          .recoverWithUni(ignored -> Uni.createFrom().voidItem());
     }
     // Established session: hand the C2S message to the session, which owns the dispatch table
     // (session.* / turn.* / tools.set / ... -> RealtimeAdapter) and the connection binding.
