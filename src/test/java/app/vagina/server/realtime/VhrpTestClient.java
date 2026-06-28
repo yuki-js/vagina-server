@@ -210,12 +210,54 @@ public final class VhrpTestClient implements Closeable {
     return msgId;
   }
 
+  /** Convenience: send {@code session.open} with {@code resume.sessionId}. */
+  public String sendSessionOpenResume(String jwt, String modelId, String sessionId) {
+    String msgId = UUID.randomUUID().toString();
+    send(
+        "session.open",
+        Map.of("token", jwt, "modelId", modelId, "resume", Map.of("sessionId", sessionId)),
+        Map.of("messageId", msgId));
+    return msgId;
+  }
+
+  /** Convenience: send {@code assistant.interrupt}. */
+  public void sendAssistantInterrupt(String reason) {
+    send("assistant.interrupt", Map.of("reason", reason));
+  }
+
   /** Convenience: send {@code turn.text.submit}. */
   public String sendTurnTextSubmit(String clientItemId, String text) {
     String msgId = UUID.randomUUID().toString();
     send(
         "turn.text.submit",
         Map.of("clientItemId", clientItemId, "text", text),
+        Map.of("messageId", msgId));
+    return msgId;
+  }
+
+  /** Convenience: send {@code session.instructions.set}. */
+  public String sendSessionInstructionsSet(String instructions) {
+    String msgId = UUID.randomUUID().toString();
+    send(
+        "session.instructions.set",
+        Map.of("instructions", instructions),
+        Map.of("messageId", msgId));
+    return msgId;
+  }
+
+  /** Convenience: send {@code tools.set}. */
+  public String sendToolsSet(List<Map<String, Object>> tools) {
+    String msgId = UUID.randomUUID().toString();
+    send("tools.set", Map.of("tools", tools), Map.of("messageId", msgId));
+    return msgId;
+  }
+
+  /** Convenience: send {@code session.extension.apply}. */
+  public String sendSessionExtensionApply(String extensionType, Map<String, Object> payload) {
+    String msgId = UUID.randomUUID().toString();
+    send(
+        "session.extension.apply",
+        Map.of("extensionType", extensionType, "payload", payload),
         Map.of("messageId", msgId));
     return msgId;
   }
@@ -282,6 +324,54 @@ public final class VhrpTestClient implements Closeable {
     }
   }
 
+  /** Blocks until the number of received frames is greater than {@code previousCount}. */
+  public JsonNode waitForNextMessageAfterCount(int previousCount, long timeout, TimeUnit unit)
+      throws InterruptedException {
+    long deadline = System.currentTimeMillis() + unit.toMillis(timeout);
+    while (true) {
+      List<JsonNode> snapshot = allReceived();
+      if (snapshot.size() > previousCount) {
+        return snapshot.get(previousCount);
+      }
+      long remaining = deadline - System.currentTimeMillis();
+      if (remaining <= 0) {
+        throw new AssertionError(
+            "Timed out waiting for next VHRP message after count="
+                + previousCount
+                + ". Received: "
+                + received);
+      }
+      synchronized (receiveLock) {
+        receiveLock.wait(Math.min(remaining, 100));
+      }
+    }
+  }
+
+  /** Waits for an ack whose replyTo matches {@code msgId}. */
+  public JsonNode waitForAckReplyingTo(String msgId, long timeout, TimeUnit unit)
+      throws InterruptedException {
+    long deadline = System.currentTimeMillis() + unit.toMillis(timeout);
+    while (true) {
+      for (JsonNode node : received) {
+        JsonNode frameType = node.get("type");
+        JsonNode replyTo = node.get("replyTo");
+        if (frameType != null
+            && "ack".equals(frameType.asText())
+            && replyTo != null
+            && msgId.equals(replyTo.asText())) {
+          return node;
+        }
+      }
+      long remaining = deadline - System.currentTimeMillis();
+      if (remaining <= 0) {
+        throw new AssertionError("Timed out waiting for ack replyTo=" + msgId);
+      }
+      synchronized (receiveLock) {
+        receiveLock.wait(Math.min(remaining, 100));
+      }
+    }
+  }
+
   /**
    * Blocks until the WebSocket is marked closed. Useful to verify the server closed after a
    * protocol error. Returns the close status code, or -1 if not available.
@@ -331,7 +421,24 @@ public final class VhrpTestClient implements Closeable {
     } else if (value instanceof List<?> l) {
       var arr = node.putArray(key);
       for (Object item : l) {
-        arr.addPOJO(item);
+        if (item instanceof Map<?, ?> m) {
+          ObjectNode sub = arr.addObject();
+          ((Map<String, Object>) m).forEach((k, v) -> putValue(sub, k, v));
+        } else if (item instanceof String s) {
+          arr.add(s);
+        } else if (item instanceof Boolean b) {
+          arr.add(b);
+        } else if (item instanceof Integer i) {
+          arr.add(i);
+        } else if (item instanceof Long valueLong) {
+          arr.add(valueLong);
+        } else if (item instanceof Double d) {
+          arr.add(d);
+        } else if (item == null) {
+          arr.addNull();
+        } else {
+          arr.addPOJO(item);
+        }
       }
     } else {
       node.put(key, String.valueOf(value));

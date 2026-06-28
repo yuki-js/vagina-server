@@ -16,7 +16,7 @@ public final class OaiCcClient {
   private final HttpClient http;
   private final ObjectMapper json;
   private final OaiCcEvent.Parser parser;
-  private CompletableFuture<?> activeRequest;
+  private ActiveRequest activeRequest;
 
   public OaiCcClient(ObjectMapper json) {
     this.http = HttpClient.newHttpClient();
@@ -30,16 +30,19 @@ public final class OaiCcClient {
             emitter -> {
               cancelOngoingRequest();
               HttpRequest httpRequest = buildRequest(config, request);
-              LineSubscriber subscriber = new LineSubscriber(emitter, parser);
+              ActiveRequest requestState = new ActiveRequest();
+              LineSubscriber subscriber = new LineSubscriber(emitter, parser, requestState);
               CompletableFuture<HttpResponse<Void>> future =
                   http.sendAsync(httpRequest, HttpResponse.BodyHandlers.fromLineSubscriber(subscriber));
-              activeRequest =
+              requestState.future =
                   future.whenComplete(
                       (response, error) -> {
                         if (error != null) {
-                          emitter.emit(
-                              new OaiCcEvent.ErrorEvent(
-                                  "Chat Completions request failed: " + error.getMessage()));
+                          if (!requestState.cancelled.get()) {
+                            emitter.emit(
+                                new OaiCcEvent.ErrorEvent(
+                                    "Chat Completions request failed: " + error.getMessage()));
+                          }
                         } else if (response.statusCode() < 200 || response.statusCode() >= 300) {
                           emitter.emit(
                               new OaiCcEvent.ErrorEvent(
@@ -47,14 +50,22 @@ public final class OaiCcClient {
                         }
                         emitter.complete();
                       });
-              emitter.onTermination(() -> future.cancel(true));
+              activeRequest = requestState;
+              emitter.onTermination(
+                  () -> {
+                    requestState.cancelled.set(true);
+                    future.cancel(true);
+                  });
             });
   }
 
   public void cancelOngoingRequest() {
-    CompletableFuture<?> request = activeRequest;
+    ActiveRequest request = activeRequest;
     if (request != null) {
-      request.cancel(true);
+      request.cancelled.set(true);
+      if (request.future != null) {
+        request.future.cancel(true);
+      }
       activeRequest = null;
     }
   }
@@ -80,15 +91,23 @@ public final class OaiCcClient {
     return builder.build();
   }
 
+  private static final class ActiveRequest {
+    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+    private CompletableFuture<?> future;
+  }
+
   private static final class LineSubscriber implements Flow.Subscriber<String> {
     private final MultiEmitter<? super OaiCcEvent> emitter;
     private final OaiCcEvent.Parser parser;
+    private final ActiveRequest request;
     private final AtomicBoolean subscribed = new AtomicBoolean(false);
     private Flow.Subscription subscription;
 
-    private LineSubscriber(MultiEmitter<? super OaiCcEvent> emitter, OaiCcEvent.Parser parser) {
+    private LineSubscriber(
+        MultiEmitter<? super OaiCcEvent> emitter, OaiCcEvent.Parser parser, ActiveRequest request) {
       this.emitter = emitter;
       this.parser = parser;
+      this.request = request;
     }
 
     @Override
@@ -112,7 +131,10 @@ public final class OaiCcClient {
 
     @Override
     public void onError(Throwable throwable) {
-      emitter.emit(new OaiCcEvent.ErrorEvent("Chat Completions stream failed: " + throwable.getMessage()));
+      if (!request.cancelled.get()) {
+        emitter.emit(
+            new OaiCcEvent.ErrorEvent("Chat Completions stream failed: " + throwable.getMessage()));
+      }
     }
 
     @Override

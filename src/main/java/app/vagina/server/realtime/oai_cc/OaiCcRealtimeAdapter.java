@@ -415,7 +415,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       patch.setName(item, event.name());
     }
     if (event.arguments() != null) {
-      patch.setArguments(item, (item.arguments() == null ? "" : item.arguments()) + event.arguments());
+      patch.setArguments(
+          item, sanitizeToolArguments((item.arguments() == null ? "" : item.arguments()) + event.arguments()));
     }
     flush();
   }
@@ -494,9 +495,16 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       patch.setName(item, event.name());
     }
     if (event.arguments() != null) {
-      patch.setArguments(item, event.arguments());
+      patch.setArguments(item, sanitizeToolArguments(event.arguments()));
     }
     return item;
+  }
+
+  private static String sanitizeToolArguments(String arguments) {
+    if (arguments == null || arguments.isBlank()) {
+      return arguments;
+    }
+    return arguments.replaceAll("<\\|(?:audio_future|vq_lbr_audio)_?[^|]*\\|>", "");
   }
 
   private List<Map<String, Object>> buildMessages() {

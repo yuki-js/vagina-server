@@ -93,6 +93,8 @@ def testParallelForks = hasExternalDatasource ? 1 : Math.max(1, Runtime.runtime.
 
 test {
     systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    systemProperty "vagina.test.openai.real.enabled", System.getProperty("vagina.test.openai.real.enabled", "false")
+    systemProperty "vagina.test.openai.real.transcript.dir", System.getProperty("vagina.test.openai.real.transcript.dir", "")
     
     // Enable parallel test execution for better performance
     // Run test classes in separate JVM processes for isolation

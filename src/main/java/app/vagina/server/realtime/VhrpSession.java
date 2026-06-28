@@ -374,7 +374,7 @@ public class VhrpSession {
   private VhrpMessage.ThreadSnapshot buildSnapshot() {
     RealtimeThread thread = adapter.thread();
     return new VhrpMessage.ThreadSnapshot(
-        thread.id(), thread.conversationId(), ThreadPatchBuilder.snapshotItems(thread));
+        threadId, thread.conversationId(), ThreadPatchBuilder.snapshotItems(thread));
   }
 
   // ---------------------------------------------------------------------------
