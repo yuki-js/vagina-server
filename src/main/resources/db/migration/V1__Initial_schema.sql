@@ -141,6 +141,8 @@ CREATE TABLE speed_dials (
     description TEXT,
     icon_emoji VARCHAR(16),
     voice VARCHAR(64) NOT NULL,
+    reasoning_effort VARCHAR(16) NOT NULL DEFAULT 'off',
+    tool_choice_required BOOLEAN NOT NULL DEFAULT FALSE,
     enabled_tools JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -150,6 +152,8 @@ CREATE TABLE speed_dials (
 
 COMMENT ON TABLE speed_dials IS 'User-owned speed dial presets';
 COMMENT ON COLUMN speed_dials.speed_dial_id IS 'Stable per-user speed dial identifier used by the client API';
+COMMENT ON COLUMN speed_dials.reasoning_effort IS 'Per-speed-dial reasoning effort level: off, minimal, low, medium, high, xhigh';
+COMMENT ON COLUMN speed_dials.tool_choice_required IS 'Whether model tool choice should require a tool call when tools are available';
 COMMENT ON COLUMN speed_dials.enabled_tools IS 'Per-tool enable/disable overrides keyed by tool name';
 
 CREATE UNIQUE INDEX idx_speed_dials_unique_user_speed_dial_id

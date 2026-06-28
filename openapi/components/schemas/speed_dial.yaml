@@ -7,6 +7,8 @@ SpeedDial:
     - systemPrompt
     - voice
     - enabledTools
+    - reasoningEffort
+    - toolChoiceRequired
   properties:
     id:
       type: string
@@ -38,6 +40,21 @@ SpeedDial:
       minLength: 1
       maxLength: 64
       example: alloy
+    reasoningEffort:
+      type: string
+      enum:
+        - "off"
+        - minimal
+        - low
+        - medium
+        - high
+        - xhigh
+      default: "off"
+      example: "off"
+    toolChoiceRequired:
+      type: boolean
+      default: false
+      example: false
     enabledTools:
       type: object
       description: |

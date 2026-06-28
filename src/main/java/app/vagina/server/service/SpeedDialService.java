@@ -44,6 +44,8 @@ public class SpeedDialService {
     preset.setDescription(DEFAULT_DESCRIPTION);
     preset.setIconEmoji(null);
     preset.setVoice(DEFAULT_VOICE);
+    preset.setReasoningEffort("off");
+    preset.setToolChoiceRequired(false);
     preset.setEnabledTools(DEFAULT_ENABLED_TOOLS);
     preset.setCreatedAt(now);
     preset.setUpdatedAt(now);
@@ -64,6 +66,8 @@ public class SpeedDialService {
       persisted.setDescription(candidate.getDescription());
       persisted.setIconEmoji(candidate.getIconEmoji());
       persisted.setVoice(candidate.getVoice());
+      persisted.setReasoningEffort(candidate.getReasoningEffort());
+      persisted.setToolChoiceRequired(candidate.isToolChoiceRequired());
       persisted.setEnabledTools(candidate.getEnabledTools());
       persisted.setUpdatedAt(now);
       speedDialMapper.update(persisted);

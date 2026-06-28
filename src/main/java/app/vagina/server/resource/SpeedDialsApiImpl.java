@@ -68,6 +68,8 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     model.setDescription(preset.getDescription());
     model.setIconEmoji(preset.getIconEmoji());
     model.setVoice(preset.getVoice());
+    model.setReasoningEffort(toGeneratedReasoningEffort(preset.getReasoningEffort()));
+    model.setToolChoiceRequired(preset.isToolChoiceRequired());
     model.setEnabledTools(deserializeEnabledTools(preset.getEnabledTools()));
     if (preset.getCreatedAt() != null) {
       model.setCreatedAt(preset.getCreatedAt().atOffset(ZoneOffset.UTC));
@@ -83,8 +85,24 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     preset.setDescription(model.getDescription());
     preset.setIconEmoji(model.getIconEmoji());
     preset.setVoice(model.getVoice());
+    preset.setReasoningEffort(toEntityReasoningEffort(model.getReasoningEffort()));
+    preset.setToolChoiceRequired(Boolean.TRUE.equals(model.getToolChoiceRequired()));
     preset.setEnabledTools(serializeEnabledTools(model.getEnabledTools()));
     return preset;
+  }
+
+  private SpeedDial.ReasoningEffortEnum toGeneratedReasoningEffort(String reasoningEffort) {
+    if (reasoningEffort == null || reasoningEffort.isBlank()) {
+      return SpeedDial.ReasoningEffortEnum.OFF;
+    }
+    return SpeedDial.ReasoningEffortEnum.fromValue(reasoningEffort);
+  }
+
+  private String toEntityReasoningEffort(SpeedDial.ReasoningEffortEnum reasoningEffort) {
+    if (reasoningEffort == null) {
+      return SpeedDial.ReasoningEffortEnum.OFF.value();
+    }
+    return reasoningEffort.value();
   }
 
   private String serializeEnabledTools(Object enabledTools) {

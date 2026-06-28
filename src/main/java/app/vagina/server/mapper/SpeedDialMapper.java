@@ -18,13 +18,13 @@ import org.apache.ibatis.annotations.Update;
 public interface SpeedDialMapper {
 
   @Insert(
-      "INSERT INTO speed_dials (user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, enabled_tools, created_at, updated_at) "
-          + "VALUES (#{userId}, #{speedDialId}, #{name}, #{systemPrompt}, #{description}, #{iconEmoji}, #{voice}, #{enabledTools}::jsonb, #{createdAt}, #{updatedAt})")
+      "INSERT INTO speed_dials (user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, reasoning_effort, tool_choice_required, enabled_tools, created_at, updated_at) "
+          + "VALUES (#{userId}, #{speedDialId}, #{name}, #{systemPrompt}, #{description}, #{iconEmoji}, #{voice}, #{reasoningEffort}, #{toolChoiceRequired}, #{enabledTools}::jsonb, #{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
   void insert(SpeedDialPreset speedDialPreset);
 
   @Select(
-      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, enabled_tools::text as enabled_tools, created_at, updated_at "
+      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, reasoning_effort, tool_choice_required, enabled_tools::text as enabled_tools, created_at, updated_at "
           + "FROM speed_dials WHERE id = #{id}")
   @Results(
       id = "speedDialPresetResultMap",
@@ -37,6 +37,8 @@ public interface SpeedDialMapper {
         @Result(property = "description", column = "description"),
         @Result(property = "iconEmoji", column = "icon_emoji"),
         @Result(property = "voice", column = "voice"),
+        @Result(property = "reasoningEffort", column = "reasoning_effort"),
+        @Result(property = "toolChoiceRequired", column = "tool_choice_required"),
         @Result(property = "enabledTools", column = "enabled_tools"),
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
@@ -44,13 +46,13 @@ public interface SpeedDialMapper {
   Optional<SpeedDialPreset> findById(@Param("id") Long id);
 
   @Select(
-      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, enabled_tools::text as enabled_tools, created_at, updated_at "
+      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, reasoning_effort, tool_choice_required, enabled_tools::text as enabled_tools, created_at, updated_at "
           + "FROM speed_dials WHERE user_id = #{userId} ORDER BY created_at ASC, id ASC")
   @ResultMap("speedDialPresetResultMap")
   List<SpeedDialPreset> findByUserId(@Param("userId") Long userId);
 
   @Select(
-      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, enabled_tools::text as enabled_tools, created_at, updated_at "
+      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, reasoning_effort, tool_choice_required, enabled_tools::text as enabled_tools, created_at, updated_at "
           + "FROM speed_dials WHERE user_id = #{userId} AND speed_dial_id = #{speedDialId}")
   @ResultMap("speedDialPresetResultMap")
   Optional<SpeedDialPreset> findByUserIdAndSpeedDialId(
@@ -58,7 +60,7 @@ public interface SpeedDialMapper {
 
   @Update(
       "UPDATE speed_dials SET name = #{name}, system_prompt = #{systemPrompt}, description = #{description}, "
-          + "icon_emoji = #{iconEmoji}, voice = #{voice}, enabled_tools = #{enabledTools}::jsonb, updated_at = #{updatedAt} "
+          + "icon_emoji = #{iconEmoji}, voice = #{voice}, reasoning_effort = #{reasoningEffort}, tool_choice_required = #{toolChoiceRequired}, enabled_tools = #{enabledTools}::jsonb, updated_at = #{updatedAt} "
           + "WHERE id = #{id}")
   void update(SpeedDialPreset speedDialPreset);
 
