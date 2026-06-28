@@ -19,6 +19,7 @@ public class SpeedDialService {
   public static final String DEFAULT_ENABLED_TOOLS = "{}";
 
   @Inject SpeedDialMapper speedDialMapper;
+  @Inject VoiceAgentService voiceAgentService;
 
   public List<SpeedDialPreset> findByUserId(Long userId) {
     return speedDialMapper.findByUserId(userId);
@@ -44,6 +45,7 @@ public class SpeedDialService {
     preset.setDescription(DEFAULT_DESCRIPTION);
     preset.setIconEmoji(null);
     preset.setVoice(DEFAULT_VOICE);
+    preset.setVoiceAgentId(voiceAgentService.defaultModelId());
     preset.setReasoningEffort("off");
     preset.setToolChoiceRequired(false);
     preset.setEnabledTools(DEFAULT_ENABLED_TOOLS);
@@ -66,6 +68,7 @@ public class SpeedDialService {
       persisted.setDescription(candidate.getDescription());
       persisted.setIconEmoji(candidate.getIconEmoji());
       persisted.setVoice(candidate.getVoice());
+      persisted.setVoiceAgentId(candidate.getVoiceAgentId());
       persisted.setReasoningEffort(candidate.getReasoningEffort());
       persisted.setToolChoiceRequired(candidate.isToolChoiceRequired());
       persisted.setEnabledTools(candidate.getEnabledTools());

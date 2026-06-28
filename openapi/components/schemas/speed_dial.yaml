@@ -6,6 +6,7 @@ SpeedDial:
     - name
     - systemPrompt
     - voice
+    - voiceAgentId
     - enabledTools
     - reasoningEffort
     - toolChoiceRequired
@@ -40,6 +41,12 @@ SpeedDial:
       minLength: 1
       maxLength: 64
       example: alloy
+    voiceAgentId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Server registry voice-agent id selected for this speed dial.
+      example: voice-agent-prod
     reasoningEffort:
       type: string
       enum:

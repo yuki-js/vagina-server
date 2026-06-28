@@ -13,6 +13,7 @@ public class SpeedDialPreset {
   private String description;
   private String iconEmoji;
   private String voice;
+  private String voiceAgentId;
   private String reasoningEffort;
   private boolean toolChoiceRequired;
   private String enabledTools;
@@ -81,6 +82,14 @@ public class SpeedDialPreset {
 
   public void setVoice(String voice) {
     this.voice = voice;
+  }
+
+  public String getVoiceAgentId() {
+    return voiceAgentId;
+  }
+
+  public void setVoiceAgentId(String voiceAgentId) {
+    this.voiceAgentId = voiceAgentId;
   }
 
   public String getReasoningEffort() {

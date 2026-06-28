@@ -5,6 +5,7 @@ import app.vagina.server.domain.error.NotFoundException;
 import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.service.SpeedDialService;
+import app.vagina.server.service.VoiceAgentService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -14,6 +15,7 @@ import java.util.Optional;
 @ApplicationScoped
 public class SpeedDialUsecase {
   @Inject SpeedDialService speedDialService;
+  @Inject VoiceAgentService voiceAgentService;
 
   public List<SpeedDialPreset> listSpeedDials(Long userId) {
     speedDialService.ensureDefaultExists(userId);
@@ -37,6 +39,8 @@ public class SpeedDialUsecase {
       throw new ValidationException("Path/body speed dial id mismatch");
     }
 
+    validateVoiceAgent(candidate.getVoiceAgentId());
+
     Optional<SpeedDialPreset> existing;
     if (SpeedDialService.DEFAULT_SPEED_DIAL_ID.equals(pathSpeedDialId)) {
       speedDialService.ensureDefaultExists(userId);
@@ -52,6 +56,15 @@ public class SpeedDialUsecase {
     }
 
     return speedDialService.save(userId, candidate);
+  }
+
+  private void validateVoiceAgent(String voiceAgentId) {
+    if (voiceAgentId == null || voiceAgentId.isBlank()) {
+      throw new ValidationException("Voice agent id is required");
+    }
+    if (!voiceAgentService.isKnownModel(voiceAgentId)) {
+      throw new ValidationException("Unknown voice agent id: " + voiceAgentId);
+    }
   }
 
   @Transactional
