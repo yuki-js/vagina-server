@@ -303,7 +303,6 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       RealtimeAdapterModels.ToolOutputDisposition disposition,
       String errorMessage) {
     ensureNotDisposed();
-    interrupt();
     String itemId = nextLocalId("cc_tool");
     RealtimeThread.Item item =
         patch.addItem(
