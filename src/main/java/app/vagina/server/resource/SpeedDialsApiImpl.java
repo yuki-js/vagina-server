@@ -17,6 +17,7 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 @ApplicationScoped
 @Path("/speed-dials")
@@ -86,14 +87,33 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     return preset;
   }
 
-  private String serializeEnabledTools(Map<String, Boolean> enabledTools) {
+  private String serializeEnabledTools(Object enabledTools) {
     try {
-      Map<String, Boolean> normalized =
-          enabledTools == null ? Map.of() : new LinkedHashMap<>(enabledTools);
-      return objectMapper.writeValueAsString(normalized);
+      return objectMapper.writeValueAsString(normalizeEnabledTools(enabledTools));
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Failed to serialize speed dial enabled tools", e);
     }
+  }
+
+  private Map<String, Boolean> normalizeEnabledTools(Object enabledTools) {
+    if (enabledTools == null) {
+      return Map.of();
+    }
+    if (!(enabledTools instanceof Map<?, ?> rawEnabledTools)) {
+      throw new IllegalArgumentException("Speed dial enabled tools must be a JSON object");
+    }
+
+    Map<String, Boolean> normalized = new LinkedHashMap<>();
+    for (Entry<?, ?> entry : rawEnabledTools.entrySet()) {
+      if (!(entry.getKey() instanceof String toolName)) {
+        throw new IllegalArgumentException("Speed dial enabled tool names must be strings");
+      }
+      if (!(entry.getValue() instanceof Boolean enabled)) {
+        throw new IllegalArgumentException("Speed dial enabled tool values must be booleans");
+      }
+      normalized.put(toolName, enabled);
+    }
+    return normalized;
   }
 
   private Map<String, Boolean> deserializeEnabledTools(String enabledToolsJson) {

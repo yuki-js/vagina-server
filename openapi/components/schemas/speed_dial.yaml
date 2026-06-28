@@ -40,8 +40,11 @@ SpeedDial:
       example: alloy
     enabledTools:
       type: object
-      additionalProperties:
-        type: boolean
+      description: |
+        Map from tool name to enabled flag. Values must be booleans.
+        Intentionally omit typed additionalProperties here because florval 0.3.12
+        otherwise generates a runtime-unsafe Dart cast from decoded JSON to
+        `Map<String, bool>`.
       example:
         document_read: true
         document_patch: false
