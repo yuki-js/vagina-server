@@ -37,6 +37,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       "Tool call cancelled by user interrupt.";
   private static final String INTERRUPTED_TOOL_ERROR_OUTPUT =
       "{\"error\":\"Tool call cancelled by user interrupt.\"}";
+  private static final String UNSUPPORTED_INPUT_AUDIO_TRANSCRIPT = "🎙";
 
   private final String modelId;
   private final RealtimeModelsConfig.ModelConfig modelConfig;
@@ -265,6 +266,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
             RealtimeThread.ItemStatus.COMPLETED);
     RealtimeThread.AudioPart audioPart = patch.ensureAudioPart(userItem, null);
     audioPart.replaceAudio(audioBytes == null ? new byte[0] : audioBytes);
+    audioPart.replaceTranscript(UNSUPPORTED_INPUT_AUDIO_TRANSCRIPT);
     patch.markPartDone(userItem, userItem.content().indexOf(audioPart));
     flush();
     return executeChatCompletion(buildMessages()).replaceWith(itemId);
@@ -381,14 +383,18 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     if (audio.audioId() != null && !audio.audioId().isBlank()) {
       assistantAudioIds.put(assistantItem.id(), audio.audioId());
     }
+    RealtimeThread.AudioPart audioPart = null;
     if (audio.transcript() != null && !audio.transcript().isEmpty()) {
-      patch.appendText(assistantItem, assistantItem.content().indexOf(textPart), audio.transcript());
+      audioPart = patch.ensureAudioPart(assistantItem, null);
+      patch.appendTranscript(assistantItem, assistantItem.content().indexOf(audioPart), audio.transcript());
       flush();
     }
     if (audio.audioBase64() != null && !audio.audioBase64().isEmpty()) {
       try {
         byte[] pcm = Base64.getDecoder().decode(audio.audioBase64());
-        RealtimeThread.AudioPart audioPart = patch.ensureAudioPart(assistantItem, null);
+        if (audioPart == null) {
+          audioPart = patch.ensureAudioPart(assistantItem, null);
+        }
         patch.appendAudioChunk(audioPart, pcm);
         audioBus.onNext(
             new RealtimeAdapterModels.AssistantAudioFrame(
