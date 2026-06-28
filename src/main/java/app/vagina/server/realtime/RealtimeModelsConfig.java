@@ -29,6 +29,9 @@ import java.util.Optional;
 @ConfigMapping(prefix = "vagina.realtime")
 public interface RealtimeModelsConfig {
 
+  /** The default hosted voice-agent model id exposed to clients and used for new presets. */
+  String defaultModel();
+
   /** Per-{@code modelId} driver/connection groups, keyed by the {@code modelId} string. */
   Map<String, ModelConfig> models();
 

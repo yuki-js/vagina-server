@@ -25,6 +25,8 @@ paths:
     $ref: './paths/vfs.yaml#/paths/~1vfs~1rpc'
   /hosted-realtime/v1/connect:
     $ref: './paths/hosted_realtime.yaml#/paths/~1hosted-realtime~1v1~1connect'
+  /voice-agents:
+    $ref: './paths/voice_agents.yaml#/paths/~1voice-agents'
 components:
   schemas:
     User:

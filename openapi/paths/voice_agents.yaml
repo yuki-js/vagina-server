@@ -1,0 +1,52 @@
+paths:
+  /voice-agents:
+    get:
+      tags:
+        - voice-agents
+      operationId: listVoiceAgents
+      summary: List voice agents
+      description: >-
+        Lists voice-agent identifiers exposed by the server realtime registry.
+        The response intentionally hides provider and downstream connection
+        details; clients receive only picker-safe metadata.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Voice agents available to the authenticated user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  title: VoiceAgent
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - id
+                    - displayName
+                    - isDefault
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                      example: voice-agent-prod
+                    displayName:
+                      type: string
+                      minLength: 1
+                      example: voice-agent-prod
+                    isDefault:
+                      type: boolean
+                      example: true
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Server configuration error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
