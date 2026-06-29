@@ -1,8 +1,12 @@
 package app.vagina.server.realtime;
 
+import app.vagina.server.domain.error.NotFoundException;
+import app.vagina.server.domain.error.ValidationException;
+import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.entity.User;
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.service.AuthService;
+import app.vagina.server.usecase.CallSessionUsecase;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.WebSocketConnection;
 import io.smallrye.mutiny.Uni;
@@ -11,9 +15,12 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Application-scoped authority over VHRP/1 sessions: the only place resume is realized.
@@ -29,15 +36,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ol>
  *   <li>authenticate {@code session.open.body.token} (reuses {@link AuthService}, whose String
  *       overload is documented for exactly this in-band VHRP token);
- *   <li>resolve the driver from {@code modelId} (the {@code RealtimeAdapter} mirror), keeping
- *       vendor choice server-side;
+ *   <li>resolve the driver from the user-owned Speed Dial's voice-agent id (the {@code
+ *       RealtimeAdapter} mirror), keeping vendor choice server-side;
  *   <li>create a new session or rebind a retained one, returning it for the endpoint to attach.
  * </ol>
  */
 @ApplicationScoped
 public class VhrpSessionRegistry {
 
-  private static final Duration RESUME_RETENTION = Duration.ofSeconds(15);
+  private static final Duration DEFAULT_RESUME_RETENTION = Duration.ofSeconds(15);
 
   /** Live and retained sessions keyed by stable sessionId. Concurrent: connections span threads. */
   private final ConcurrentHashMap<String, Entry> sessions = new ConcurrentHashMap<>();
@@ -46,6 +53,8 @@ public class VhrpSessionRegistry {
   @Inject RealtimeAdapterFactory adapterFactory;
   @Inject VhrpCborCodec codec;
   @Inject Vertx vertx;
+  @Inject VhrpBlockingUsecaseBridge blockingUsecaseBridge;
+  @Inject RealtimeModelsConfig realtimeConfig;
 
   /** A session plus the bookkeeping the registry needs to police retention and ownership. */
   private static final class Entry {
@@ -57,6 +66,7 @@ public class VhrpSessionRegistry {
      */
     final String ownerUserId;
 
+    final AtomicBoolean terminalHistorySaved = new AtomicBoolean(false);
     volatile boolean attached;
     volatile Instant detachedAt;
 
@@ -91,30 +101,70 @@ public class VhrpSessionRegistry {
   }
 
   private Uni<VhrpSession> create(VhrpMessage.SessionOpen open, User user) {
+    if (open.speedDialId() == null || open.speedDialId().isBlank()) {
+      return Uni.createFrom()
+          .failure(new VhrpException.ProtocolBadMessage("session.open speedDialId is required"));
+    }
+
+    return blockingUsecaseBridge
+        .getSpeedDial(user.getId(), open.speedDialId())
+        .onFailure(NotFoundException.class)
+        .transform(ignored -> new VhrpException.ProtocolBadMessage("Speed dial not found"))
+        .chain(speedDial -> createWithSpeedDial(open, user, speedDial));
+  }
+
+  private Uni<VhrpSession> createWithSpeedDial(
+      VhrpMessage.SessionOpen open, User user, SpeedDialPreset speedDial) {
     RealtimeAdapter adapter;
+    String voiceAgentId = speedDial.getVoiceAgentId();
     try {
-      adapter = adapterFactory.create(open.modelId());
+      adapter = adapterFactory.create(voiceAgentId);
     } catch (RealtimeAdapterFactory.UnknownModelException e) {
       return Uni.createFrom()
-          .failure(new VhrpException.SessionUnknownModel("Unknown modelId: " + open.modelId()));
+          .failure(new VhrpException.SessionUnknownModel("Unknown voiceAgentId: " + voiceAgentId));
     }
 
     String sessionId = newSessionId();
     String threadId = newThreadId();
-    VhrpSession session = new VhrpSession(sessionId, threadId, codec, adapter);
-    sessions.put(sessionId, new Entry(session, user.getId().toString()));
-    Log.debugf(
-        "VHRP session %s created for user %s on model %s", sessionId, user.getId(), open.modelId());
-
-    // Apply the session.open initial turn mode before connect(): while disconnected the adapter
-    // only
-    // records the mode, so the first session.update connect() sends already carries it — no second
-    // update, no missed initial mode. Then connect() opens the downstream vendor connection and
-    // applies voice/instructions; the session is returned once the adapter is ready to be driven.
+    LocalDateTime startedAt = LocalDateTime.now();
+    VhrpSession session =
+        new VhrpSession(
+            sessionId,
+            threadId,
+            codec,
+            adapter,
+            user.getId(),
+            startedAt,
+            speedDial.getSpeedDialId(),
+            voiceAgentId);
+    // TODO: Validate client-enabled tool catalog against Speed Dial enabled_tools before accepting
+    // tools.set for this server-owned session.
     return adapter
         .setAudioTurnMode(RealtimeAdapterModels.AudioTurnMode.fromWire(open.audioTurnMode()))
-        .chain(() -> adapter.connect(open.voice(), open.instructions()))
-        .replaceWith(session);
+        .chain(() -> applyServerOwnedExtensions(adapter, speedDial))
+        .chain(() -> adapter.connect(speedDial.getVoice(), speedDial.getSystemPrompt()))
+        .invoke(
+            () -> {
+              sessions.put(sessionId, new Entry(session, user.getId().toString()));
+              Log.debugf(
+                  "VHRP session %s created for user %s on speed dial %s / voice agent %s",
+                  sessionId, user.getId(), speedDial.getSpeedDialId(), voiceAgentId);
+            })
+        .replaceWith(session)
+        .onFailure()
+        .call(
+            failure ->
+                session
+                    .dispose()
+                    .onFailure()
+                    .invoke(
+                        disposeFailure ->
+                            Log.warnf(
+                                disposeFailure,
+                                "VHRP %s cleanup failed after bootstrap failure",
+                                sessionId))
+                    .onFailure()
+                    .recoverWithNull());
   }
 
   private Uni<VhrpSession> resume(VhrpMessage.SessionOpen open, User user) {
@@ -165,11 +215,12 @@ public class VhrpSessionRegistry {
       return Uni.createFrom().voidItem();
     }
     Log.debugf("VHRP session %s explicitly ended", session.sessionId());
-    return entry.session.dispose();
+    return terminalClose(entry, LocalDateTime.now());
   }
 
   private void scheduleRetentionExpiry(String sessionId, Instant detachedAt) {
-    vertx.setTimer(RESUME_RETENTION.toMillis(), ignored -> closeIfStillDetached(sessionId, detachedAt));
+    vertx.setTimer(
+        resumeRetention().toMillis(), ignored -> closeIfStillDetached(sessionId, detachedAt));
   }
 
   private void closeIfStillDetached(String sessionId, Instant detachedAt) {
@@ -181,13 +232,76 @@ public class VhrpSessionRegistry {
       return;
     }
     Log.debugf("VHRP session %s expired after detach retention", sessionId);
-    entry.session.dispose().subscribe().with(ignored -> {}, t -> Log.warnf(t, "VHRP %s dispose", sessionId));
+    terminalClose(entry, LocalDateTime.now())
+        .subscribe()
+        .with(ignored -> {}, t -> Log.warnf(t, "VHRP %s terminal close", sessionId));
+  }
+
+  private Uni<Void> applyServerOwnedExtensions(RealtimeAdapter adapter, SpeedDialPreset speedDial) {
+    Uni<Void> chain = Uni.createFrom().voidItem();
+    if (speedDial.getReasoningEffort() != null
+        && !speedDial.getReasoningEffort().isBlank()
+        && !"off".equals(speedDial.getReasoningEffort())) {
+      chain =
+          chain.chain(
+              () ->
+                  adapter
+                      .applyProviderExtension(
+                          "session.reasoning_effort_selection",
+                          Map.of("selection", speedDial.getReasoningEffort()))
+                      .replaceWithVoid());
+    }
+    chain =
+        chain.chain(
+            () ->
+                adapter
+                    .applyProviderExtension(
+                        "session.tool_choice_required",
+                        Map.of("required", speedDial.isToolChoiceRequired()))
+                    .replaceWithVoid());
+    return chain;
+  }
+
+  private Uni<Void> terminalClose(Entry entry, LocalDateTime endedAt) {
+    return saveTerminalHistoryBestEffort(entry, endedAt).chain(() -> entry.session.dispose());
+  }
+
+  private Uni<Boolean> saveTerminalHistoryBestEffort(Entry entry, LocalDateTime endedAt) {
+    if (!entry.terminalHistorySaved.compareAndSet(false, true)) {
+      return Uni.createFrom().item(false);
+    }
+    VhrpSession session = entry.session;
+    CallSessionUsecase.TerminalSessionSaveCommand command =
+        new CallSessionUsecase.TerminalSessionSaveCommand(
+            session.userId(),
+            session.sessionId(),
+            session.threadId(),
+            session.speedDialId(),
+            session.voiceAgentId(),
+            session.startedAt(),
+            endedAt,
+            session.buildSessionHistoryThread());
+    return blockingUsecaseBridge
+        .saveTerminalSession(command)
+        .onFailure(ValidationException.class)
+        .invoke(e -> Log.debugf(e, "VHRP %s terminal history not saved", entry.session.sessionId()))
+        .onFailure(ValidationException.class)
+        .recoverWithItem(false)
+        .onFailure()
+        .invoke(
+            e -> Log.warnf(e, "VHRP %s terminal history save failed", entry.session.sessionId()))
+        .onFailure()
+        .recoverWithItem(false);
   }
 
   private boolean isExpired(Entry entry, Instant now) {
     return !entry.attached
         && entry.detachedAt != null
-        && !entry.detachedAt.plus(RESUME_RETENTION).isAfter(now);
+        && !entry.detachedAt.plus(resumeRetention()).isAfter(now);
+  }
+
+  private Duration resumeRetention() {
+    return realtimeConfig != null ? realtimeConfig.resumeRetention() : DEFAULT_RESUME_RETENTION;
   }
 
   private Uni<VhrpSession> resumeNotAvailable(String sessionId) {

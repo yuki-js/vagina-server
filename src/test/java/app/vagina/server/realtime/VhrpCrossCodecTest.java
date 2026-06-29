@@ -79,9 +79,8 @@ class VhrpCrossCodecTest {
   // --- session.open (no resume) ---
 
   /**
-   * Contract: session.open envelope fields (messageId, token, modelId, audioTurnMode) and nested
-   * AudioFormat objects must round-trip. Failure → session bootstrap uses wrong model or audio
-   * format, hard session failure.
+   * Contract: session.open envelope fields (messageId, token, speedDialId, audioTurnMode, client)
+   * round-trip. Model, voice, prompt, and audio formats are Speed Dial/server-owned.
    */
   @Test
   @DisplayName("C2S decode: session_open__no_resume")
@@ -95,20 +94,14 @@ class VhrpCrossCodecTest {
     assertEquals(expected.get("messageId").asText(), open.messageId());
     JsonNode body = expected.get("body");
     assertEquals(body.get("token").asText(), open.token());
-    assertEquals(body.get("modelId").asText(), open.modelId());
-    assertNull(open.voice(), "voice should be absent → null");
-    assertEquals("", open.instructions(), "absent instructions decode to canonical empty string");
+    assertEquals(body.get("speedDialId").asText(), open.speedDialId());
     assertEquals(body.get("audioTurnMode").asText(), open.audioTurnMode());
     assertNull(open.resume(), "no resume field → null ResumeRequest");
-
-    // Nested AudioFormat
-    assertNotNull(open.inputAudio());
-    assertEquals(body.get("inputAudio").get("encoding").asText(), open.inputAudio().encoding());
-    assertEquals(body.get("inputAudio").get("sampleRate").asInt(), open.inputAudio().sampleRate());
-    assertEquals(body.get("inputAudio").get("channels").asInt(), open.inputAudio().channels());
-
-    assertNotNull(open.outputAudio());
-    assertEquals(body.get("outputAudio").get("encoding").asText(), open.outputAudio().encoding());
+    assertFalse(body.has("modelId"), "model is derived from server-side Speed Dial");
+    assertFalse(body.has("voice"), "voice is derived from server-side Speed Dial");
+    assertFalse(body.has("instructions"), "initial prompt is derived from server-side Speed Dial");
+    assertFalse(body.has("inputAudio"), "audio format is server-owned");
+    assertFalse(body.has("outputAudio"), "audio format is server-owned");
 
     // client map
     assertNotNull(open.client());
@@ -140,8 +133,8 @@ class VhrpCrossCodecTest {
   // --- session.end ---
 
   /**
-   * Contract: session.end is a terminal one-way command. It has no messageId and no ack payload; the
-   * server decodes it solely as an explicit close intent for the already-bound session.
+   * Contract: session.end is a terminal one-way command. It has no messageId and no ack payload;
+   * the server decodes it solely as an explicit close intent for the already-bound session.
    */
   @Test
   @DisplayName("C2S decode: session_end")
@@ -150,30 +143,6 @@ class VhrpCrossCodecTest {
     VhrpMessage.C2S msg = codec.decode(cborEnvelope("session.end", null, Map.of()));
 
     assertInstanceOf(VhrpMessage.SessionEnd.class, msg);
-  }
-
-  // --- session.open (with Japanese instructions) ---
-
-  /**
-   * Contract: UTF-8 Japanese text in instructions must survive CBOR text encoding unchanged.
-   * Failure → AI model receives mangled or empty system instructions, wrong response language.
-   */
-  @Test
-  @DisplayName("C2S decode: session_open__with_instructions (Japanese)")
-  void decodeSessionOpenWithInstructions() throws IOException {
-    JsonNode expected = readJson("session_open__with_instructions");
-    VhrpMessage.C2S msg = decodeFixture("session_open__with_instructions");
-
-    assertInstanceOf(VhrpMessage.SessionOpen.class, msg);
-    VhrpMessage.SessionOpen open = (VhrpMessage.SessionOpen) msg;
-
-    assertEquals(
-        expected.get("body").get("instructions").asText(),
-        open.instructions(),
-        "Japanese instructions must be preserved verbatim");
-    assertEquals("alloy", open.voice());
-    assertEquals("manual", open.audioTurnMode());
-    assertEquals(16000, open.inputAudio().sampleRate());
   }
 
   // --- audio.turn.mode.set (voice_activity) ---

@@ -70,7 +70,8 @@ public class ConfigRealtimeAdapterFactory implements RealtimeAdapterFactory {
     return new OaiRealtimeAdapter(modelId, model, vertx, objectMapper);
   }
 
-  private RealtimeAdapter buildOaiCcAdapter(String modelId, RealtimeModelsConfig.ModelConfig model) {
+  private RealtimeAdapter buildOaiCcAdapter(
+      String modelId, RealtimeModelsConfig.ModelConfig model) {
     return new OaiCcRealtimeAdapter(modelId, model, objectMapper);
   }
 }

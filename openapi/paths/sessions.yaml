@@ -1,0 +1,209 @@
+paths:
+  /sessions:
+    get:
+      tags:
+        - sessions
+      operationId: listSessions
+      summary: List sessions
+      description: List the authenticated user's non-deleted call sessions using cursor pagination ordered by newest start time first.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          description: Maximum number of sessions to return. Invalid values return HTTP 400.
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+          description: Opaque pagination cursor returned by the previous list response.
+      responses:
+        "200":
+          description: Session page.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - items
+                  - nextCursor
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - id
+                        - startedAt
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        startedAt:
+                          type: string
+                          format: date-time
+                        endedAt:
+                          type: string
+                          format: date-time
+                          nullable: true
+                  nextCursor:
+                    type: string
+                    nullable: true
+                    description: Opaque cursor for the next page, or null when no next page exists.
+        "400":
+          description: Invalid request, including invalid limit or cursor.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+  /sessions/{sessionId}:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Session identifier.
+    get:
+      tags:
+        - sessions
+      operationId: getSession
+      summary: Get session
+      description: Get one non-deleted call session owned by the authenticated user.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Session detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                  - startedAt
+                  - voiceAgentId
+                  - thread
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  startedAt:
+                    type: string
+                    format: date-time
+                  endedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  speedDialId:
+                    type: string
+                    nullable: true
+                  voiceAgentId:
+                    type: string
+                  thread:
+                    $ref: "../components/schemas/session_thread.yaml#/SessionThread"
+        "404":
+          description: Session not found.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+    delete:
+      tags:
+        - sessions
+      operationId: deleteSession
+      summary: Delete session
+      description: Soft-delete one call session owned by the authenticated user. Missing, already deleted, or other-owner records return HTTP 404.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Session deleted.
+        "404":
+          description: Session not found.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+  /sessions/bulk-delete:
+    post:
+      tags:
+        - sessions
+      operationId: bulkDeleteSessions
+      summary: Bulk delete sessions
+      description: Soft-delete matching call sessions owned by the authenticated user. Missing, already deleted, other-owner, and duplicate ids are ignored.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "200":
+          description: Bulk delete result.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - deletedCount
+                properties:
+                  deletedCount:
+                    type: integer
+                    minimum: 0
+        "400":
+          description: Invalid request body.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"

@@ -1,6 +1,8 @@
 package app.vagina.server.realtime;
 
 import io.smallrye.config.ConfigMapping;
+import io.smallrye.config.WithDefault;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,6 +33,10 @@ public interface RealtimeModelsConfig {
 
   /** The default hosted voice-agent model id exposed to clients and used for new presets. */
   String defaultModel();
+
+  /** How long a detached hosted-realtime session remains resumable before terminal expiry. */
+  @WithDefault("PT15S")
+  Duration resumeRetention();
 
   /** Per-{@code modelId} driver/connection groups, keyed by the {@code modelId} string. */
   Map<String, ModelConfig> models();

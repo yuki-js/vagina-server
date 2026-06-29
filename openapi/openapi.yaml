@@ -21,6 +21,12 @@ paths:
     $ref: './paths/speed_dials.yaml#/paths/~1speed-dials'
   /speed-dials/{speedDialId}:
     $ref: './paths/speed_dials.yaml#/paths/~1speed-dials~1{speedDialId}'
+  /sessions:
+    $ref: './paths/sessions.yaml#/paths/~1sessions'
+  /sessions/{sessionId}:
+    $ref: './paths/sessions.yaml#/paths/~1sessions~1{sessionId}'
+  /sessions/bulk-delete:
+    $ref: './paths/sessions.yaml#/paths/~1sessions~1bulk-delete'
   /vfs/rpc:
     $ref: './paths/vfs.yaml#/paths/~1vfs~1rpc'
   /hosted-realtime/v1/connect:
@@ -35,6 +41,8 @@ components:
       $ref: './components/schemas/auth.yaml#/AuthTokenResponse'
     ErrorResponse:
       $ref: './components/schemas/common.yaml#/ErrorResponse'
+    SessionThread:
+      $ref: './components/schemas/session_thread.yaml#/SessionThread'
   securitySchemes:
     bearerAuth:
       type: http

@@ -1,0 +1,21 @@
+SessionThread:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - items
+  properties:
+    id:
+      type: string
+      minLength: 1
+      description: Saved thread identifier.
+    conversationId:
+      type: string
+      nullable: true
+      description: Conversation identifier associated with the saved thread, when available.
+    items:
+      type: array
+      description: Saved thread items. Entries are intentionally semi-opaque to preserve the realtime thread shape.
+      items:
+        type: object
+        additionalProperties: true

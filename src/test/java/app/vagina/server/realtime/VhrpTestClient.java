@@ -204,18 +204,21 @@ public final class VhrpTestClient implements Closeable {
   }
 
   /** Convenience: send {@code session.open}. */
-  public String sendSessionOpen(String jwt, String modelId) {
+  public String sendSessionOpen(String jwt, String speedDialId) {
     String msgId = UUID.randomUUID().toString();
-    send("session.open", Map.of("token", jwt, "modelId", modelId), Map.of("messageId", msgId));
+    send(
+        "session.open",
+        Map.of("token", jwt, "speedDialId", speedDialId),
+        Map.of("messageId", msgId));
     return msgId;
   }
 
   /** Convenience: send {@code session.open} with {@code resume.sessionId}. */
-  public String sendSessionOpenResume(String jwt, String modelId, String sessionId) {
+  public String sendSessionOpenResume(String jwt, String speedDialId, String sessionId) {
     String msgId = UUID.randomUUID().toString();
     send(
         "session.open",
-        Map.of("token", jwt, "modelId", modelId, "resume", Map.of("sessionId", sessionId)),
+        Map.of("token", jwt, "speedDialId", speedDialId, "resume", Map.of("sessionId", sessionId)),
         Map.of("messageId", msgId));
     return msgId;
   }

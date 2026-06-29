@@ -164,6 +164,53 @@ CREATE INDEX idx_speed_dials_user_id ON speed_dials(user_id);
 CREATE INDEX idx_speed_dials_created_at ON speed_dials(created_at DESC);
 
 -- ============================================================================
+-- Call Sessions
+-- Terminal call history saved after realtime sessions end. The external/public
+-- identifier is call_session_id; VHRP identifiers remain internal.
+-- TODO: Add Speed Dial internal revision support when Speed Dial revisions exist.
+-- TODO: Preserve the revision that produced a call session without exposing it as
+-- TODO: a public API field unless product requirements later require that.
+-- ============================================================================
+CREATE TABLE call_sessions (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    call_session_id UUID NOT NULL,
+    vhrp_session_id VARCHAR(128) NOT NULL,
+    vhrp_thread_id VARCHAR(128),
+    speed_dial_id VARCHAR(128),
+    voice_agent_id VARCHAR(128) NOT NULL,
+    started_at TIMESTAMP NOT NULL,
+    ended_at TIMESTAMP,
+    thread JSONB NOT NULL,
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_call_sessions_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE call_sessions IS 'User-owned terminal realtime call sessions saved for session history';
+COMMENT ON COLUMN call_sessions.call_session_id IS 'Public UUID used by the client API for a saved call session';
+COMMENT ON COLUMN call_sessions.vhrp_session_id IS 'Internal VHRP session identifier used for idempotent terminal save';
+COMMENT ON COLUMN call_sessions.vhrp_thread_id IS 'Internal VHRP thread identifier associated with the saved realtime thread';
+COMMENT ON COLUMN call_sessions.speed_dial_id IS 'Public speed dial identifier selected for the call when available; TODO: pair with an internal Speed Dial revision after revision support exists';
+COMMENT ON COLUMN call_sessions.voice_agent_id IS 'Server registry voice-agent id selected for this call session';
+COMMENT ON COLUMN call_sessions.started_at IS 'Call start timestamp used for session-history ordering';
+COMMENT ON COLUMN call_sessions.ended_at IS 'Call end timestamp recorded when the terminal session is saved';
+COMMENT ON COLUMN call_sessions.thread IS 'Saved realtime thread JSON. Raw audio chunks are not persisted.';
+COMMENT ON COLUMN call_sessions.deleted_at IS 'Soft-delete timestamp. Non-null rows are hidden from user session-history APIs.';
+
+CREATE UNIQUE INDEX idx_call_sessions_call_session_id
+    ON call_sessions(call_session_id);
+CREATE UNIQUE INDEX idx_call_sessions_vhrp_session_id
+    ON call_sessions(vhrp_session_id);
+CREATE INDEX idx_call_sessions_user_started_active
+    ON call_sessions(user_id, started_at DESC, id DESC)
+    WHERE deleted_at IS NULL;
+CREATE INDEX idx_call_sessions_user_deleted_at
+    ON call_sessions(user_id, deleted_at);
+
+-- ============================================================================
 -- Persisted Virtual Filesystem Files
 -- Directories remain implicit and are derived from path prefixes.
 -- ============================================================================

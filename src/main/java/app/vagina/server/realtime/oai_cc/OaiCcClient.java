@@ -33,7 +33,8 @@ public final class OaiCcClient {
               ActiveRequest requestState = new ActiveRequest();
               LineSubscriber subscriber = new LineSubscriber(emitter, parser, requestState);
               CompletableFuture<HttpResponse<Void>> future =
-                  http.sendAsync(httpRequest, HttpResponse.BodyHandlers.fromLineSubscriber(subscriber));
+                  http.sendAsync(
+                      httpRequest, HttpResponse.BodyHandlers.fromLineSubscriber(subscriber));
               requestState.future =
                   future.whenComplete(
                       (response, error) -> {

@@ -149,7 +149,8 @@ public class VhrpEndpoint {
               new VhrpException.ProtocolBadMessage(
                   "First VHRP message must be session.open, got " + message.type()));
     }
-    // Registry verifies open.token(), resolves the driver from open.modelId(), and either creates a
+    // Registry verifies open.token(), resolves the driver from the Speed Dial's voice-agent id, and
+    // either creates a
     // new session or rebinds a retained one (open.resume()). Binding the pointer marks bootstrap as
     // complete; from the next frame on, the error funnel treats failures as recoverable.
     return sessionRegistry

@@ -47,7 +47,8 @@ import org.junit.jupiter.api.Test;
 class OpenAiRealVhrpSequenceTest {
 
   private static final String MODEL_ID = "voice-agent-prod-cc";
-  private static final String REQUIRED_PROPERTY = "vagina.realtime.models.voice-agent-prod-cc.api-key";
+  private static final String REQUIRED_PROPERTY =
+      "vagina.realtime.models.voice-agent-prod-cc.api-key";
   private static final String OPT_IN_PROPERTY = "vagina.test.openai.real.enabled";
   private static final String TRANSCRIPT_DIR_PROPERTY = "vagina.test.openai.real.transcript.dir";
   private static final ObjectMapper JSON = new ObjectMapper();
@@ -122,7 +123,8 @@ class OpenAiRealVhrpSequenceTest {
             "ri_" + UUID.randomUUID(), callId, "VHRP_REAL_SEQUENCE_OK", "success");
     assertAcceptedAck(resultMsgId);
 
-    JsonNode assistantPatch = waitForPatchContainingText("VHRP_REAL_SEQUENCE_OK", 60, TimeUnit.SECONDS);
+    JsonNode assistantPatch =
+        waitForPatchContainingText("VHRP_REAL_SEQUENCE_OK", 60, TimeUnit.SECONDS);
     assertNotNull(assistantPatch, "assistant final patch must include the deterministic marker");
     waitForAssistantAudioDoneAfterCount(0, 20, TimeUnit.SECONDS);
 
@@ -426,7 +428,7 @@ class OpenAiRealVhrpSequenceTest {
 
     client = new VhrpTestClient(mutinyVertx.getDelegate());
     client.connect(testPort(), "vhrp.cbor.v1");
-    String resumeMsgId = client.sendSessionOpenResume(jwt, MODEL_ID, sessionIds.sessionId());
+    String resumeMsgId = client.sendSessionOpenResume(jwt, "default", sessionIds.sessionId());
     JsonNode resumed = client.waitForMessage("session.resumed", 20, TimeUnit.SECONDS);
     assertEquals(resumeMsgId, text(resumed, "replyTo"));
     assertEquals(sessionIds.sessionId(), text(resumed.get("body"), "sessionId"));
@@ -510,22 +512,21 @@ class OpenAiRealVhrpSequenceTest {
       Set<String> seenFunctionCallItemIds = new HashSet<>();
       for (int callNumber = 1; callNumber <= 10; callNumber++) {
         FunctionCallFrame probeCall =
-            waitForNextFunctionCall(beforeTurnFrameCount, seenFunctionCallItemIds, 90, TimeUnit.SECONDS);
+            waitForNextFunctionCall(
+                beforeTurnFrameCount, seenFunctionCallItemIds, 90, TimeUnit.SECONDS);
         assertEquals(
             "vhrp_sequence_probe",
             probeCall.name(),
             "function call #" + callNumber + " must be a probe call");
         String resultMsgId =
             client.sendToolResultSubmit(
-                "ri_" + UUID.randomUUID(),
-                probeCall.callId(),
-                "Probe accepted.",
-                "success");
+                "ri_" + UUID.randomUUID(), probeCall.callId(), "Probe accepted.", "success");
         assertAcceptedAck(resultMsgId);
       }
 
       FunctionCallFrame answerCall =
-          waitForNextFunctionCall(beforeTurnFrameCount, seenFunctionCallItemIds, 90, TimeUnit.SECONDS);
+          waitForNextFunctionCall(
+              beforeTurnFrameCount, seenFunctionCallItemIds, 90, TimeUnit.SECONDS);
       assertEquals(
           "vhrp_required_answer", answerCall.name(), "function call #11 must be the answer tool");
       String arguments =
@@ -535,7 +536,8 @@ class OpenAiRealVhrpSequenceTest {
           arguments.contains("ANSWER_TOOL_MODE_OK"),
           "answer tool arguments must carry ANSWER_TOOL_MODE_OK: " + arguments);
       waitForItemStatus(answerCall.itemId(), "completed", 90, TimeUnit.SECONDS);
-      assertEquals(11, countFunctionCallItems(), "worksSeq07 must stop after exactly eleven tool calls");
+      assertEquals(
+          11, countFunctionCallItems(), "worksSeq07 must stop after exactly eleven tool calls");
 
       assertNoErrorFramesSoFar();
     } finally {
@@ -550,7 +552,7 @@ class OpenAiRealVhrpSequenceTest {
 
   private SessionIds openAuthenticatedSession(String jwt) throws Exception {
     client.connect(testPort(), "vhrp.cbor.v1");
-    String openMsgId = client.sendSessionOpen(jwt, MODEL_ID);
+    String openMsgId = client.sendSessionOpen(jwt, "default");
 
     JsonNode ready = client.waitForMessage("session.ready", 20, TimeUnit.SECONDS);
     assertEquals(openMsgId, text(ready, "replyTo"));
@@ -587,7 +589,8 @@ class OpenAiRealVhrpSequenceTest {
         .map(Paths::get);
   }
 
-  private void writeTranscriptArtifact(String sequenceName) throws IOException, InterruptedException {
+  private void writeTranscriptArtifact(String sequenceName)
+      throws IOException, InterruptedException {
     Optional<Path> maybeDir = transcriptDir();
     if (maybeDir.isEmpty()) {
       return;
@@ -601,7 +604,9 @@ class OpenAiRealVhrpSequenceTest {
         JSON.writerWithDefaultPrettyPrinter().writeValueAsString(snapshot) + System.lineSeparator(),
         StandardCharsets.UTF_8);
     Files.writeString(
-        dir.resolve(sequenceName + ".md"), renderTranscriptMarkdown(sequenceName, snapshot), StandardCharsets.UTF_8);
+        dir.resolve(sequenceName + ".md"),
+        renderTranscriptMarkdown(sequenceName, snapshot),
+        StandardCharsets.UTF_8);
     writeAudioArtifacts(sequenceName, dir);
   }
 
@@ -622,7 +627,9 @@ class OpenAiRealVhrpSequenceTest {
       String itemId = text(body, "itemId");
       String contentIndex = text(body, "contentIndex");
       String key = safeFileToken(itemId) + ".part" + safeFileToken(contentIndex);
-      pcmByPart.computeIfAbsent(key, ignored -> new ByteArrayOutputStream()).write(pcm.binaryValue());
+      pcmByPart
+          .computeIfAbsent(key, ignored -> new ByteArrayOutputStream())
+          .write(pcm.binaryValue());
     }
 
     for (Map.Entry<String, ByteArrayOutputStream> entry : pcmByPart.entrySet()) {
@@ -630,7 +637,8 @@ class OpenAiRealVhrpSequenceTest {
       if (pcm.length == 0) {
         continue;
       }
-      Files.write(dir.resolve(sequenceName + "." + entry.getKey() + ".wav"), OaiCcWavEncoder.encode(pcm));
+      Files.write(
+          dir.resolve(sequenceName + "." + entry.getKey() + ".wav"), OaiCcWavEncoder.encode(pcm));
     }
   }
 
@@ -646,7 +654,11 @@ class OpenAiRealVhrpSequenceTest {
     JsonNode body = snapshot.get("body");
     markdown.append("# ").append(sequenceName).append(" transcript").append(System.lineSeparator());
     markdown.append(System.lineSeparator());
-    markdown.append("- threadId: `").append(text(body, "threadId")).append('`').append(System.lineSeparator());
+    markdown
+        .append("- threadId: `")
+        .append(text(body, "threadId"))
+        .append('`')
+        .append(System.lineSeparator());
     markdown
         .append("- conversationId: `")
         .append(text(body, "conversationId"))
@@ -700,7 +712,13 @@ class OpenAiRealVhrpSequenceTest {
 
   private static void appendMetadata(StringBuilder markdown, String key, String value) {
     if (value != null && !value.isBlank()) {
-      markdown.append("- ").append(key).append(": `").append(value).append('`').append(System.lineSeparator());
+      markdown
+          .append("- ")
+          .append(key)
+          .append(": `")
+          .append(value)
+          .append('`')
+          .append(System.lineSeparator());
     }
   }
 
@@ -746,7 +764,8 @@ class OpenAiRealVhrpSequenceTest {
   private JsonNode requestSnapshot() throws InterruptedException {
     int beforeSyncFrameCount = client.allReceived().size();
     client.sendThreadSyncRequest();
-    JsonNode snapshot = client.waitForNextMessageAfterCount(beforeSyncFrameCount, 20, TimeUnit.SECONDS);
+    JsonNode snapshot =
+        client.waitForNextMessageAfterCount(beforeSyncFrameCount, 20, TimeUnit.SECONDS);
     assertEquals("thread.snapshot", text(snapshot, "type"));
     assertNotNull(snapshot.get("body").get("threadId"));
     assertTrue(snapshot.get("body").get("items").isArray(), "snapshot items must be an array");
@@ -756,7 +775,8 @@ class OpenAiRealVhrpSequenceTest {
   private void assertNoErrorFramesSoFar() {
     List<JsonNode> errorFrames =
         client.allReceived().stream().filter(frame -> "error".equals(text(frame, "type"))).toList();
-    assertTrue(errorFrames.isEmpty(), "real API sequence must not emit VHRP error frames: " + errorFrames);
+    assertTrue(
+        errorFrames.isEmpty(), "real API sequence must not emit VHRP error frames: " + errorFrames);
   }
 
   private void assertNoTextAfterCount(String forbiddenText, int previousFrameCount) {
@@ -770,7 +790,8 @@ class OpenAiRealVhrpSequenceTest {
 
   private void closeSession() throws InterruptedException {
     client.send("session.end", Map.of());
-    assertTrue(client.waitForClose(10, TimeUnit.SECONDS) != -1, "session.end must close the socket");
+    assertTrue(
+        client.waitForClose(10, TimeUnit.SECONDS) != -1, "session.end must close the socket");
   }
 
   private static Map<String, Object> sequenceProbeTool() {
@@ -780,13 +801,7 @@ class OpenAiRealVhrpSequenceTest {
         "description",
         "Returns a deterministic marker for the real API VHRP sequence test.",
         "parameters",
-        Map.of(
-            "type",
-            "object",
-            "properties",
-            Map.of(),
-            "additionalProperties",
-            false));
+        Map.of("type", "object", "properties", Map.of(), "additionalProperties", false));
   }
 
   private static Map<String, Object> sequenceAnswerTool() {
@@ -819,7 +834,9 @@ class OpenAiRealVhrpSequenceTest {
     long deadline = System.currentTimeMillis() + unit.toMillis(timeout);
     while (System.currentTimeMillis() < deadline) {
       List<JsonNode> frames = client.allReceived();
-      for (int index = Math.min(previousFrameCount, frames.size()); index < frames.size(); index++) {
+      for (int index = Math.min(previousFrameCount, frames.size());
+          index < frames.size();
+          index++) {
         JsonNode frame = frames.get(index);
         if (!"thread.patch".equals(text(frame, "type"))) {
           continue;
@@ -851,11 +868,14 @@ class OpenAiRealVhrpSequenceTest {
   }
 
   private JsonNode waitForPatchContainingItemTypeAfterCount(
-      String itemType, int previousFrameCount, long timeout, TimeUnit unit) throws InterruptedException {
+      String itemType, int previousFrameCount, long timeout, TimeUnit unit)
+      throws InterruptedException {
     long deadline = System.currentTimeMillis() + unit.toMillis(timeout);
     while (System.currentTimeMillis() < deadline) {
       List<JsonNode> frames = client.allReceived();
-      for (int index = Math.min(previousFrameCount, frames.size()); index < frames.size(); index++) {
+      for (int index = Math.min(previousFrameCount, frames.size());
+          index < frames.size();
+          index++) {
         JsonNode frame = frames.get(index);
         if ("thread.patch".equals(text(frame, "type"))
             && findItemInPatch(frame, itemType) != null) {
@@ -877,11 +897,14 @@ class OpenAiRealVhrpSequenceTest {
   }
 
   private JsonNode waitForPatchContainingTextAfterCount(
-      String expected, int previousFrameCount, long timeout, TimeUnit unit) throws InterruptedException {
+      String expected, int previousFrameCount, long timeout, TimeUnit unit)
+      throws InterruptedException {
     long deadline = System.currentTimeMillis() + unit.toMillis(timeout);
     while (System.currentTimeMillis() < deadline) {
       List<JsonNode> frames = client.allReceived();
-      for (int index = Math.min(previousFrameCount, frames.size()); index < frames.size(); index++) {
+      for (int index = Math.min(previousFrameCount, frames.size());
+          index < frames.size();
+          index++) {
         JsonNode frame = frames.get(index);
         if ("thread.patch".equals(text(frame, "type")) && containsText(frame, expected)) {
           return frame;
@@ -979,12 +1002,14 @@ class OpenAiRealVhrpSequenceTest {
             + latest);
   }
 
-  private JsonNode waitForAssistantAudioDoneAfterCount(int previousFrameCount, long timeout, TimeUnit unit)
-      throws InterruptedException {
+  private JsonNode waitForAssistantAudioDoneAfterCount(
+      int previousFrameCount, long timeout, TimeUnit unit) throws InterruptedException {
     long deadline = System.currentTimeMillis() + unit.toMillis(timeout);
     while (System.currentTimeMillis() < deadline) {
       List<JsonNode> frames = client.allReceived();
-      for (int index = Math.min(previousFrameCount, frames.size()); index < frames.size(); index++) {
+      for (int index = Math.min(previousFrameCount, frames.size());
+          index < frames.size();
+          index++) {
         JsonNode frame = frames.get(index);
         if ("assistant.audio.done".equals(text(frame, "type"))) {
           return frame;

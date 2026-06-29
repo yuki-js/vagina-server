@@ -6,8 +6,11 @@ import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.WebSocketConnection;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.subscription.Cancellable;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -59,6 +62,11 @@ public class VhrpSession {
 
   private final VhrpCborCodec codec;
 
+  private final Long userId;
+  private final LocalDateTime startedAt;
+  private final String speedDialId;
+  private final String voiceAgentId;
+
   /**
    * The vendor translation body for this session. Driven for C2S; it pushes S2C back through {@link
    * #sendToClient}. Defined two levels deeper (the {@code oai/} mirror) and intentionally
@@ -80,16 +88,47 @@ public class VhrpSession {
   private final List<Cancellable> adapterSubscriptions = new ArrayList<>();
 
   public VhrpSession(
-      String sessionId, String threadId, VhrpCborCodec codec, RealtimeAdapter adapter) {
+      String sessionId,
+      String threadId,
+      VhrpCborCodec codec,
+      RealtimeAdapter adapter,
+      Long userId,
+      LocalDateTime startedAt,
+      String speedDialId,
+      String voiceAgentId) {
     this.sessionId = sessionId;
     this.threadId = threadId;
     this.codec = codec;
     this.adapter = adapter;
+    this.userId = userId;
+    this.startedAt = startedAt;
+    this.speedDialId = speedDialId;
+    this.voiceAgentId = voiceAgentId;
     subscribeAdapterOutput();
   }
 
   public String sessionId() {
     return sessionId;
+  }
+
+  public Long userId() {
+    return userId;
+  }
+
+  public LocalDateTime startedAt() {
+    return startedAt;
+  }
+
+  public String threadId() {
+    return threadId;
+  }
+
+  public String speedDialId() {
+    return speedDialId;
+  }
+
+  public String voiceAgentId() {
+    return voiceAgentId;
   }
 
   // ---------------------------------------------------------------------------
@@ -375,6 +414,15 @@ public class VhrpSession {
     RealtimeThread thread = adapter.thread();
     return new VhrpMessage.ThreadSnapshot(
         threadId, thread.conversationId(), ThreadPatchBuilder.snapshotItems(thread));
+  }
+
+  public Map<String, Object> buildSessionHistoryThread() {
+    RealtimeThread thread = adapter.thread();
+    Map<String, Object> historyThread = new LinkedHashMap<>();
+    historyThread.put("id", threadId);
+    historyThread.put("conversationId", thread.conversationId());
+    historyThread.put("items", ThreadPatchBuilder.snapshotItems(thread));
+    return historyThread;
   }
 
   // ---------------------------------------------------------------------------

@@ -6,7 +6,6 @@ import app.vagina.server.realtime.ThreadPatchBuilder;
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.realtime.model.RealtimeThread;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.operators.multi.processors.BroadcastProcessor;
@@ -14,6 +13,7 @@ import io.smallrye.mutiny.subscription.Cancellable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashSet;
@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.nio.charset.StandardCharsets;
 
 /** OpenAI Chat Completions implementation of the hosted realtime adapter contract. */
 public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
@@ -49,7 +48,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       BroadcastProcessor.create();
   private final BroadcastProcessor<RealtimeAdapterModels.ConnectionState> connectionBus =
       BroadcastProcessor.create();
-  private final BroadcastProcessor<RealtimeAdapterModels.Error> errorBus = BroadcastProcessor.create();
+  private final BroadcastProcessor<RealtimeAdapterModels.Error> errorBus =
+      BroadcastProcessor.create();
   private final BroadcastProcessor<RealtimeAdapterModels.AssistantAudioFrame> audioBus =
       BroadcastProcessor.create();
   private final BroadcastProcessor<RealtimeAdapterModels.AssistantAudioFrame> audioDoneBus =
@@ -101,7 +101,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
           RealtimeAdapterModels.ConnectionState.failed(
               "Chat Completions model " + modelId + " has no base-url", null));
       return Uni.createFrom()
-          .failure(new IllegalStateException("Chat Completions model " + modelId + " has no base-url"));
+          .failure(
+              new IllegalStateException("Chat Completions model " + modelId + " has no base-url"));
     }
     try {
       ResolvedEndpoint endpoint = resolveEndpoint(baseUrl, modelConfig.model().orElse(null));
@@ -224,7 +225,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     switch (extensionType) {
       case EXT_INPUT_NOISE_REDUCTION -> {
         // Chat Completions has no equivalent for Realtime input noise reduction.
-        // Do not advertise this capability, but accept-and-ignore if an older/eager client sends it.
+        // Do not advertise this capability, but accept-and-ignore if an older/eager client sends
+        // it.
         return Uni.createFrom().item(true);
       }
       case EXT_REASONING_EFFORT -> {
@@ -354,7 +356,13 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
 
     OaiCcRequest request =
         new OaiCcRequest(
-            config.model(), messages, true, sessionVoice, tools, toolChoiceRequired, reasoningEffort);
+            config.model(),
+            messages,
+            true,
+            sessionVoice,
+            tools,
+            toolChoiceRequired,
+            reasoningEffort);
     responseSubscription =
         client
             .streamCompletions(config, request)
@@ -367,7 +375,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       OaiCcEvent event, RealtimeThread.Item assistantItem, RealtimeThread.TextPart textPart) {
     switch (event) {
       case OaiCcEvent.ContentDelta content -> {
-        patch.appendText(assistantItem, assistantItem.content().indexOf(textPart), content.content());
+        patch.appendText(
+            assistantItem, assistantItem.content().indexOf(textPart), content.content());
         flush();
       }
       case OaiCcEvent.AudioDelta audio -> onAudioDelta(assistantItem, textPart, audio);
@@ -378,14 +387,17 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
   }
 
   private void onAudioDelta(
-      RealtimeThread.Item assistantItem, RealtimeThread.TextPart textPart, OaiCcEvent.AudioDelta audio) {
+      RealtimeThread.Item assistantItem,
+      RealtimeThread.TextPart textPart,
+      OaiCcEvent.AudioDelta audio) {
     if (audio.audioId() != null && !audio.audioId().isBlank()) {
       assistantAudioIds.put(assistantItem.id(), audio.audioId());
     }
     RealtimeThread.AudioPart audioPart = null;
     if (audio.transcript() != null && !audio.transcript().isEmpty()) {
       audioPart = patch.ensureAudioPart(assistantItem, null);
-      patch.appendTranscript(assistantItem, assistantItem.content().indexOf(audioPart), audio.transcript());
+      patch.appendTranscript(
+          assistantItem, assistantItem.content().indexOf(audioPart), audio.transcript());
       flush();
     }
     if (audio.audioBase64() != null && !audio.audioBase64().isEmpty()) {
@@ -416,7 +428,9 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     }
     if (event.arguments() != null) {
       patch.setArguments(
-          item, sanitizeToolArguments((item.arguments() == null ? "" : item.arguments()) + event.arguments()));
+          item,
+          sanitizeToolArguments(
+              (item.arguments() == null ? "" : item.arguments()) + event.arguments()));
     }
     flush();
   }
@@ -439,9 +453,12 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     int audioIndex = lastAudioPartIndex(assistantItem);
     if (audioIndex >= 0) {
       patch.markPartDone(assistantItem, audioIndex);
-      audioDoneBus.onNext(new RealtimeAdapterModels.AssistantAudioFrame(assistantItem.id(), audioIndex, new byte[0]));
+      audioDoneBus.onNext(
+          new RealtimeAdapterModels.AssistantAudioFrame(
+              assistantItem.id(), audioIndex, new byte[0]));
     } else {
-      audioDoneBus.onNext(new RealtimeAdapterModels.AssistantAudioFrame(assistantItem.id(), 0, new byte[0]));
+      audioDoneBus.onNext(
+          new RealtimeAdapterModels.AssistantAudioFrame(assistantItem.id(), 0, new byte[0]));
     }
     flush();
     responseSubscription = null;
@@ -571,7 +588,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       for (RealtimeThread.Item call : calls) {
         RealtimeThread.Item output = findFunctionOutput(call.callId());
         if (output != null && output.output() != null) {
-          messages.add(Map.of("role", "tool", "tool_call_id", call.callId(), "content", output.output()));
+          messages.add(
+              Map.of("role", "tool", "tool_call_id", call.callId(), "content", output.output()));
         }
       }
     }
@@ -601,7 +619,11 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
                     "type",
                     "input_audio",
                     "input_audio",
-                    Map.of("data", OaiCcWavEncoder.encodeBase64(joinAudio(audioPart)), "format", "wav"))));
+                    Map.of(
+                        "data",
+                        OaiCcWavEncoder.encodeBase64(joinAudio(audioPart)),
+                        "format",
+                        "wav"))));
       }
     }
     String text = textContent(item);
@@ -611,7 +633,9 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
   private String textContent(RealtimeThread.Item item) {
     List<String> fragments = new ArrayList<>();
     for (RealtimeThread.ContentPart part : item.content()) {
-      if (part instanceof RealtimeThread.TextPart text && text.text() != null && !text.text().isEmpty()) {
+      if (part instanceof RealtimeThread.TextPart text
+          && text.text() != null
+          && !text.text().isEmpty()) {
         fragments.add(text.text());
       } else if (part instanceof RealtimeThread.AudioPart audio
           && audio.transcript() != null
@@ -741,7 +765,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
 
   private static ResolvedEndpoint resolveEndpoint(String baseUrl, String configuredModel) {
     URI parsed = URI.create(baseUrl);
-    String model = configuredModel == null || configuredModel.isBlank() ? "gpt-4o" : configuredModel;
+    String model =
+        configuredModel == null || configuredModel.isBlank() ? "gpt-4o" : configuredModel;
     String query = parsed.getRawQuery();
     if (query == null || query.isBlank()) {
       return new ResolvedEndpoint(parsed, model);

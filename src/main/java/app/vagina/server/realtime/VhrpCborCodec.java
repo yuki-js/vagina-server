@@ -120,22 +120,10 @@ public class VhrpCborCodec {
     return new VhrpMessage.SessionOpen(
         messageId,
         text(body, "token"),
-        text(body, "modelId"),
-        text(body, "voice"),
-        text(body, "instructions"),
+        text(body, "speedDialId"),
         text(body, "audioTurnMode"),
-        decodeAudioFormat(body.get("inputAudio")),
-        decodeAudioFormat(body.get("outputAudio")),
         resume,
         toMap(body.get("client")));
-  }
-
-  private VhrpMessage.AudioFormat decodeAudioFormat(JsonNode node) {
-    if (node == null || !node.isObject()) {
-      return null;
-    }
-    return new VhrpMessage.AudioFormat(
-        text(node, "encoding"), intValue(node, "sampleRate", 24000), intValue(node, "channels", 1));
   }
 
   private List<VhrpMessage.ToolSpec> decodeToolSpecs(JsonNode toolsNode) {

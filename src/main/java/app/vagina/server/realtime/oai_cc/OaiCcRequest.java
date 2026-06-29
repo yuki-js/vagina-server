@@ -41,7 +41,9 @@ public final class OaiCcRequest {
     payload.put("stream", true);
     if (audio) {
       payload.put("modalities", List.of("text", "audio"));
-      payload.put("audio", Map.of("voice", voice == null || voice.isBlank() ? "alloy" : voice, "format", "pcm16"));
+      payload.put(
+          "audio",
+          Map.of("voice", voice == null || voice.isBlank() ? "alloy" : voice, "format", "pcm16"));
     }
     if (reasoningEffort != null && !reasoningEffort.isBlank()) {
       payload.put("reasoning_effort", reasoningEffort);

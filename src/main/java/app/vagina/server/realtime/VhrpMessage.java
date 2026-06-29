@@ -48,9 +48,6 @@ public sealed interface VhrpMessage {
   // Shared sub-structures
   // ---------------------------------------------------------------------------
 
-  /** PCM stream format descriptor used by {@code session.open} input/output audio. */
-  record AudioFormat(String encoding, int sampleRate, int channels) {}
-
   /**
    * {@code session.open.body.resume}: present only when reconnecting. It merely identifies the
    * retained session to rebind by {@code sessionId}; any catch-up (replay vs snapshot) is driven
@@ -67,17 +64,13 @@ public sealed interface VhrpMessage {
 
   /**
    * {@code session.open}: bootstraps (or resumes) a session. {@code token} is the sole
-   * application-level credential; {@code resume} distinguishes new from resumed.
+   * application-level credential; fresh opens carry the server-owned {@code speedDialId} authority.
    */
   record SessionOpen(
       String messageId,
       String token,
-      String modelId,
-      String voice,
-      String instructions,
+      String speedDialId,
       String audioTurnMode,
-      AudioFormat inputAudio,
-      AudioFormat outputAudio,
       ResumeRequest resume,
       Map<String, Object> client)
       implements C2S {
