@@ -3,6 +3,8 @@ package app.vagina.server.resource;
 import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.generated.api.SpeedDialsApi;
 import app.vagina.server.generated.model.SpeedDial;
+import app.vagina.server.generated.model.SpeedDialCreateRequest;
+import app.vagina.server.generated.model.SpeedDialUpdateRequest;
 import app.vagina.server.support.Authenticated;
 import app.vagina.server.support.AuthenticatedUser;
 import app.vagina.server.usecase.SpeedDialUsecase;
@@ -39,6 +41,14 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
   }
 
   @Override
+  public Response createSpeedDial(SpeedDialCreateRequest speedDialCreateRequest) {
+    Long userId = authenticatedUser.get().getId();
+    SpeedDialPreset created =
+        speedDialUsecase.createSpeedDial(userId, toEntity(speedDialCreateRequest));
+    return Response.status(Response.Status.CREATED).entity(toGeneratedModel(created)).build();
+  }
+
+  @Override
   public Response getSpeedDial(String speedDialId) {
     Long userId = authenticatedUser.get().getId();
     SpeedDialPreset speedDialPreset = speedDialUsecase.getSpeedDial(userId, speedDialId);
@@ -46,11 +56,11 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
   }
 
   @Override
-  public Response saveSpeedDial(String speedDialId, SpeedDial speedDial) {
+  public Response updateSpeedDial(String speedDialId, SpeedDialUpdateRequest speedDialUpdateRequest) {
     Long userId = authenticatedUser.get().getId();
-    SpeedDialPreset saved =
-        speedDialUsecase.saveSpeedDial(userId, speedDialId, toEntity(speedDial));
-    return Response.ok(toGeneratedModel(saved)).build();
+    SpeedDialPreset updated =
+        speedDialUsecase.updateSpeedDial(userId, speedDialId, toEntity(speedDialUpdateRequest));
+    return Response.ok(toGeneratedModel(updated)).build();
   }
 
   @Override
@@ -78,9 +88,22 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     return model;
   }
 
-  private SpeedDialPreset toEntity(SpeedDial model) {
+  private SpeedDialPreset toEntity(SpeedDialCreateRequest model) {
     SpeedDialPreset preset = new SpeedDialPreset();
-    preset.setSpeedDialId(model.getId());
+    preset.setName(model.getName());
+    preset.setSystemPrompt(model.getSystemPrompt());
+    preset.setDescription(model.getDescription());
+    preset.setIconEmoji(model.getIconEmoji());
+    preset.setVoice(model.getVoice());
+    preset.setVoiceAgentId(model.getVoiceAgentId());
+    preset.setReasoningEffort(toEntityReasoningEffort(model.getReasoningEffort()));
+    preset.setToolChoiceRequired(Boolean.TRUE.equals(model.getToolChoiceRequired()));
+    preset.setEnabledTools(serializeEnabledTools(model.getEnabledTools()));
+    return preset;
+  }
+
+  private SpeedDialPreset toEntity(SpeedDialUpdateRequest model) {
+    SpeedDialPreset preset = new SpeedDialPreset();
     preset.setName(model.getName());
     preset.setSystemPrompt(model.getSystemPrompt());
     preset.setDescription(model.getDescription());
@@ -100,9 +123,16 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     return SpeedDial.ReasoningEffortEnum.fromValue(reasoningEffort);
   }
 
-  private String toEntityReasoningEffort(SpeedDial.ReasoningEffortEnum reasoningEffort) {
+  private String toEntityReasoningEffort(SpeedDialCreateRequest.ReasoningEffortEnum reasoningEffort) {
     if (reasoningEffort == null) {
-      return SpeedDial.ReasoningEffortEnum.OFF.value();
+      return SpeedDialCreateRequest.ReasoningEffortEnum.OFF.value();
+    }
+    return reasoningEffort.value();
+  }
+
+  private String toEntityReasoningEffort(SpeedDialUpdateRequest.ReasoningEffortEnum reasoningEffort) {
+    if (reasoningEffort == null) {
+      return SpeedDialUpdateRequest.ReasoningEffortEnum.OFF.value();
     }
     return reasoningEffort.value();
   }

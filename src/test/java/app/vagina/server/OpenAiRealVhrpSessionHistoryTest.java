@@ -5,6 +5,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -440,8 +441,7 @@ class OpenAiRealVhrpSessionHistoryTest
       String instructionPrefix,
       List<HistoryTurn> turns)
       throws Exception {
-    String speedDialId = speedDialPrefix + UUID.randomUUID();
-    saveRealOpenAiSpeedDial(jwt, speedDialId, instructionPrefix);
+    String speedDialId = saveRealOpenAiSpeedDial(jwt, instructionPrefix);
     SessionIds sessionIds = openAuthenticatedSession(jwt, speedDialId);
 
     conductRealOpenAiTurns(instructionPrefix, turns);
@@ -466,8 +466,7 @@ class OpenAiRealVhrpSessionHistoryTest
       HistoryTurn beforeResume,
       HistoryTurn afterResume)
       throws Exception {
-    String speedDialId = speedDialPrefix + UUID.randomUUID();
-    saveRealOpenAiSpeedDial(jwt, speedDialId);
+    String speedDialId = saveRealOpenAiSpeedDial(jwt);
     SessionIds sessionIds = openAuthenticatedSession(jwt, speedDialId);
 
     conductRealOpenAiTurns(SPEED_DIAL_HISTORY_PREFIX, List.of(beforeResume));
@@ -533,8 +532,7 @@ class OpenAiRealVhrpSessionHistoryTest
       String submittedText,
       List<String> toolResults)
       throws Exception {
-    String speedDialId = speedDialPrefix + UUID.randomUUID();
-    saveRealOpenAiToolSpeedDial(jwt, speedDialId);
+    String speedDialId = saveRealOpenAiToolSpeedDial(jwt);
     SessionIds sessionIds = openAuthenticatedSession(jwt, speedDialId);
 
     String toolsMsgId = client.sendToolsSet(List.of(historyProbeTool()));
@@ -602,54 +600,55 @@ class OpenAiRealVhrpSessionHistoryTest
         ready.get("body").get("sessionId").asText(), ready.get("body").get("threadId").asText());
   }
 
-  private void saveRealOpenAiSpeedDial(String token, String speedDialId) {
-    saveRealOpenAiSpeedDial(token, speedDialId, SPEED_DIAL_HISTORY_PREFIX);
+  private String saveRealOpenAiSpeedDial(String token) {
+    return saveRealOpenAiSpeedDial(token, SPEED_DIAL_HISTORY_PREFIX);
   }
 
-  private void saveRealOpenAiSpeedDial(String token, String speedDialId, String instructionPrefix) {
-    saveRealOpenAiSpeedDial(token, speedDialId, false, Map.of(), instructionPrefix);
+  private String saveRealOpenAiSpeedDial(String token, String instructionPrefix) {
+    return saveRealOpenAiSpeedDial(token, false, Map.of(), instructionPrefix);
   }
 
-  private void saveRealOpenAiToolSpeedDial(String token, String speedDialId) {
-    saveRealOpenAiSpeedDial(
-        token, speedDialId, true, Map.of("vhrp_history_probe", true), SPEED_DIAL_HISTORY_PREFIX);
+  private String saveRealOpenAiToolSpeedDial(String token) {
+    return saveRealOpenAiSpeedDial(
+        token, true, Map.of("vhrp_history_probe", true), SPEED_DIAL_HISTORY_PREFIX);
   }
 
-  private void saveRealOpenAiSpeedDial(
+  private String saveRealOpenAiSpeedDial(
       String token,
-      String speedDialId,
       boolean toolChoiceRequired,
       Map<String, Boolean> enabledTools,
       String instructionPrefix) {
-    given()
-        .auth()
-        .oauth2(token)
-        .contentType(ContentType.JSON)
-        .accept(ContentType.JSON)
-        .body(
-            Map.of(
-                "id",
-                speedDialId,
-                "name",
-                "Real OpenAI History Sequence",
-                "systemPrompt",
-                speedDialHistorySystemPrompt(toolChoiceRequired, instructionPrefix),
-                "voice",
-                "alloy",
-                "voiceAgentId",
-                MODEL_ID,
-                "enabledTools",
-                enabledTools,
-                "reasoningEffort",
-                "off",
-                "toolChoiceRequired",
-                toolChoiceRequired))
-        .when()
-        .put("/api/speed-dials/{speedDialId}", speedDialId)
-        .then()
-        .statusCode(200)
-        .body("id", equalTo(speedDialId))
-        .body("voiceAgentId", equalTo(MODEL_ID));
+    Response response =
+        given()
+            .auth()
+            .oauth2(token)
+            .contentType(ContentType.JSON)
+            .accept(ContentType.JSON)
+            .body(
+                Map.of(
+                    "name",
+                    "Real OpenAI History Sequence",
+                    "systemPrompt",
+                    speedDialHistorySystemPrompt(toolChoiceRequired, instructionPrefix),
+                    "voice",
+                    "alloy",
+                    "voiceAgentId",
+                    MODEL_ID,
+                    "enabledTools",
+                    enabledTools,
+                    "reasoningEffort",
+                    "off",
+                    "toolChoiceRequired",
+                    toolChoiceRequired))
+            .when()
+            .post("/api/speed-dials")
+            .then()
+            .statusCode(201)
+            .body("id", matchesPattern("sd_[0-9a-f]{32}"))
+            .body("voiceAgentId", equalTo(MODEL_ID))
+            .extract()
+            .response();
+    return response.jsonPath().getString("id");
   }
 
   private Response waitForSessionHistoryDetailBySpeedDial(String token, String speedDialId)

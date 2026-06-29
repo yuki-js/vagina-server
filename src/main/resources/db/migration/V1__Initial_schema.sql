@@ -164,6 +164,37 @@ CREATE INDEX idx_speed_dials_user_id ON speed_dials(user_id);
 CREATE INDEX idx_speed_dials_created_at ON speed_dials(created_at DESC);
 
 -- ============================================================================
+-- Text Agents
+-- User-owned text agent definitions. The external/public identifier is text_agent_id.
+-- Provider, base URL, API key, self-hosted, and hosted transport details are intentionally
+-- not persisted in this public definition table.
+-- ============================================================================
+CREATE TABLE text_agents (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    text_agent_id VARCHAR(128) NOT NULL,
+    name VARCHAR(128) NOT NULL,
+    prompt TEXT NOT NULL,
+    description TEXT,
+    text_model_id VARCHAR(128) NOT NULL DEFAULT 'text-agent-prod',
+    enabled_tools JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_text_agents_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE text_agents IS 'User-owned text agent definitions';
+COMMENT ON COLUMN text_agents.text_agent_id IS 'Stable per-user text agent identifier used by the client API';
+COMMENT ON COLUMN text_agents.text_model_id IS 'Server registry text-agent model preset id selected for this text agent';
+COMMENT ON COLUMN text_agents.enabled_tools IS 'Per-tool enable/disable overrides keyed by tool name';
+
+CREATE UNIQUE INDEX idx_text_agents_unique_user_text_agent_id
+    ON text_agents(user_id, text_agent_id);
+CREATE INDEX idx_text_agents_user_id ON text_agents(user_id);
+CREATE INDEX idx_text_agents_created_at ON text_agents(created_at DESC);
+
+-- ============================================================================
 -- Call Sessions
 -- Terminal call history saved after realtime sessions end. The external/public
 -- identifier is call_session_id; VHRP identifiers remain internal.

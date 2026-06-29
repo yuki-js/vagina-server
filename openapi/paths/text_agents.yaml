@@ -1,22 +1,28 @@
 paths:
-  /speed-dials:
+  /text-agents:
     get:
       tags:
-        - speed-dials
-      operationId: listSpeedDials
-      summary: List speed dials
-      description: List the authenticated user's speed dial entries.
+        - text-agents
+      operationId: listTextAgents
+      summary: List text agents
+      description: List the authenticated user's text agent definitions.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Speed dials.
+          description: Text agents.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "../components/schemas/speed_dial.yaml#/SpeedDial"
+                  $ref: "../components/schemas/text_agent.yaml#/TextAgent"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
         "500":
           description: Unexpected error.
           content:
@@ -25,10 +31,14 @@ paths:
                 $ref: "../components/schemas/common.yaml#/ErrorResponse"
     post:
       tags:
-        - speed-dials
-      operationId: createSpeedDial
-      summary: Create speed dial
-      description: Create one speed dial entry owned by the authenticated user. The server generates the persistent speed dial id.
+        - text-agents
+      operationId: createTextAgent
+      summary: Create text agent
+      description: >-
+        Create one text agent definition owned by the authenticated user. The
+        server generates the persistent text agent id. Provider, base URL, API
+        key, self-hosted, and hosted transport details are not accepted or
+        returned.
       security:
         - bearerAuth: []
       requestBody:
@@ -36,16 +46,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/speed_dial.yaml#/SpeedDialCreateRequest"
+              $ref: "../components/schemas/text_agent.yaml#/TextAgentCreateRequest"
       responses:
         "201":
-          description: Speed dial created.
+          description: Text agent created.
           content:
             application/json:
               schema:
-                $ref: "../components/schemas/speed_dial.yaml#/SpeedDial"
+                $ref: "../components/schemas/text_agent.yaml#/TextAgent"
         "400":
-          description: Invalid request, including unknown voice agent id.
+          description: Invalid request, including unknown model id.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "401":
+          description: Authentication required.
           content:
             application/json:
               schema:
@@ -56,33 +72,39 @@ paths:
             application/json:
               schema:
                 $ref: "../components/schemas/common.yaml#/ErrorResponse"
-  /speed-dials/{speedDialId}:
+  /text-agents/{textAgentId}:
     parameters:
-      - name: speedDialId
+      - name: textAgentId
         in: path
         required: true
         schema:
           type: string
           minLength: 1
           maxLength: 128
-        description: Speed dial identifier.
+        description: Text agent identifier.
     get:
       tags:
-        - speed-dials
-      operationId: getSpeedDial
-      summary: Get speed dial
-      description: Get one speed dial entry owned by the authenticated user.
+        - text-agents
+      operationId: getTextAgent
+      summary: Get text agent
+      description: Get one text agent definition owned by the authenticated user.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Speed dial.
+          description: Text agent.
           content:
             application/json:
               schema:
-                $ref: "../components/schemas/speed_dial.yaml#/SpeedDial"
+                $ref: "../components/schemas/text_agent.yaml#/TextAgent"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
         "404":
-          description: Speed dial not found.
+          description: Text agent not found.
           content:
             application/json:
               schema:
@@ -95,10 +117,13 @@ paths:
                 $ref: "../components/schemas/common.yaml#/ErrorResponse"
     put:
       tags:
-        - speed-dials
-      operationId: updateSpeedDial
-      summary: Update speed dial
-      description: Update one existing speed dial entry owned by the authenticated user. Missing resources are not created. The `default` speed dial id is protected from rename.
+        - text-agents
+      operationId: updateTextAgent
+      summary: Update text agent
+      description: >-
+        Update one existing text agent definition owned by the authenticated
+        user. Missing resources are not created. Provider, base URL, API key,
+        self-hosted, and hosted transport details are not accepted or returned.
       security:
         - bearerAuth: []
       requestBody:
@@ -106,28 +131,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/speed_dial.yaml#/SpeedDialUpdateRequest"
+              $ref: "../components/schemas/text_agent.yaml#/TextAgentUpdateRequest"
       responses:
         "200":
-          description: Speed dial updated.
+          description: Text agent updated.
           content:
             application/json:
               schema:
-                $ref: "../components/schemas/speed_dial.yaml#/SpeedDial"
+                $ref: "../components/schemas/text_agent.yaml#/TextAgent"
         "400":
-          description: Invalid request, including unknown voice agent id.
+          description: Invalid request, including unknown model id.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "401":
+          description: Authentication required.
           content:
             application/json:
               schema:
                 $ref: "../components/schemas/common.yaml#/ErrorResponse"
         "404":
-          description: Speed dial not found.
-          content:
-            application/json:
-              schema:
-                $ref: "../components/schemas/common.yaml#/ErrorResponse"
-        "409":
-          description: Speed dial cannot be updated.
+          description: Text agent not found.
           content:
             application/json:
               schema:
@@ -140,23 +165,23 @@ paths:
                 $ref: "../components/schemas/common.yaml#/ErrorResponse"
     delete:
       tags:
-        - speed-dials
-      operationId: deleteSpeedDial
-      summary: Delete speed dial
-      description: Delete one speed dial entry owned by the authenticated user. The `default` speed dial id is protected.
+        - text-agents
+      operationId: deleteTextAgent
+      summary: Delete text agent
+      description: Delete one text agent definition owned by the authenticated user.
       security:
         - bearerAuth: []
       responses:
         "204":
-          description: Speed dial deleted.
-        "404":
-          description: Speed dial not found.
+          description: Text agent deleted.
+        "401":
+          description: Authentication required.
           content:
             application/json:
               schema:
                 $ref: "../components/schemas/common.yaml#/ErrorResponse"
-        "409":
-          description: Speed dial cannot be deleted.
+        "404":
+          description: Text agent not found.
           content:
             application/json:
               schema:

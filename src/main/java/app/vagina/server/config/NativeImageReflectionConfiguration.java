@@ -11,6 +11,8 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
       app.vagina.server.generated.model.StartOidcLogin200Response.class,
       app.vagina.server.generated.model.StartOidcLoginRequest.class,
       app.vagina.server.generated.model.StartOidcLoginRequest.ClientTypeEnum.class,
+      app.vagina.server.generated.model.TextAgent.class,
+      app.vagina.server.generated.model.ListTextAgentModels200ResponseInner.class,
       app.vagina.server.generated.model.User.class,
       app.vagina.server.generated.model.User.AccountLifecycleEnum.class
     })

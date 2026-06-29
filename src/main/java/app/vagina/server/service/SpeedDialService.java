@@ -2,6 +2,7 @@ package app.vagina.server.service;
 
 import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.mapper.SpeedDialMapper;
+import app.vagina.server.support.Util;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -17,6 +18,7 @@ public class SpeedDialService {
   public static final String DEFAULT_DESCRIPTION = "Default voice assistant";
   public static final String DEFAULT_VOICE = "alloy";
   public static final String DEFAULT_ENABLED_TOOLS = "{}";
+  private static final String SPEED_DIAL_ID_PREFIX = "sd_";
 
   @Inject SpeedDialMapper speedDialMapper;
   @Inject VoiceAgentService voiceAgentService;
@@ -56,28 +58,10 @@ public class SpeedDialService {
   }
 
   @Transactional
-  public SpeedDialPreset save(Long userId, SpeedDialPreset candidate) {
-    Optional<SpeedDialPreset> existing =
-        findByUserIdAndSpeedDialId(userId, candidate.getSpeedDialId());
+  public SpeedDialPreset create(Long userId, SpeedDialPreset candidate) {
     LocalDateTime now = LocalDateTime.now();
-
-    if (existing.isPresent()) {
-      SpeedDialPreset persisted = existing.get();
-      persisted.setName(candidate.getName());
-      persisted.setSystemPrompt(candidate.getSystemPrompt());
-      persisted.setDescription(candidate.getDescription());
-      persisted.setIconEmoji(candidate.getIconEmoji());
-      persisted.setVoice(candidate.getVoice());
-      persisted.setVoiceAgentId(candidate.getVoiceAgentId());
-      persisted.setReasoningEffort(candidate.getReasoningEffort());
-      persisted.setToolChoiceRequired(candidate.isToolChoiceRequired());
-      persisted.setEnabledTools(candidate.getEnabledTools());
-      persisted.setUpdatedAt(now);
-      speedDialMapper.update(persisted);
-      return persisted;
-    }
-
     candidate.setUserId(userId);
+    candidate.setSpeedDialId(generateSpeedDialId());
     candidate.setCreatedAt(now);
     candidate.setUpdatedAt(now);
     speedDialMapper.insert(candidate);
@@ -85,7 +69,33 @@ public class SpeedDialService {
   }
 
   @Transactional
+  public Optional<SpeedDialPreset> update(Long userId, String speedDialId, SpeedDialPreset candidate) {
+    Optional<SpeedDialPreset> existing = findByUserIdAndSpeedDialId(userId, speedDialId);
+    if (existing.isEmpty()) {
+      return Optional.empty();
+    }
+
+    SpeedDialPreset persisted = existing.get();
+    persisted.setName(candidate.getName());
+    persisted.setSystemPrompt(candidate.getSystemPrompt());
+    persisted.setDescription(candidate.getDescription());
+    persisted.setIconEmoji(candidate.getIconEmoji());
+    persisted.setVoice(candidate.getVoice());
+    persisted.setVoiceAgentId(candidate.getVoiceAgentId());
+    persisted.setReasoningEffort(candidate.getReasoningEffort());
+    persisted.setToolChoiceRequired(candidate.isToolChoiceRequired());
+    persisted.setEnabledTools(candidate.getEnabledTools());
+    persisted.setUpdatedAt(LocalDateTime.now());
+    speedDialMapper.update(persisted);
+    return Optional.of(persisted);
+  }
+
+  @Transactional
   public boolean delete(Long userId, String speedDialId) {
     return speedDialMapper.deleteByUserIdAndSpeedDialId(userId, speedDialId) > 0;
+  }
+
+  private String generateSpeedDialId() {
+    return Util.randomPublicId(SPEED_DIAL_ID_PREFIX);
   }
 }

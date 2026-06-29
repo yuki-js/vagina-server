@@ -33,6 +33,12 @@ paths:
     $ref: './paths/hosted_realtime.yaml#/paths/~1hosted-realtime~1v1~1connect'
   /voice-agents:
     $ref: './paths/voice_agents.yaml#/paths/~1voice-agents'
+  /text-agents:
+    $ref: './paths/text_agents.yaml#/paths/~1text-agents'
+  /text-agents/{textAgentId}:
+    $ref: './paths/text_agents.yaml#/paths/~1text-agents~1{textAgentId}'
+  /text-agents/models:
+    $ref: './paths/text_agent_models.yaml#/paths/~1text-agents~1models'
 components:
   schemas:
     User:
@@ -43,6 +49,8 @@ components:
       $ref: './components/schemas/common.yaml#/ErrorResponse'
     SessionThread:
       $ref: './components/schemas/session_thread.yaml#/SessionThread'
+    TextAgent:
+      $ref: './components/schemas/text_agent.yaml#/TextAgent'
   securitySchemes:
     bearerAuth:
       type: http

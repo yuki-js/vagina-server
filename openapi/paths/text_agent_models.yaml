@@ -1,0 +1,53 @@
+paths:
+  /text-agents/models:
+    get:
+      tags:
+        - text-agent-models
+      operationId: listTextAgentModels
+      summary: List text agent model presets
+      description: >-
+        Lists safe text-agent model preset metadata exposed by the server text
+        model registry. Provider, base URL, API key, self-hosted, and hosted
+        transport details are intentionally hidden.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Text agent model presets available to the authenticated user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - id
+                    - displayName
+                    - isDefault
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                      maxLength: 128
+                      example: text-agent-prod
+                    displayName:
+                      type: string
+                      minLength: 1
+                      maxLength: 128
+                      example: text-agent-prod
+                    isDefault:
+                      type: boolean
+                      example: true
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Server configuration error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"

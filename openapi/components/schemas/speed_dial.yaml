@@ -15,7 +15,7 @@ SpeedDial:
       type: string
       minLength: 1
       maxLength: 128
-      example: default
+      example: sd_0123456789abcdef0123456789abcdef
     name:
       type: string
       minLength: 1
@@ -76,3 +76,141 @@ SpeedDial:
       type: string
       format: date-time
       nullable: true
+
+SpeedDialCreateRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - name
+    - systemPrompt
+    - voice
+    - voiceAgentId
+    - enabledTools
+    - reasoningEffort
+    - toolChoiceRequired
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 128
+      example: Custom
+    systemPrompt:
+      type: string
+      minLength: 1
+      example: You are a helpful AI assistant.
+    description:
+      type: string
+      nullable: true
+      maxLength: 512
+      example: Custom voice assistant
+    iconEmoji:
+      type: string
+      nullable: true
+      minLength: 1
+      maxLength: 16
+      example: "🤖"
+    voice:
+      type: string
+      minLength: 1
+      maxLength: 64
+      example: alloy
+    voiceAgentId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Server registry voice-agent id selected for this speed dial.
+      example: voice-agent-prod
+    reasoningEffort:
+      type: string
+      enum:
+        - "off"
+        - minimal
+        - low
+        - medium
+        - high
+        - xhigh
+      default: "off"
+      example: "off"
+    toolChoiceRequired:
+      type: boolean
+      default: false
+      example: false
+    enabledTools:
+      type: object
+      description: |
+        Map from tool name to enabled flag. Values must be booleans.
+        Intentionally omit typed additionalProperties here because florval 0.3.12
+        otherwise generates a runtime-unsafe Dart cast from decoded JSON to
+        `Map<String, bool>`.
+      example:
+        document_read: true
+        document_patch: false
+
+SpeedDialUpdateRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - name
+    - systemPrompt
+    - voice
+    - voiceAgentId
+    - enabledTools
+    - reasoningEffort
+    - toolChoiceRequired
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 128
+      example: Custom
+    systemPrompt:
+      type: string
+      minLength: 1
+      example: You are a helpful AI assistant.
+    description:
+      type: string
+      nullable: true
+      maxLength: 512
+      example: Custom voice assistant
+    iconEmoji:
+      type: string
+      nullable: true
+      minLength: 1
+      maxLength: 16
+      example: "🤖"
+    voice:
+      type: string
+      minLength: 1
+      maxLength: 64
+      example: alloy
+    voiceAgentId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Server registry voice-agent id selected for this speed dial.
+      example: voice-agent-prod
+    reasoningEffort:
+      type: string
+      enum:
+        - "off"
+        - minimal
+        - low
+        - medium
+        - high
+        - xhigh
+      default: "off"
+      example: "off"
+    toolChoiceRequired:
+      type: boolean
+      default: false
+      example: false
+    enabledTools:
+      type: object
+      description: |
+        Map from tool name to enabled flag. Values must be booleans.
+        Intentionally omit typed additionalProperties here because florval 0.3.12
+        otherwise generates a runtime-unsafe Dart cast from decoded JSON to
+        `Map<String, bool>`.
+      example:
+        document_read: true
+        document_patch: false

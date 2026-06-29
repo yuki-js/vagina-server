@@ -60,7 +60,15 @@ public final class Util {
   }
 
   public static String randomHexToken() {
-    byte[] randomBytes = new byte[32];
+    return randomHex(32);
+  }
+
+  public static String randomPublicId(String prefix) {
+    return prefix + randomHex(16);
+  }
+
+  private static String randomHex(int byteLength) {
+    byte[] randomBytes = new byte[byteLength];
     SECURE_RANDOM.get().nextBytes(randomBytes);
     return HEX_FORMAT.formatHex(randomBytes);
   }

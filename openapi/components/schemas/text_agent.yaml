@@ -1,0 +1,126 @@
+TextAgent:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - name
+    - prompt
+    - textModelId
+    - enabledTools
+  properties:
+    id:
+      type: string
+      minLength: 1
+      maxLength: 128
+      example: ta_0123456789abcdef0123456789abcdef
+    name:
+      type: string
+      minLength: 1
+      maxLength: 128
+      example: Research Assistant
+    prompt:
+      type: string
+      minLength: 1
+      example: You are a careful research assistant.
+    description:
+      type: string
+      nullable: true
+      maxLength: 512
+      example: Helps analyze long-form documents
+    textModelId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Server registry text model preset id selected for this text agent.
+      example: text-agent-prod
+    enabledTools:
+      type: object
+      description: |
+        Map from tool name to enabled flag. Values must be booleans.
+        Provider, base URL, API key, self-hosted, and hosted transport details are
+        intentionally absent from this public API schema.
+      example:
+        document_read: true
+        document_patch: false
+    createdAt:
+      type: string
+      format: date-time
+      nullable: true
+
+TextAgentCreateRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - name
+    - prompt
+    - textModelId
+    - enabledTools
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 128
+      example: Research Assistant
+    prompt:
+      type: string
+      minLength: 1
+      example: You are a careful research assistant.
+    description:
+      type: string
+      nullable: true
+      maxLength: 512
+      example: Helps analyze long-form documents
+    textModelId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Server registry text model preset id selected for this text agent.
+      example: text-agent-prod
+    enabledTools:
+      type: object
+      description: |
+        Map from tool name to enabled flag. Values must be booleans.
+        Provider, base URL, API key, self-hosted, and hosted transport details are
+        intentionally absent from this public API schema.
+      example:
+        document_read: true
+        document_patch: false
+
+TextAgentUpdateRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - name
+    - prompt
+    - textModelId
+    - enabledTools
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 128
+      example: Research Assistant
+    prompt:
+      type: string
+      minLength: 1
+      example: You are a careful research assistant.
+    description:
+      type: string
+      nullable: true
+      maxLength: 512
+      example: Helps analyze long-form documents
+    textModelId:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Server registry text model preset id selected for this text agent.
+      example: text-agent-prod
+    enabledTools:
+      type: object
+      description: |
+        Map from tool name to enabled flag. Values must be booleans.
+        Provider, base URL, API key, self-hosted, and hosted transport details are
+        intentionally absent from this public API schema.
+      example:
+        document_read: true
+        document_patch: false
