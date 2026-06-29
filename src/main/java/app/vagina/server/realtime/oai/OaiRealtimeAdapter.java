@@ -14,6 +14,7 @@ import io.smallrye.mutiny.subscription.Cancellable;
 import io.vertx.mutiny.core.Vertx;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -93,6 +94,11 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   private final BroadcastProcessor<Boolean> speakingBus = BroadcastProcessor.create();
 
   private final List<Cancellable> subscriptions = new ArrayList<>();
+  private final Map<String, PendingToolOutputMetadata> pendingToolOutputMetadataByItemId =
+      new HashMap<>();
+
+  private record PendingToolOutputMetadata(
+      RealtimeAdapterModels.ToolOutputDisposition disposition, String errorMessage) {}
 
   // Session knobs (mirror the Dart fields).
   private List<RealtimeAdapterModels.ToolDefinition> tools = List.of();
@@ -565,6 +571,10 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       String errorMessage) {
     ensureNotDisposed();
     String itemId = nextLocalId("tool");
+    RealtimeAdapterModels.ToolOutputDisposition canonicalDisposition =
+        disposition == null ? RealtimeAdapterModels.ToolOutputDisposition.SUCCESS : disposition;
+    pendingToolOutputMetadataByItemId.put(
+        itemId, new PendingToolOutputMetadata(canonicalDisposition, errorMessage));
     Map<String, Object> item =
         Map.of("id", itemId, "type", "function_call_output", "call_id", callId, "output", output);
     return client
@@ -608,6 +618,10 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
 
   private Uni<Void> createInterruptedFunctionOutput(String callId) {
     String itemId = nextLocalId("tool");
+    pendingToolOutputMetadataByItemId.put(
+        itemId,
+        new PendingToolOutputMetadata(
+            RealtimeAdapterModels.ToolOutputDisposition.ERROR, INTERRUPTED_TOOL_ERROR_MESSAGE));
     Map<String, Object> item =
         Map.of(
             "id", itemId,
@@ -914,6 +928,7 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       if (source.output() != null) {
         patch.setOutput(existing, source.output());
       }
+      applyFunctionCallOutputMetadata(existing, source);
       patch.setStatus(existing, nextStatus);
       if (existing.content().isEmpty() && !source.content().isEmpty()) {
         for (OaiRealtimeEvent.ContentPart part : source.content()) {
@@ -943,10 +958,31 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     if (source.output() != null) {
       patch.setOutput(item, source.output());
     }
+    applyFunctionCallOutputMetadata(item, source);
     for (OaiRealtimeEvent.ContentPart part : source.content()) {
       mergeContentPart(item, part, null, true);
     }
     return item;
+  }
+
+  private void applyFunctionCallOutputMetadata(
+      RealtimeThread.Item item, OaiRealtimeEvent.ConversationItem source) {
+    if (item.type() != RealtimeThread.ItemType.FUNCTION_CALL_OUTPUT) {
+      return;
+    }
+    PendingToolOutputMetadata metadata = pendingToolOutputMetadataByItemId.remove(source.id());
+    if (metadata == null && item.toolOutputDisposition() != null) {
+      return;
+    }
+    RealtimeAdapterModels.ToolOutputDisposition disposition =
+        metadata == null
+            ? RealtimeAdapterModels.ToolOutputDisposition.SUCCESS
+            : metadata.disposition();
+    patch.setToolOutputDisposition(item, disposition);
+    String errorMessage = metadata == null ? null : metadata.errorMessage();
+    if (errorMessage != null) {
+      patch.setToolErrorMessage(item, errorMessage);
+    }
   }
 
   private RealtimeThread.Item ensureUserMessageItem(String itemId) {
