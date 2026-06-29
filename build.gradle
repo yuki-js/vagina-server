@@ -418,7 +418,129 @@ task checkLayeredArchitecture {
     }
 }
 
+task checkJavaFqcnUsage {
+    group = 'verification'
+    description = 'Fail when active Java sources use fully-qualified names without an explicit allowlist reason'
+
+    def activeJavaSources = files(
+        fileTree('src/main/java') { include '**/*.java' },
+        fileTree('src/test/java') { include '**/*.java' }
+    )
+
+    inputs.files(activeJavaSources)
+
+    doLast {
+        def fqcnPattern = ~/\b(?:[a-z_][A-Za-z0-9_]*\.){2,}[A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*(?:\.[a-z_][A-Za-z0-9_]*)?\b/
+        def violations = []
+
+        def stripCommentsAndStrings = { String line, Map state ->
+            def stripped = new StringBuilder()
+            int index = 0
+
+            while (index < line.length()) {
+                if (state.inBlockComment) {
+                    int end = line.indexOf('*/', index)
+                    if (end < 0) {
+                        return stripped.toString()
+                    }
+                    index = end + 2
+                    state.inBlockComment = false
+                    continue
+                }
+
+                if (state.inTextBlock) {
+                    int end = line.indexOf('"""', index)
+                    if (end < 0) {
+                        return stripped.toString()
+                    }
+                    index = end + 3
+                    state.inTextBlock = false
+                    continue
+                }
+
+                if (index + 1 < line.length() && line.charAt(index) == '/' as char && line.charAt(index + 1) == '/' as char) {
+                    return stripped.toString()
+                }
+
+                if (index + 1 < line.length() && line.charAt(index) == '/' as char && line.charAt(index + 1) == '*' as char) {
+                    state.inBlockComment = true
+                    index += 2
+                    continue
+                }
+
+                if (index + 2 < line.length() && line.substring(index, index + 3) == '"""') {
+                    state.inTextBlock = true
+                    index += 3
+                    continue
+                }
+
+                def current = line.charAt(index)
+                if (current == '"' as char || current == '\'' as char) {
+                    def quote = current
+                    boolean escaped = false
+                    stripped.append(' ')
+                    index++
+                    while (index < line.length()) {
+                        def stringChar = line.charAt(index)
+                        stripped.append(' ')
+                        index++
+
+                        if (escaped) {
+                            escaped = false
+                        } else if (stringChar == '\\' as char) {
+                            escaped = true
+                        } else if (stringChar == quote) {
+                            break
+                        }
+                    }
+                    continue
+                }
+
+                stripped.append(current)
+                index++
+            }
+
+            return stripped.toString()
+        }
+
+        def isAllowedFqcn = { File sourceFile, String token ->
+            def relativePath = projectDir.toPath().relativize(sourceFile.toPath()).toString().replace(File.separator, '/')
+
+            if (relativePath == 'src/main/java/app/vagina/server/config/NativeImageReflectionConfiguration.java'
+                && token.startsWith('app.vagina.server.generated.model.')) {
+                return true
+            }
+
+            return false
+        }
+
+        activeJavaSources.files.findAll { it.isFile() }.sort().each { sourceFile ->
+            def state = [inBlockComment: false, inTextBlock: false]
+
+            sourceFile.eachLine { line, lineNumber ->
+                def trimmed = line.trim()
+                if (trimmed.startsWith('package ') || trimmed.startsWith('import ')) {
+                    return
+                }
+
+                def searchable = stripCommentsAndStrings(line, state)
+                def matcher = searchable =~ fqcnPattern
+                matcher.each { token ->
+                    if (!isAllowedFqcn(sourceFile, token)) {
+                        violations << "${sourceFile}:${lineNumber}: fully-qualified Java reference '${token}' should be imported or explicitly allowlisted"
+                    }
+                }
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            throw new RuntimeException('Fully-qualified Java references detected:\n' + violations.join('\n'))
+        }
+    }
+}
+
 check.dependsOn checkLayeredArchitecture
+check.dependsOn checkJavaFqcnUsage
 
 // Clean generated sources on clean
 clean {
@@ -429,6 +551,8 @@ clean {
  // Make compileJava depend on generateOpenApiModels for automatic generation
 compileJava.dependsOn generateOpenApiModels
 compileJava.dependsOn checkLayeredArchitecture
+compileJava.dependsOn checkJavaFqcnUsage
+compileTestJava.dependsOn checkJavaFqcnUsage
 
 // Ensure generateOpenApiModels runs before main lifecycle and containerization tasks
 ['build', 'test', 'quarkusDev', 'quarkusBuild', 'jib', 'jibDockerBuild', "checkstyleMain"].each { taskName ->
