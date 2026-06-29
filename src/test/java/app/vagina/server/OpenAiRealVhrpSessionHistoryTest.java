@@ -44,6 +44,8 @@ import org.eclipse.microprofile.config.ConfigProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import io.vertx.mutiny.core.Vertx;
+import java.util.ArrayList;
 
 /**
  * Opt-in real OpenAI sequence tests for the VHRP session-history lifecycle.
@@ -69,7 +71,7 @@ class OpenAiRealVhrpSessionHistoryTest
   @TestHTTPResource("/")
   URL testServerUrl;
 
-  @Inject io.vertx.mutiny.core.Vertx mutinyVertx;
+  @Inject Vertx mutinyVertx;
 
   private VhrpTestClient client;
   private WireMockServer harigata;
@@ -1391,7 +1393,7 @@ class OpenAiRealVhrpSessionHistoryTest
     if (ops == null || !ops.isArray()) {
       return List.of();
     }
-    List<JsonNode> items = new java.util.ArrayList<>();
+    List<JsonNode> items = new ArrayList<>();
     for (JsonNode op : ops) {
       if (!"add_item".equals(text(op, "op"))) {
         continue;

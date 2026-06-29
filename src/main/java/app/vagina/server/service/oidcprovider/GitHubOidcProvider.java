@@ -12,6 +12,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Iterator;
 import java.util.Optional;
+import io.vertx.mutiny.core.buffer.Buffer;
 
 @ApplicationScoped
 public class GitHubOidcProvider extends OidcProviderBase {
@@ -60,7 +61,7 @@ public class GitHubOidcProvider extends OidcProviderBase {
 
   private OidcUserInfo fetchUserInfoFromGitHubApi(String accessToken) {
     WebClient client = WebClient.create(vertx);
-    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response;
+    HttpResponse<Buffer> response;
     try {
       response =
           client
@@ -107,7 +108,7 @@ public class GitHubOidcProvider extends OidcProviderBase {
       return Optional.empty();
     }
 
-    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response =
+    HttpResponse<Buffer> response =
         client
             .getAbs(gitHubOidcProviderInfo.userEmailsEndpoint().get())
             .putHeader("Authorization", "Bearer " + accessToken)

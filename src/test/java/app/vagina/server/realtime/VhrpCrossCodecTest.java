@@ -19,6 +19,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import java.util.function.Consumer;
 
 /**
  * VHRP cross-codec interoperability test — Layer 1, Java side.
@@ -991,7 +992,7 @@ class VhrpCrossCodecTest {
   private ObjectNode buildS2cJson(
       String messageType,
       List<String> bstrFields,
-      java.util.function.Consumer<ObjectNode> populator) {
+      Consumer<ObjectNode> populator) {
     ObjectNode root = JSON.createObjectNode();
     root.put("_bstr_encoding", "hex");
     if (bstrFields != null && !bstrFields.isEmpty()) {

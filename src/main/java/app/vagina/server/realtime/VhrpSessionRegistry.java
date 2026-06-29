@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.UUID;
 
 /**
  * Application-scoped authority over VHRP/1 sessions: the only place resume is realized.
@@ -310,10 +311,10 @@ public class VhrpSessionRegistry {
   }
 
   private String newSessionId() {
-    return "s_" + java.util.UUID.randomUUID();
+    return "s_" + UUID.randomUUID();
   }
 
   private String newThreadId() {
-    return "t_" + java.util.UUID.randomUUID();
+    return "t_" + UUID.randomUUID();
   }
 }

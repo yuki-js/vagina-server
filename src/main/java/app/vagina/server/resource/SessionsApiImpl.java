@@ -25,6 +25,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.time.OffsetDateTime;
 
 @ApplicationScoped
 @Path("/sessions")
@@ -102,7 +103,7 @@ public class SessionsApiImpl implements SessionsApi {
     }
   }
 
-  private java.time.OffsetDateTime toOffsetDateTime(LocalDateTime value) {
+  private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
     return value == null ? null : value.atOffset(ZoneOffset.UTC);
   }
 }

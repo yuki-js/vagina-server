@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import io.vertx.mutiny.core.Vertx;
 
 /**
  * VHRP transport/authentication composite tests.
@@ -41,7 +42,7 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
   @TestHTTPResource("/")
   URL testServerUrl;
 
-  @Inject io.vertx.mutiny.core.Vertx mutinyVertx;
+  @Inject Vertx mutinyVertx;
 
   private VhrpTestClient client;
   private WireMockServer existingHarigata;

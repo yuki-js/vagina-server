@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.LinkedHashMap;
 
 /**
  * Test-side VHRP/1 WebSocket client.
@@ -284,7 +285,7 @@ public final class VhrpTestClient implements Closeable {
   public String sendToolResultSubmit(
       String clientItemId, String callId, String output, String disposition) {
     String msgId = UUID.randomUUID().toString();
-    Map<String, Object> body = new java.util.LinkedHashMap<>();
+    Map<String, Object> body = new LinkedHashMap<>();
     body.put("clientItemId", clientItemId);
     body.put("callId", callId);
     body.put("output", output);

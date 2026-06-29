@@ -12,6 +12,7 @@ import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import io.vertx.mutiny.core.buffer.Buffer;
 
 public abstract class OidcProviderBase {
 
@@ -75,7 +76,7 @@ public abstract class OidcProviderBase {
       String discoveryUrl = info.configurationUrl().get();
 
       WebClient client = WebClient.create(vertx);
-      HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response;
+      HttpResponse<Buffer> response;
       try {
         response =
             client
@@ -200,14 +201,14 @@ public abstract class OidcProviderBase {
     }
 
     WebClient client = WebClient.create(vertx);
-    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response;
+    HttpResponse<Buffer> response;
     try {
       response =
           client
               .postAbs(provider.tokenEndpoint())
               .putHeader("Accept", "application/json")
               .putHeader("Content-Type", "application/x-www-form-urlencoded")
-              .sendBuffer(io.vertx.mutiny.core.buffer.Buffer.buffer(Util.formEncode(form)))
+              .sendBuffer(Buffer.buffer(Util.formEncode(form)))
               .await()
               .indefinitely();
     } catch (RuntimeException e) {
@@ -246,7 +247,7 @@ public abstract class OidcProviderBase {
                         "OIDC provider does not expose a userinfo endpoint"));
 
     WebClient client = WebClient.create(vertx);
-    HttpResponse<io.vertx.mutiny.core.buffer.Buffer> response;
+    HttpResponse<Buffer> response;
     try {
       response =
           client

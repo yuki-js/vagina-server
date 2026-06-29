@@ -16,6 +16,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import io.quarkus.test.junit.QuarkusTestProfile;
+import io.vertx.mutiny.core.Vertx;
 
 /** VHRP resume-retention abnormal-path tests that need a short retention profile. */
 @QuarkusTest
@@ -26,7 +28,7 @@ class VhrpResumeRetentionE2ETest {
   @TestHTTPResource("/")
   URL testServerUrl;
 
-  @Inject io.vertx.mutiny.core.Vertx mutinyVertx;
+  @Inject Vertx mutinyVertx;
 
   private VhrpTestClient client;
 
@@ -81,7 +83,7 @@ class VhrpResumeRetentionE2ETest {
   }
 
   public static final class ShortRetentionProfile
-      implements io.quarkus.test.junit.QuarkusTestProfile {
+      implements QuarkusTestProfile {
     @Override
     public Map<String, String> getConfigOverrides() {
       return Map.of("vagina.realtime.resume-retention", "PT0.2S");
