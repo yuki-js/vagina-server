@@ -37,12 +37,8 @@ paths:
     $ref: './paths/text_agents.yaml#/paths/~1text-agents'
   /text-agents/{textAgentId}:
     $ref: './paths/text_agents.yaml#/paths/~1text-agents~1{textAgentId}'
-  /text-agents/{textAgentId}/threads:
-    $ref: './paths/text_agents.yaml#/paths/~1text-agents~1{textAgentId}~1threads'
-  /text-agents/{textAgentId}/threads/{threadId}:
-    $ref: './paths/text_agents.yaml#/paths/~1text-agents~1{textAgentId}~1threads~1{threadId}'
-  /text-agents/{textAgentId}/threads/{threadId}/turns:
-    $ref: './paths/text_agents.yaml#/paths/~1text-agents~1{textAgentId}~1threads~1{threadId}~1turns'
+  /text-agents/{textAgentId}/query:
+    $ref: './paths/text_agents.yaml#/paths/~1text-agents~1{textAgentId}~1query'
   /text-agents/models:
     $ref: './paths/text_agent_models.yaml#/paths/~1text-agents~1models'
 components:

@@ -86,13 +86,6 @@ TextAgentWriteRequest:
         document_read: true
         document_patch: false
 
-TextAgentThreadStatus:
-  type: string
-  enum:
-    - active
-    - expired
-    - cancelled
-
 TextAgentToolCall:
   type: object
   additionalProperties: false
@@ -114,8 +107,7 @@ TextAgentToolCall:
       description: Client-executable tool name from the normalized tool definitions.
       example: document_read
     arguments:
-      type: object
-      additionalProperties: true
-      description: Normalized JSON object arguments for the client-executable tool.
-      example:
-        documentId: doc_0123456789abcdef
+      type: string
+      minLength: 2
+      description: JSON string arguments for the client-executable tool. This matches the current client tool runtime shape.
+      example: '{"documentId":"doc_0123456789abcdef"}'
