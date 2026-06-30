@@ -226,7 +226,6 @@ paths:
               required:
                 - voiceSessionId
                 - requestId
-                - tools
               properties:
                 voiceSessionId:
                   type: string
@@ -260,6 +259,7 @@ paths:
                   required:
                     - toolCallId
                     - output
+                    - isError
                   properties:
                     toolCallId:
                       type: string
@@ -269,50 +269,15 @@ paths:
                       example: tc_0123456789abcdef
                     output:
                       type: string
-                      description: JSON string tool output returned by the client runtime.
+                      description: >-
+                        JSON string tool output returned by the client runtime.
+                        `{"success":false,...}` may appear for compatibility,
+                        but failure is defined by `isError`, not by JSON fields
+                        inside `output`.
                       example: '{"success":true,"text":"The selected note mentions a renewal clause."}'
                     isError:
                       type: boolean
-                      default: false
                       description: Whether the submitted tool output represents a tool execution failure.
-                tools:
-                  type: array
-                  description: >-
-                    Client-executable tools available for this step. Each item
-                    uses the same minimal runtime shape the current client sends
-                    to realtime providers: name, description, and JSON Schema
-                    parameters.
-                  items:
-                    type: object
-                    additionalProperties: false
-                    required:
-                      - name
-                      - description
-                      - parameters
-                    properties:
-                      name:
-                        type: string
-                        minLength: 1
-                        maxLength: 128
-                        description: Stable tool key.
-                        example: document_read
-                      description:
-                        type: string
-                        minLength: 1
-                        maxLength: 2048
-                        description: AI-facing English tool description.
-                        example: Read selected document text.
-                      parameters:
-                        type: object
-                        additionalProperties: true
-                        description: JSON Schema object for tool arguments.
-                        example:
-                          type: object
-                          properties:
-                            documentId:
-                              type: string
-                          required:
-                            - documentId
       responses:
         "200":
           description: Text agent query result.
@@ -339,24 +304,9 @@ paths:
                     description: Client-executable tool calls when `status` is `requires_tool`.
                     items:
                       $ref: "../components/schemas/text_agent.yaml#/TextAgentToolCall"
-                  usage:
-                    type: object
-                    additionalProperties: false
-                    properties:
-                      inputTokens:
-                        type: integer
-                        minimum: 0
-                        example: 120
-                      outputTokens:
-                        type: integer
-                        minimum: 0
-                        example: 48
-                      totalTokens:
-                        type: integer
-                        minimum: 0
-                        example: 168
                   error:
                     type: object
+                    description: Failure details when `status` is `failed`.
                     additionalProperties: false
                     required:
                       - code

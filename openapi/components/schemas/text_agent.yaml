@@ -104,7 +104,7 @@ TextAgentToolCall:
       type: string
       minLength: 1
       maxLength: 128
-      description: Client-executable tool name from the normalized tool definitions.
+      description: Client-executable tool name recognized by the client runtime for this pending step.
       example: document_read
     arguments:
       type: string
