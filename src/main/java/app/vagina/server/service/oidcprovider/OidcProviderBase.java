@@ -5,20 +5,39 @@ import app.vagina.server.support.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.logging.Log;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.ext.web.client.HttpResponse;
 import io.vertx.mutiny.ext.web.client.WebClient;
+import jakarta.annotation.PostConstruct;
 import jakarta.inject.Inject;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
 public abstract class OidcProviderBase {
 
+  protected static final Duration HTTP_TIMEOUT = Duration.ofSeconds(10);
+
   @Inject protected Vertx vertx;
 
   @Inject protected ObjectMapper objectMapper;
+
+  protected WebClient webClient;
+
+  @PostConstruct
+  protected void init() {
+    webClient = WebClient.create(vertx);
+    Log.debugf(
+        "Initialized OIDC provider with HTTP timeout of %s seconds (no automatic retries)",
+        HTTP_TIMEOUT.getSeconds());
+  }
+
+  protected WebClient getWebClient() {
+    return webClient;
+  }
 
   /** Represents a set of tokens returned by the OIDC provider. */
   public record OidcTokenSet(String accessToken, String idToken, long expiresIn) {}
@@ -75,16 +94,15 @@ public abstract class OidcProviderBase {
       // Auto-configure via OIDC discovery document
       String discoveryUrl = info.configurationUrl().get();
 
-      WebClient client = WebClient.create(vertx);
       HttpResponse<Buffer> response;
       try {
         response =
-            client
+            webClient
                 .getAbs(discoveryUrl)
                 .putHeader("Accept", "application/json")
                 .send()
                 .await()
-                .indefinitely();
+                .atMost(HTTP_TIMEOUT);
       } catch (RuntimeException e) {
         throw new ExternalServiceException(
             "Failed to fetch OIDC discovery document from " + discoveryUrl, e);
@@ -200,17 +218,16 @@ public abstract class OidcProviderBase {
       form.put("code_verifier", codeVerifier);
     }
 
-    WebClient client = WebClient.create(vertx);
     HttpResponse<Buffer> response;
     try {
       response =
-          client
+          webClient
               .postAbs(provider.tokenEndpoint())
               .putHeader("Accept", "application/json")
               .putHeader("Content-Type", "application/x-www-form-urlencoded")
               .sendBuffer(Buffer.buffer(Util.formEncode(form)))
               .await()
-              .indefinitely();
+              .atMost(HTTP_TIMEOUT);
     } catch (RuntimeException e) {
       throw new ExternalServiceException("OIDC token endpoint request failed", e);
     }
@@ -246,17 +263,16 @@ public abstract class OidcProviderBase {
                     new UnsupportedOperationException(
                         "OIDC provider does not expose a userinfo endpoint"));
 
-    WebClient client = WebClient.create(vertx);
     HttpResponse<Buffer> response;
     try {
       response =
-          client
+          webClient
               .getAbs(userinfoEndpoint)
               .putHeader("Authorization", "Bearer " + accessToken)
               .putHeader("Accept", "application/json")
               .send()
               .await()
-              .indefinitely();
+              .atMost(HTTP_TIMEOUT);
     } catch (RuntimeException e) {
       throw new ExternalServiceException("OIDC userinfo endpoint request failed", e);
     }

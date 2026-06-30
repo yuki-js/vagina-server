@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -66,6 +67,7 @@ public class VhrpSession {
   private final LocalDateTime startedAt;
   private final String speedDialId;
   private final String voiceAgentId;
+  private final Set<String> allowedToolNames;
 
   /**
    * The vendor translation body for this session. Driven for C2S; it pushes S2C back through {@link
@@ -95,7 +97,8 @@ public class VhrpSession {
       Long userId,
       LocalDateTime startedAt,
       String speedDialId,
-      String voiceAgentId) {
+      String voiceAgentId,
+      Set<String> allowedToolNames) {
     this.sessionId = sessionId;
     this.threadId = threadId;
     this.codec = codec;
@@ -104,6 +107,7 @@ public class VhrpSession {
     this.startedAt = startedAt;
     this.speedDialId = speedDialId;
     this.voiceAgentId = voiceAgentId;
+    this.allowedToolNames = allowedToolNames;
     subscribeAdapterOutput();
   }
 
@@ -357,6 +361,19 @@ public class VhrpSession {
   }
 
   private Uni<Void> handleToolsSet(VhrpMessage.ToolsSet m) {
+    // Validate: reject tools with null/blank names or names not in the allow-list.
+    for (VhrpMessage.ToolSpec tool : m.tools()) {
+      if (tool.name() == null || tool.name().isBlank()) {
+        return Uni.createFrom()
+            .failure(new VhrpException.ProtocolBadMessage("Tool name must not be null or blank"));
+      }
+      if (!allowedToolNames.contains(tool.name())) {
+        return Uni.createFrom()
+            .failure(
+                new VhrpException.ProtocolBadMessage(
+                    "Tool not allowed by Speed Dial: " + tool.name()));
+      }
+    }
     // Boundary translation: wire ToolSpec -> model ToolDefinition so the adapter never sees a VHRP
     // type. The shapes are identical today; the mapping makes the dependency direction explicit.
     List<RealtimeAdapterModels.ToolDefinition> tools =

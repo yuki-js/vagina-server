@@ -14,6 +14,10 @@ import java.util.TreeSet;
 @ApplicationScoped
 public class VfsFileService {
   public static final int MAX_PATH_LENGTH = 512;
+  // Bound the raw input before normalization so split()/normalization can't be driven with a
+  // multi-megabyte traversal string; the authoritative storage bound is MAX_PATH_LENGTH on the
+  // normalized result.
+  private static final int MAX_RAW_PATH_LENGTH = 8192;
 
   public static final String ERROR_PATH_MUST_BE_ABSOLUTE = "Path must be absolute";
   public static final String ERROR_PATH_TOO_LONG = "Path too long";
@@ -114,7 +118,7 @@ public class VfsFileService {
       throw new IllegalArgumentException(ERROR_PATH_MUST_BE_ABSOLUTE);
     }
 
-    if (path.length() > MAX_PATH_LENGTH) {
+    if (path.length() > MAX_RAW_PATH_LENGTH) {
       throw new IllegalArgumentException(ERROR_PATH_TOO_LONG);
     }
 
@@ -122,7 +126,13 @@ public class VfsFileService {
       throw new IllegalArgumentException(ERROR_PATH_CONTAINS_NULL_BYTE);
     }
 
-    return normalizePath(path);
+    String normalized = normalizePath(path);
+
+    if (normalized.length() > MAX_PATH_LENGTH) {
+      throw new IllegalArgumentException(ERROR_PATH_TOO_LONG);
+    }
+
+    return normalized;
   }
 
   private String normalizePath(String path) {

@@ -8,7 +8,6 @@ import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
 import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.ext.web.client.HttpResponse;
-import io.vertx.mutiny.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Iterator;
@@ -60,17 +59,16 @@ public class GitHubOidcProvider extends OidcProviderBase {
   }
 
   private OidcUserInfo fetchUserInfoFromGitHubApi(String accessToken) {
-    WebClient client = WebClient.create(vertx);
     HttpResponse<Buffer> response;
     try {
       response =
-          client
+          getWebClient()
               .getAbs(gitHubOidcProviderInfo.userApiEndpoint())
               .putHeader("Authorization", "Bearer " + accessToken)
               .putHeader("Accept", "application/json")
               .send()
               .await()
-              .indefinitely();
+              .atMost(HTTP_TIMEOUT);
     } catch (RuntimeException e) {
       throw new ExternalServiceException("GitHub user API request failed", e);
     }
@@ -90,7 +88,7 @@ public class GitHubOidcProvider extends OidcProviderBase {
       String email = Util.optionalText(json, "email");
       boolean emailVerified = false;
 
-      Optional<EmailInfo> emailInfo = fetchPrimaryVerifiedEmail(client, accessToken);
+      Optional<EmailInfo> emailInfo = fetchPrimaryVerifiedEmail(accessToken);
       if (emailInfo.isPresent()) {
         email = emailInfo.get().email();
         emailVerified = emailInfo.get().verified();
@@ -103,19 +101,24 @@ public class GitHubOidcProvider extends OidcProviderBase {
     }
   }
 
-  private Optional<EmailInfo> fetchPrimaryVerifiedEmail(WebClient client, String accessToken) {
+  private Optional<EmailInfo> fetchPrimaryVerifiedEmail(String accessToken) {
     if (gitHubOidcProviderInfo.userEmailsEndpoint().isEmpty()) {
       return Optional.empty();
     }
 
-    HttpResponse<Buffer> response =
-        client
-            .getAbs(gitHubOidcProviderInfo.userEmailsEndpoint().get())
-            .putHeader("Authorization", "Bearer " + accessToken)
-            .putHeader("Accept", "application/json")
-            .send()
-            .await()
-            .indefinitely();
+    HttpResponse<Buffer> response;
+    try {
+      response =
+          getWebClient()
+              .getAbs(gitHubOidcProviderInfo.userEmailsEndpoint().get())
+              .putHeader("Authorization", "Bearer " + accessToken)
+              .putHeader("Accept", "application/json")
+              .send()
+              .await()
+              .atMost(HTTP_TIMEOUT);
+    } catch (RuntimeException e) {
+      throw new ExternalServiceException("GitHub emails API request failed", e);
+    }
 
     if (response.statusCode() != 200) {
       return Optional.empty();

@@ -3,6 +3,7 @@ package app.vagina.server.service;
 import app.vagina.server.domain.error.AuthenticationException;
 import app.vagina.server.domain.error.ProviderNotImplementedException;
 import app.vagina.server.domain.error.ValidationException;
+import app.vagina.server.entity.AccountLifecycle;
 import app.vagina.server.entity.AuthMethod;
 import app.vagina.server.entity.AuthnProvider;
 import app.vagina.server.entity.ClientType;
@@ -388,7 +389,17 @@ public class AuthService {
       return Optional.empty();
     }
 
-    return userService.findById(userId);
+    Optional<User> userOpt = userService.findById(userId);
+    if (userOpt.isEmpty()) {
+      return Optional.empty();
+    }
+
+    User user = userOpt.get();
+    if (user.getAccountLifecycle() != AccountLifecycle.ACTIVE) {
+      return Optional.empty();
+    }
+
+    return Optional.of(user);
   }
 
   public boolean hasBearerToken(String authHeader) {

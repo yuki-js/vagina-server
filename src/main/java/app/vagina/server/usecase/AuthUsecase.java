@@ -1,6 +1,7 @@
 package app.vagina.server.usecase;
 
 import app.vagina.server.domain.error.AuthenticationException;
+import app.vagina.server.entity.AccountLifecycle;
 import app.vagina.server.entity.AuthnProvider;
 import app.vagina.server.entity.ClientType;
 import app.vagina.server.entity.User;
@@ -68,6 +69,11 @@ public class AuthUsecase {
     OidcUserInfo oidcUserInfo = authService.fetchUserInfo(provider, tokenSet.accessToken());
 
     User user = userService.getOrCreateOidcUser(provider, oidcUserInfo);
+
+    if (user.getAccountLifecycle() != AccountLifecycle.ACTIVE) {
+      throw new AuthenticationException("Account is not active");
+    }
+
     AuthnProvider primaryAuthnProvider =
         userService
             .findPrimaryAuthnProvider(user.getId())
@@ -95,6 +101,11 @@ public class AuthUsecase {
         userService
             .findById(rotatedRefreshToken.persistedToken().getUserId())
             .orElseThrow(() -> new IllegalStateException("User not found for refresh token"));
+
+    if (user.getAccountLifecycle() != AccountLifecycle.ACTIVE) {
+      throw new AuthenticationException("Account is not active");
+    }
+
     AuthnProvider primaryAuthnProvider =
         userService
             .findPrimaryAuthnProvider(user.getId())

@@ -106,7 +106,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   private String reasoningEffort;
   private boolean toolChoiceRequired = false;
   private String sessionVoice;
-  private String sessionInstructions;
+  private String serverOwnedInstructions;
+  private String clientInstructions = "";
   private String transcriptionModel = DEFAULT_TRANSCRIPTION_MODEL;
   private RealtimeAdapterModels.AudioTurnMode audioTurnMode =
       RealtimeAdapterModels.AudioTurnMode.VOICE_ACTIVITY;
@@ -169,6 +170,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     this.client = client;
     this.thread = new RealtimeThread("thread_test");
     this.patch = new ThreadPatchBuilder(thread);
+    this.serverOwnedInstructions = null;
+    this.clientInstructions = "";
     subscribeClient();
   }
 
@@ -342,8 +345,9 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   public Uni<Void> connect(String voice, String instructions) {
     ensureNotDisposed();
     this.sessionVoice = voice != null ? voice : modelConfig.voice().orElse(null);
-    this.sessionInstructions =
+    this.serverOwnedInstructions =
         instructions != null ? instructions : modelConfig.instructions().orElse(null);
+    this.clientInstructions = "";
     this.transcriptionModel =
         modelConfig
             .transcriptionModel()
@@ -443,10 +447,10 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     ensureNotDisposed();
     String normalized = instructions == null ? "" : instructions.trim();
     String next = normalized.isEmpty() ? "" : normalized;
-    if (Objects.equals(sessionInstructions, next)) {
+    if (Objects.equals(clientInstructions, next)) {
       return Uni.createFrom().voidItem();
     }
-    this.sessionInstructions = next;
+    this.clientInstructions = next;
     if (!isConnected()) {
       return Uni.createFrom().voidItem();
     }
@@ -1119,6 +1123,16 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   // Session config mapping (transcription of _buildSessionConfig)
   // ---------------------------------------------------------------------------
 
+  private String composeInstructions() {
+    if (serverOwnedInstructions == null || serverOwnedInstructions.isEmpty()) {
+      return clientInstructions == null ? "" : clientInstructions;
+    }
+    if (clientInstructions == null || clientInstructions.isEmpty()) {
+      return serverOwnedInstructions;
+    }
+    return serverOwnedInstructions + "\n\n" + clientInstructions;
+  }
+
   private Map<String, Object> buildSessionConfig() {
     Map<String, Object> inputFormat = new LinkedHashMap<>();
     inputFormat.put("type", "audio/pcm");
@@ -1155,7 +1169,7 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     if (reasoningEffort != null) {
       session.put("reasoning", Map.of("effort", reasoningEffort));
     }
-    session.put("instructions", sessionInstructions == null ? "" : sessionInstructions);
+    session.put("instructions", composeInstructions());
     session.put("output_modalities", List.of("audio"));
 
     List<Map<String, Object>> toolMaps = new ArrayList<>();

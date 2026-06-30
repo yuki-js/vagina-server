@@ -7,6 +7,9 @@ import app.vagina.server.entity.User;
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.service.AuthService;
 import app.vagina.server.usecase.CallSessionUsecase;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.WebSocketConnection;
 import io.smallrye.mutiny.Uni;
@@ -16,12 +19,16 @@ import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 /**
  * Application-scoped authority over VHRP/1 sessions: the only place resume is realized.
@@ -50,12 +57,16 @@ public class VhrpSessionRegistry {
   /** Live and retained sessions keyed by stable sessionId. Concurrent: connections span threads. */
   private final ConcurrentHashMap<String, Entry> sessions = new ConcurrentHashMap<>();
 
+  private static final TypeReference<LinkedHashMap<String, Boolean>> ENABLED_TOOLS_TYPE =
+      new TypeReference<>() {};
+
   @Inject AuthService authService;
   @Inject RealtimeAdapterFactory adapterFactory;
   @Inject VhrpCborCodec codec;
   @Inject Vertx vertx;
   @Inject VhrpBlockingUsecaseBridge blockingUsecaseBridge;
   @Inject RealtimeModelsConfig realtimeConfig;
+  @Inject ObjectMapper objectMapper;
 
   /** A session plus the bookkeeping the registry needs to police retention and ownership. */
   private static final class Entry {
@@ -128,6 +139,7 @@ public class VhrpSessionRegistry {
     String sessionId = newSessionId();
     String threadId = newThreadId();
     LocalDateTime startedAt = LocalDateTime.now();
+    Set<String> allowedToolNames = parseAllowedToolNames(speedDial.getEnabledTools());
     VhrpSession session =
         new VhrpSession(
             sessionId,
@@ -137,9 +149,8 @@ public class VhrpSessionRegistry {
             user.getId(),
             startedAt,
             speedDial.getSpeedDialId(),
-            voiceAgentId);
-    // TODO: Validate client-enabled tool catalog against Speed Dial enabled_tools before accepting
-    // tools.set for this server-owned session.
+            voiceAgentId,
+            allowedToolNames);
     return adapter
         .setAudioTurnMode(RealtimeAdapterModels.AudioTurnMode.fromWire(open.audioTurnMode()))
         .chain(() -> applyServerOwnedExtensions(adapter, speedDial))
@@ -316,5 +327,24 @@ public class VhrpSessionRegistry {
 
   private String newThreadId() {
     return "t_" + UUID.randomUUID();
+  }
+
+  private Set<String> parseAllowedToolNames(String enabledToolsJson) {
+    if (enabledToolsJson == null || enabledToolsJson.isBlank()) {
+      return Collections.emptySet();
+    }
+
+    try {
+      Map<String, Boolean> enabledToolsMap =
+          objectMapper.readValue(enabledToolsJson, ENABLED_TOOLS_TYPE);
+      return enabledToolsMap.entrySet().stream()
+          .filter(e -> Boolean.TRUE.equals(e.getValue()))
+          .map(Map.Entry::getKey)
+          .filter(name -> name != null && !name.isBlank())
+          .collect(Collectors.toSet());
+    } catch (JsonProcessingException e) {
+      Log.warnf(e, "Failed to parse enabled_tools JSON, failing closed with empty allow-list");
+      return Collections.emptySet();
+    }
   }
 }

@@ -69,7 +69,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
   private boolean toolChoiceRequired = false;
   private String reasoningEffort;
   private String sessionVoice;
-  private String sessionInstructions = "";
+  private String serverOwnedInstructions;
+  private String clientInstructions = "";
   private RealtimeAdapterModels.AudioTurnMode audioTurnMode =
       RealtimeAdapterModels.AudioTurnMode.VOICE_ACTIVITY;
   private RealtimeAdapterModels.ConnectionState connectionState =
@@ -93,8 +94,9 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     ensureNotDisposed();
     setConnectionState(RealtimeAdapterModels.ConnectionState.connecting());
     this.sessionVoice = voice != null ? voice : modelConfig.voice().orElse(null);
-    this.sessionInstructions =
-        instructions != null ? instructions : modelConfig.instructions().orElse("");
+    this.serverOwnedInstructions =
+        instructions != null ? instructions : modelConfig.instructions().orElse(null);
+    this.clientInstructions = "";
     String baseUrl = modelConfig.baseUrl().map(String::trim).orElse("");
     if (baseUrl.isEmpty()) {
       setConnectionState(
@@ -215,7 +217,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
   public Uni<Void> setInstructions(String instructions) {
     ensureNotDisposed();
     String normalized = instructions == null ? "" : instructions.trim();
-    this.sessionInstructions = normalized;
+    this.clientInstructions = normalized;
     return Uni.createFrom().voidItem();
   }
 
@@ -524,10 +526,21 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     return arguments.replaceAll("<\\|(?:audio_future|vq_lbr_audio)_?[^|]*\\|>", "");
   }
 
+  private String composeInstructions() {
+    if (serverOwnedInstructions == null || serverOwnedInstructions.isEmpty()) {
+      return clientInstructions == null ? "" : clientInstructions;
+    }
+    if (clientInstructions == null || clientInstructions.isEmpty()) {
+      return serverOwnedInstructions;
+    }
+    return serverOwnedInstructions + "\n\n" + clientInstructions;
+  }
+
   private List<Map<String, Object>> buildMessages() {
     List<Map<String, Object>> messages = new ArrayList<>();
-    if (sessionInstructions != null && !sessionInstructions.isBlank()) {
-      messages.add(Map.of("role", "system", "content", sessionInstructions));
+    String instructions = composeInstructions();
+    if (instructions != null && !instructions.isBlank()) {
+      messages.add(Map.of("role", "system", "content", instructions));
     }
     Set<String> processedCallIds = new HashSet<>();
     for (int i = 0; i < thread.items().size(); i++) {
