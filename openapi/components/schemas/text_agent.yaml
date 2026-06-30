@@ -47,7 +47,7 @@ TextAgent:
       format: date-time
       nullable: true
 
-TextAgentCreateRequest:
+TextAgentWriteRequest:
   type: object
   additionalProperties: false
   required:
@@ -86,41 +86,36 @@ TextAgentCreateRequest:
         document_read: true
         document_patch: false
 
-TextAgentUpdateRequest:
+TextAgentThreadStatus:
+  type: string
+  enum:
+    - active
+    - expired
+    - cancelled
+
+TextAgentToolCall:
   type: object
   additionalProperties: false
   required:
+    - id
     - name
-    - prompt
-    - textModelId
-    - enabledTools
+    - arguments
   properties:
+    id:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Server-generated tool call identifier to use when submitting a tool result.
+      example: tc_0123456789abcdef
     name:
       type: string
       minLength: 1
       maxLength: 128
-      example: Research Assistant
-    prompt:
-      type: string
-      minLength: 1
-      example: You are a careful research assistant.
-    description:
-      type: string
-      nullable: true
-      maxLength: 512
-      example: Helps analyze long-form documents
-    textModelId:
-      type: string
-      minLength: 1
-      maxLength: 128
-      description: Server registry text model preset id selected for this text agent.
-      example: text-agent-prod
-    enabledTools:
+      description: Client-executable tool name from the normalized tool definitions.
+      example: document_read
+    arguments:
       type: object
-      description: |
-        Map from tool name to enabled flag. Values must be booleans.
-        Provider, base URL, API key, self-hosted, and hosted transport details are
-        intentionally absent from this public API schema.
+      additionalProperties: true
+      description: Normalized JSON object arguments for the client-executable tool.
       example:
-        document_read: true
-        document_patch: false
+        documentId: doc_0123456789abcdef

@@ -46,7 +46,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/text_agent.yaml#/TextAgentCreateRequest"
+              $ref: "../components/schemas/text_agent.yaml#/TextAgentWriteRequest"
       responses:
         "201":
           description: Text agent created.
@@ -131,7 +131,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "../components/schemas/text_agent.yaml#/TextAgentUpdateRequest"
+              $ref: "../components/schemas/text_agent.yaml#/TextAgentWriteRequest"
       responses:
         "200":
           description: Text agent updated.
@@ -182,6 +182,459 @@ paths:
                 $ref: "../components/schemas/common.yaml#/ErrorResponse"
         "404":
           description: Text agent not found.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+  /text-agents/{textAgentId}/threads:
+    parameters:
+      - name: textAgentId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description: Text agent identifier.
+    post:
+      tags:
+        - text-agents
+      operationId: createTextAgentThread
+      summary: Create text agent thread
+      description: >-
+        Create a short-lived server-held text agent thread scoped to an active
+        voice or call session. The server stores conversation state but does not
+        expose provider ids or provider transport details.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - voiceSessionId
+              properties:
+                voiceSessionId:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: Active voice or call session identifier that scopes this short-lived thread.
+                  example: vs_0123456789abcdef0123456789abcdef
+                requestId:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: Optional client-generated idempotency or correlation identifier.
+                  example: req_0123456789abcdef
+                clientMetadata:
+                  type: object
+                  additionalProperties: true
+                  description: Optional client metadata for diagnostics and correlation.
+                  example:
+                    surface: call-overlay
+      responses:
+        "201":
+          description: Text agent thread created.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - threadId
+                  - status
+                  - threadRevision
+                  - expiresAt
+                properties:
+                  threadId:
+                    type: string
+                    minLength: 1
+                    maxLength: 128
+                    example: tat_0123456789abcdef0123456789abcdef
+                  status:
+                    $ref: "../components/schemas/text_agent.yaml#/TextAgentThreadStatus"
+                  threadRevision:
+                    type: integer
+                    format: int64
+                    minimum: 0
+                    description: Monotonic server revision for optimistic concurrency.
+                    example: 0
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: Time after which the server may discard the thread state.
+        "400":
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "404":
+          description: Text agent not found.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "409":
+          description: Voice session is not active or cannot accept a thread.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+  /text-agents/{textAgentId}/threads/{threadId}:
+    parameters:
+      - name: textAgentId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description: Text agent identifier.
+      - name: threadId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description: Text agent thread identifier.
+    get:
+      tags:
+        - text-agents
+      operationId: getTextAgentThread
+      summary: Get text agent thread state
+      description: >-
+        Get status, revision, pending tool calls, and expiration for one
+        short-lived text agent thread. Full transcript contents are intentionally
+        not returned.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Text agent thread state.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - threadId
+                  - status
+                  - threadRevision
+                  - pendingToolCalls
+                  - expiresAt
+                properties:
+                  threadId:
+                    type: string
+                    minLength: 1
+                    maxLength: 128
+                    example: tat_0123456789abcdef0123456789abcdef
+                  status:
+                    $ref: "../components/schemas/text_agent.yaml#/TextAgentThreadStatus"
+                  threadRevision:
+                    type: integer
+                    format: int64
+                    minimum: 0
+                    description: Monotonic server revision for optimistic concurrency.
+                    example: 2
+                  pendingToolCalls:
+                    type: array
+                    description: Pending client-executable tool calls, if the latest turn requires tool results.
+                    items:
+                      $ref: "../components/schemas/text_agent.yaml#/TextAgentToolCall"
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: Time after which the server may discard the thread state.
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "404":
+          description: Text agent or thread not found.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+  /text-agents/{textAgentId}/threads/{threadId}/turns:
+    parameters:
+      - name: textAgentId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description: Text agent identifier.
+      - name: threadId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+        description: Text agent thread identifier.
+    post:
+      tags:
+        - text-agents
+      operationId: createTextAgentThreadTurn
+      summary: Create text agent thread turn
+      description: >-
+        Append one client-supplied delta to a text agent thread and execute one
+        non-streaming provider turn atomically. Tool calls are returned for the
+        client to execute out of band; tool execution and tool results do not
+        stream.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - requestId
+                - input
+              properties:
+                requestId:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: Client-generated idempotency and correlation identifier for this turn.
+                  example: req_0123456789abcdef
+                expectedThreadRevision:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                  description: Optional revision precondition for optimistic concurrency.
+                  example: 1
+                input:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      required:
+                        - type
+                        - content
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - user_message
+                        content:
+                          type: string
+                          minLength: 1
+                          description: Plain text user message content for Phase 1.
+                          example: Summarize the current call so far.
+                    - type: object
+                      additionalProperties: false
+                      required:
+                        - type
+                        - toolCallId
+                        - content
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - tool_result
+                        toolCallId:
+                          type: string
+                          minLength: 1
+                          maxLength: 128
+                          description: Tool call identifier previously returned by the server.
+                          example: tc_0123456789abcdef
+                        content:
+                          type: string
+                          description: Plain text tool result content for Phase 1.
+                          example: Document section 3 says renewal requires written notice.
+                        isError:
+                          type: boolean
+                          default: false
+                          description: Whether the tool result represents a client-side tool execution error.
+                tools:
+                  type: array
+                  description: Normalized client-executable tool definitions available for this turn.
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - name
+                      - description
+                      - inputSchema
+                    properties:
+                      name:
+                        type: string
+                        minLength: 1
+                        maxLength: 128
+                        description: Stable client-executable tool name, independent of provider-native formats.
+                        example: document_read
+                      description:
+                        type: string
+                        minLength: 1
+                        maxLength: 2048
+                        example: Read selected document text.
+                      inputSchema:
+                        type: object
+                        additionalProperties: true
+                        description: JSON Schema object for the tool input, expressed in normalized client format.
+                        example:
+                          type: object
+                          properties:
+                            documentId:
+                              type: string
+                          required:
+                            - documentId
+                clientCapabilities:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    supportsToolResults:
+                      type: boolean
+                      description: Whether the client can execute returned tool calls and submit tool results.
+                      example: true
+                    maxToolCalls:
+                      type: integer
+                      minimum: 0
+                      description: Maximum number of tool calls the client can handle for one turn.
+                      example: 4
+      responses:
+        "200":
+          description: Text agent thread turn result.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - status
+                  - threadRevision
+                  - expiresAt
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - completed
+                      - requires_tool
+                      - failed
+                      - cancelled
+                  threadRevision:
+                    type: integer
+                    format: int64
+                    minimum: 0
+                    description: Monotonic server revision after applying this atomic turn.
+                    example: 2
+                  assistantMessage:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - role
+                      - content
+                    properties:
+                      role:
+                        type: string
+                        enum:
+                          - assistant
+                      content:
+                        type: string
+                        description: Plain text assistant message content for Phase 1.
+                        example: The call summary is ready.
+                  toolCalls:
+                    type: array
+                    description: Client-executable tool calls when status is requires_tool.
+                    items:
+                      $ref: "../components/schemas/text_agent.yaml#/TextAgentToolCall"
+                  usage:
+                    type: object
+                    additionalProperties: false
+                    properties:
+                      inputTokens:
+                        type: integer
+                        minimum: 0
+                        example: 120
+                      outputTokens:
+                        type: integer
+                        minimum: 0
+                        example: 48
+                      totalTokens:
+                        type: integer
+                        minimum: 0
+                        example: 168
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: Time after which the server may discard the thread state.
+                  error:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        minLength: 1
+                        maxLength: 128
+                        example: provider_unavailable
+                      message:
+                        type: string
+                        minLength: 1
+                        example: Text agent provider is temporarily unavailable.
+        "400":
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "404":
+          description: Text agent or thread not found.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "409":
+          description: Thread revision conflict or pending tool call mismatch.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
+        "410":
+          description: Text agent thread expired.
           content:
             application/json:
               schema:
