@@ -2,9 +2,10 @@ package app.vagina.server.resource;
 
 import app.vagina.server.entity.TextAgentDefinition;
 import app.vagina.server.generated.api.TextAgentsApi;
+import app.vagina.server.generated.model.CreateTextAgentThreadRequest;
+import app.vagina.server.generated.model.CreateTextAgentThreadTurnRequest;
 import app.vagina.server.generated.model.TextAgent;
-import app.vagina.server.generated.model.TextAgentCreateRequest;
-import app.vagina.server.generated.model.TextAgentUpdateRequest;
+import app.vagina.server.generated.model.TextAgentWriteRequest;
 import app.vagina.server.support.Authenticated;
 import app.vagina.server.support.AuthenticatedUser;
 import app.vagina.server.usecase.TextAgentUsecase;
@@ -41,11 +42,24 @@ public class TextAgentsApiImpl implements TextAgentsApi {
   }
 
   @Override
-  public Response createTextAgent(TextAgentCreateRequest textAgentCreateRequest) {
+  public Response createTextAgent(TextAgentWriteRequest textAgentWriteRequest) {
     Long userId = authenticatedUser.get().getId();
-    TextAgentDefinition created =
-        textAgentUsecase.createTextAgent(userId, toEntity(textAgentCreateRequest));
+    TextAgentDefinition created = textAgentUsecase.createTextAgent(userId, toEntity(textAgentWriteRequest));
     return Response.status(Response.Status.CREATED).entity(toGeneratedModel(created)).build();
+  }
+
+  @Override
+  public Response createTextAgentThread(
+      String textAgentId, CreateTextAgentThreadRequest createTextAgentThreadRequest) {
+    return notImplemented();
+  }
+
+  @Override
+  public Response createTextAgentThreadTurn(
+      String textAgentId,
+      String threadId,
+      CreateTextAgentThreadTurnRequest createTextAgentThreadTurnRequest) {
+    return notImplemented();
   }
 
   @Override
@@ -56,11 +70,10 @@ public class TextAgentsApiImpl implements TextAgentsApi {
   }
 
   @Override
-  public Response updateTextAgent(
-      String textAgentId, TextAgentUpdateRequest textAgentUpdateRequest) {
+  public Response updateTextAgent(String textAgentId, TextAgentWriteRequest textAgentWriteRequest) {
     Long userId = authenticatedUser.get().getId();
     TextAgentDefinition updated =
-        textAgentUsecase.updateTextAgent(userId, textAgentId, toEntity(textAgentUpdateRequest));
+        textAgentUsecase.updateTextAgent(userId, textAgentId, toEntity(textAgentWriteRequest));
     return Response.ok(toGeneratedModel(updated)).build();
   }
 
@@ -69,6 +82,15 @@ public class TextAgentsApiImpl implements TextAgentsApi {
     Long userId = authenticatedUser.get().getId();
     textAgentUsecase.deleteTextAgent(userId, textAgentId);
     return Response.noContent().build();
+  }
+
+  @Override
+  public Response getTextAgentThread(String textAgentId, String threadId) {
+    return notImplemented();
+  }
+
+  private Response notImplemented() {
+    return Response.status(501).build();
   }
 
   private TextAgent toGeneratedModel(TextAgentDefinition definition) {
@@ -85,17 +107,7 @@ public class TextAgentsApiImpl implements TextAgentsApi {
     return model;
   }
 
-  private TextAgentDefinition toEntity(TextAgentCreateRequest model) {
-    TextAgentDefinition definition = new TextAgentDefinition();
-    definition.setName(model.getName());
-    definition.setPrompt(model.getPrompt());
-    definition.setDescription(model.getDescription());
-    definition.setTextModelId(model.getTextModelId());
-    definition.setEnabledTools(serializeEnabledTools(model.getEnabledTools()));
-    return definition;
-  }
-
-  private TextAgentDefinition toEntity(TextAgentUpdateRequest model) {
+  private TextAgentDefinition toEntity(TextAgentWriteRequest model) {
     TextAgentDefinition definition = new TextAgentDefinition();
     definition.setName(model.getName());
     definition.setPrompt(model.getPrompt());
