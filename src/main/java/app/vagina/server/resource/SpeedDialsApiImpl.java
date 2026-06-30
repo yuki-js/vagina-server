@@ -56,7 +56,8 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
   }
 
   @Override
-  public Response updateSpeedDial(String speedDialId, SpeedDialUpdateRequest speedDialUpdateRequest) {
+  public Response updateSpeedDial(
+      String speedDialId, SpeedDialUpdateRequest speedDialUpdateRequest) {
     Long userId = authenticatedUser.get().getId();
     SpeedDialPreset updated =
         speedDialUsecase.updateSpeedDial(userId, speedDialId, toEntity(speedDialUpdateRequest));
@@ -123,14 +124,16 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     return SpeedDial.ReasoningEffortEnum.fromValue(reasoningEffort);
   }
 
-  private String toEntityReasoningEffort(SpeedDialCreateRequest.ReasoningEffortEnum reasoningEffort) {
+  private String toEntityReasoningEffort(
+      SpeedDialCreateRequest.ReasoningEffortEnum reasoningEffort) {
     if (reasoningEffort == null) {
       return SpeedDialCreateRequest.ReasoningEffortEnum.OFF.value();
     }
     return reasoningEffort.value();
   }
 
-  private String toEntityReasoningEffort(SpeedDialUpdateRequest.ReasoningEffortEnum reasoningEffort) {
+  private String toEntityReasoningEffort(
+      SpeedDialUpdateRequest.ReasoningEffortEnum reasoningEffort) {
     if (reasoningEffort == null) {
       return SpeedDialUpdateRequest.ReasoningEffortEnum.OFF.value();
     }

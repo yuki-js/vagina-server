@@ -69,7 +69,8 @@ public class SpeedDialService {
   }
 
   @Transactional
-  public Optional<SpeedDialPreset> update(Long userId, String speedDialId, SpeedDialPreset candidate) {
+  public Optional<SpeedDialPreset> update(
+      Long userId, String speedDialId, SpeedDialPreset candidate) {
     Optional<SpeedDialPreset> existing = findByUserIdAndSpeedDialId(userId, speedDialId);
     if (existing.isEmpty()) {
       return Optional.empty();

@@ -19,9 +19,9 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.UUID;
 
 /**
  * Application-scoped authority over VHRP/1 sessions: the only place resume is realized.

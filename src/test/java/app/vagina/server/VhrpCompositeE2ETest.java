@@ -16,6 +16,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
+import io.vertx.mutiny.core.Vertx;
 import jakarta.inject.Inject;
 import java.net.URL;
 import java.util.List;
@@ -25,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import io.vertx.mutiny.core.Vertx;
 
 /**
  * VHRP transport/authentication composite tests.

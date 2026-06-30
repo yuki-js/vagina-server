@@ -16,10 +16,10 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import java.util.function.Consumer;
 
 /**
  * VHRP cross-codec interoperability test — Layer 1, Java side.
@@ -990,9 +990,7 @@ class VhrpCrossCodecTest {
    * </ul>
    */
   private ObjectNode buildS2cJson(
-      String messageType,
-      List<String> bstrFields,
-      Consumer<ObjectNode> populator) {
+      String messageType, List<String> bstrFields, Consumer<ObjectNode> populator) {
     ObjectNode root = JSON.createObjectNode();
     root.put("_bstr_encoding", "hex");
     if (bstrFields != null && !bstrFields.isEmpty()) {

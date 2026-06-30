@@ -56,7 +56,8 @@ public class TextAgentsApiImpl implements TextAgentsApi {
   }
 
   @Override
-  public Response updateTextAgent(String textAgentId, TextAgentUpdateRequest textAgentUpdateRequest) {
+  public Response updateTextAgent(
+      String textAgentId, TextAgentUpdateRequest textAgentUpdateRequest) {
     Long userId = authenticatedUser.get().getId();
     TextAgentDefinition updated =
         textAgentUsecase.updateTextAgent(userId, textAgentId, toEntity(textAgentUpdateRequest));

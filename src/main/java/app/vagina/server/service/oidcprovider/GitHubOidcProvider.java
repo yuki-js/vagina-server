@@ -6,13 +6,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
+import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.ext.web.client.HttpResponse;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Iterator;
 import java.util.Optional;
-import io.vertx.mutiny.core.buffer.Buffer;
 
 @ApplicationScoped
 public class GitHubOidcProvider extends OidcProviderBase {

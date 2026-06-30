@@ -37,9 +37,7 @@ class OaiRealtimeAdapterToolOutputDispositionTest {
             .indefinitely();
 
     transport.emitConversationItemCreated(
-        itemId,
-        "call_1",
-        "{\"success\":false,\"error\":\"query_text_agent is disabled\"}");
+        itemId, "call_1", "{\"success\":false,\"error\":\"query_text_agent is disabled\"}");
 
     RealtimeThread.Item output = adapter.thread().findItem(itemId);
     assertNotNull(output);
@@ -47,7 +45,8 @@ class OaiRealtimeAdapterToolOutputDispositionTest {
     assertEquals(RealtimeAdapterModels.ToolOutputDisposition.ERROR, output.toolOutputDisposition());
     assertEquals("query_text_agent is disabled", output.toolErrorMessage());
     assertEquals("error", patchFieldValue(patches, itemId, "toolOutputDisposition"));
-    assertEquals("query_text_agent is disabled", patchFieldValue(patches, itemId, "toolErrorMessage"));
+    assertEquals(
+        "query_text_agent is disabled", patchFieldValue(patches, itemId, "toolErrorMessage"));
   }
 
   @Test
@@ -71,7 +70,9 @@ class OaiRealtimeAdapterToolOutputDispositionTest {
     assertEquals(RealtimeAdapterModels.ToolOutputDisposition.ERROR, output.toolOutputDisposition());
     assertEquals("Tool call cancelled by user interrupt.", output.toolErrorMessage());
     assertEquals("error", patchFieldValue(patches, itemId, "toolOutputDisposition"));
-    assertEquals("Tool call cancelled by user interrupt.", patchFieldValue(patches, itemId, "toolErrorMessage"));
+    assertEquals(
+        "Tool call cancelled by user interrupt.",
+        patchFieldValue(patches, itemId, "toolErrorMessage"));
   }
 
   private static String patchFieldValue(
