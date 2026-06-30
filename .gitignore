@@ -45,3 +45,6 @@ nb-configuration.xml
 openapi-generator-cli.jar
 
 target/
+
+# Claude Code (agent worktrees, session artifacts)
+.claude/
