@@ -1,5 +1,6 @@
 package app.vagina.server.realtime;
 
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -32,7 +33,17 @@ import java.util.Map;
 @ApplicationScoped
 public class VhrpCborCodec {
 
-  private final ObjectMapper cbor = new ObjectMapper(new CBORFactory());
+  private final ObjectMapper cbor =
+      new ObjectMapper(
+          CBORFactory.builder()
+              .streamReadConstraints(
+                  StreamReadConstraints.builder()
+                      .maxNestingDepth(64)
+                      .maxDocumentLength(10_000_000L)
+                      .maxNumberLength(1000)
+                      .maxStringLength(5_000_000)
+                      .build())
+              .build());
 
   // ---------------------------------------------------------------------------
   // Decode: Buffer -> VhrpMessage (client -> server)

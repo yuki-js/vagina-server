@@ -50,10 +50,6 @@ public class VfsUsecase {
     if (path == null || path.isBlank()) {
       throw new ValidationException("Missing or empty params.path");
     }
-    if (vfsFileService.read(userId, path).isEmpty()) {
-      return false;
-    }
-    vfsFileService.delete(userId, path);
-    return true;
+    return vfsFileService.delete(userId, path);
   }
 }

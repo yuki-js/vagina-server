@@ -73,6 +73,11 @@ public final class OaiCcClient {
 
   public void dispose() {
     cancelOngoingRequest();
+    try {
+      http.close();
+    } catch (Exception ignored) {
+      // Best-effort: dispose must stay idempotent and never throw.
+    }
   }
 
   private HttpRequest buildRequest(OaiCcConnectConfig config, OaiCcRequest request) {

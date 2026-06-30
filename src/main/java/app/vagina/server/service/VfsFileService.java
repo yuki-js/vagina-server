@@ -90,9 +90,9 @@ public class VfsFileService {
   }
 
   @Transactional
-  public void delete(Long userId, String path) {
+  public boolean delete(Long userId, String path) {
     String normalizedPath = validateFilePath(path);
-    vfsFileMapper.deleteByUserIdAndPath(userId, normalizedPath);
+    return vfsFileMapper.deleteByUserIdAndPath(userId, normalizedPath) > 0;
   }
 
   private String validateFilePath(String path) {

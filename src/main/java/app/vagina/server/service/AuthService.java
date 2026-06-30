@@ -285,9 +285,12 @@ public class AuthService {
     RefreshToken current = currentOpt.get();
     LocalDateTime now = LocalDateTime.now();
 
-    if (current.getRevokedAt() != null
-        || current.getExpiresAt() == null
-        || !current.getExpiresAt().isAfter(now)) {
+    if (current.getRevokedAt() != null) {
+      revokeTokenFamily(current.getTokenFamily(), now, "rotated_token_reuse_detected");
+      return Optional.empty();
+    }
+
+    if (current.getExpiresAt() == null || !current.getExpiresAt().isAfter(now)) {
       return Optional.empty();
     }
 
@@ -373,12 +376,16 @@ public class AuthService {
 
     Object uidClaim = jwt.getClaim("uid");
     Long userId;
-    if (uidClaim instanceof Long value) {
-      userId = value;
-    } else if (uidClaim instanceof Integer value) {
-      userId = value.longValue();
-    } else {
-      userId = Long.parseLong(String.valueOf(uidClaim));
+    try {
+      if (uidClaim instanceof Long value) {
+        userId = value;
+      } else if (uidClaim instanceof Integer value) {
+        userId = value.longValue();
+      } else {
+        userId = Long.parseLong(String.valueOf(uidClaim));
+      }
+    } catch (NumberFormatException e) {
+      return Optional.empty();
     }
 
     return userService.findById(userId);
