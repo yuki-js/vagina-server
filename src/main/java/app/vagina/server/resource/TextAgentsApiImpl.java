@@ -2,12 +2,20 @@ package app.vagina.server.resource;
 
 import app.vagina.server.entity.TextAgentDefinition;
 import app.vagina.server.generated.api.TextAgentsApi;
-import app.vagina.server.generated.model.CreateTextAgentThreadRequest;
-import app.vagina.server.generated.model.CreateTextAgentThreadTurnRequest;
+import app.vagina.server.generated.model.QueryTextAgent200Response;
+import app.vagina.server.generated.model.QueryTextAgent200ResponseError;
+import app.vagina.server.generated.model.QueryTextAgentRequest;
+import app.vagina.server.generated.model.QueryTextAgentRequestToolResult;
 import app.vagina.server.generated.model.TextAgent;
+import app.vagina.server.generated.model.TextAgentToolCall;
 import app.vagina.server.generated.model.TextAgentWriteRequest;
 import app.vagina.server.support.Authenticated;
 import app.vagina.server.support.AuthenticatedUser;
+import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
+import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
+import app.vagina.server.textagent.TextAgentRuntimeModels.QueryStatus;
+import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCall;
+import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
 import app.vagina.server.usecase.TextAgentUsecase;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -49,20 +57,6 @@ public class TextAgentsApiImpl implements TextAgentsApi {
   }
 
   @Override
-  public Response createTextAgentThread(
-      String textAgentId, CreateTextAgentThreadRequest createTextAgentThreadRequest) {
-    return notImplemented();
-  }
-
-  @Override
-  public Response createTextAgentThreadTurn(
-      String textAgentId,
-      String threadId,
-      CreateTextAgentThreadTurnRequest createTextAgentThreadTurnRequest) {
-    return notImplemented();
-  }
-
-  @Override
   public Response getTextAgent(String textAgentId) {
     Long userId = authenticatedUser.get().getId();
     TextAgentDefinition textAgentDefinition = textAgentUsecase.getTextAgent(userId, textAgentId);
@@ -85,12 +79,10 @@ public class TextAgentsApiImpl implements TextAgentsApi {
   }
 
   @Override
-  public Response getTextAgentThread(String textAgentId, String threadId) {
-    return notImplemented();
-  }
-
-  private Response notImplemented() {
-    return Response.status(501).build();
+  public Response queryTextAgent(String textAgentId, QueryTextAgentRequest queryTextAgentRequest) {
+    Long userId = authenticatedUser.get().getId();
+    QueryResult result = textAgentUsecase.queryTextAgent(userId, textAgentId, toCommand(queryTextAgentRequest));
+    return Response.ok(toGeneratedQueryResponse(result)).build();
   }
 
   private TextAgent toGeneratedModel(TextAgentDefinition definition) {
@@ -115,6 +107,51 @@ public class TextAgentsApiImpl implements TextAgentsApi {
     definition.setTextModelId(model.getTextModelId());
     definition.setEnabledTools(serializeEnabledTools(model.getEnabledTools()));
     return definition;
+  }
+
+  private QueryCommand toCommand(QueryTextAgentRequest request) {
+    return new QueryCommand(
+        request.getVoiceSessionId(),
+        request.getRequestId(),
+        request.getPrompt(),
+        toToolResultSubmission(request.getToolResult()));
+  }
+
+  private ToolResultSubmission toToolResultSubmission(QueryTextAgentRequestToolResult toolResult) {
+    if (toolResult == null) {
+      return null;
+    }
+    return new ToolResultSubmission(
+        toolResult.getToolCallId(), toolResult.getOutput(), Boolean.TRUE.equals(toolResult.getIsError()));
+  }
+
+  private QueryTextAgent200Response toGeneratedQueryResponse(QueryResult result) {
+    QueryTextAgent200Response response = new QueryTextAgent200Response();
+    response.setStatus(toGeneratedQueryStatus(result.status()));
+    response.setText(result.text());
+    response.setToolCalls(result.toolCalls().stream().map(this::toGeneratedToolCall).toList());
+    if (result.error() != null) {
+      response.setError(
+          new QueryTextAgent200ResponseError()
+              .code(result.error().code())
+              .message(result.error().message()));
+    }
+    return response;
+  }
+
+  private QueryTextAgent200Response.StatusEnum toGeneratedQueryStatus(QueryStatus status) {
+    return switch (status) {
+      case COMPLETED -> QueryTextAgent200Response.StatusEnum.COMPLETED;
+      case REQUIRES_TOOL -> QueryTextAgent200Response.StatusEnum.REQUIRES_TOOL;
+      case FAILED -> QueryTextAgent200Response.StatusEnum.FAILED;
+    };
+  }
+
+  private TextAgentToolCall toGeneratedToolCall(ToolCall toolCall) {
+    return new TextAgentToolCall()
+        .id(toolCall.id())
+        .name(toolCall.name())
+        .arguments(toolCall.arguments());
   }
 
   private String serializeEnabledTools(Object enabledTools) {

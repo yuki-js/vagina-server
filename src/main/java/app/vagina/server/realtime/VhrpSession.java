@@ -2,6 +2,8 @@ package app.vagina.server.realtime;
 
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.realtime.model.RealtimeThread;
+import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderSessionState;
+import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.WebSocketConnection;
 import io.smallrye.mutiny.Uni;
@@ -12,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -83,6 +86,13 @@ public class VhrpSession {
   private volatile boolean everReady = false;
 
   /**
+   * Private Text Agent runtime state keyed by textAgentId. Each holder binds one provider/model for
+   * this VHRP session and stores only provider-specific continuation data plus pending tool calls.
+   */
+  private final ConcurrentHashMap<String, ProviderSessionState> textAgentProviderStates =
+      new ConcurrentHashMap<>();
+
+  /**
    * Subscriptions to the adapter's S2C output streams (patches/audio/vad/errors). Held for the
    * session's lifetime and cancelled on {@link #dispose()}; the adapter pushes on its own threads
    * so these feed straight into {@link #writeFrame}.
@@ -135,6 +145,16 @@ public class VhrpSession {
     return voiceAgentId;
   }
 
+  public ProviderSessionState textAgentProviderState(
+      String textAgentId, TextAgentModelBinding initialBinding) {
+    return textAgentProviderStates.computeIfAbsent(
+        textAgentId, key -> new ProviderSessionState(key, initialBinding));
+  }
+
+  public Map<String, ProviderSessionState> textAgentProviderStatesSnapshot() {
+    return Map.copyOf(textAgentProviderStates);
+  }
+ 
   // ---------------------------------------------------------------------------
   // Adapter S2C subscription
   // ---------------------------------------------------------------------------

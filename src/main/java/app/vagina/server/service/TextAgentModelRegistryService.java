@@ -6,6 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 @ApplicationScoped
 public class TextAgentModelRegistryService {
@@ -40,9 +41,25 @@ public class TextAgentModelRegistryService {
     return modelsConfig.models().containsKey(modelId);
   }
 
+  public TextAgentModelConfigView getModelConfig(String modelId) {
+    TextAgentModelsConfig.ModelConfig model = modelsConfig.models().get(modelId);
+    if (model == null) {
+      throw new IllegalArgumentException("Unknown text model id: " + modelId);
+    }
+    return new TextAgentModelConfigView(
+        modelId, model.provider(), model.baseUrl(), model.apiKey(), model.model());
+  }
+
   private boolean isDefault(String modelId) {
     return modelId.equals(modelsConfig.defaultModel());
   }
 
   public record TextAgentModelPresetView(String id, String displayName, boolean isDefault) {}
+
+  public record TextAgentModelConfigView(
+      String id,
+      String provider,
+      Optional<String> baseUrl,
+      Optional<String> apiKey,
+      Optional<String> model) {}
 }

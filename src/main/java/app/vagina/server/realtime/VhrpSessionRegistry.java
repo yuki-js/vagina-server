@@ -1,5 +1,6 @@
 package app.vagina.server.realtime;
 
+import app.vagina.server.domain.error.ConflictException;
 import app.vagina.server.domain.error.NotFoundException;
 import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.entity.SpeedDialPreset;
@@ -218,6 +219,20 @@ public class VhrpSessionRegistry {
       entry.detachedAt = detachedAt;
       scheduleRetentionExpiry(session.sessionId(), detachedAt);
     }
+  }
+
+  public VhrpSession getOwnedActiveSession(String sessionId, Long userId) {
+    if (sessionId == null || sessionId.isBlank()) {
+      throw new ConflictException("Voice session is not active");
+    }
+    Entry entry = sessions.get(sessionId);
+    if (entry == null || isExpired(entry, Instant.now()) || !entry.attached) {
+      throw new ConflictException("Voice session is not active");
+    }
+    if (!Objects.equals(entry.ownerUserId, userId == null ? null : userId.toString())) {
+      throw new ConflictException("Voice session is not active");
+    }
+    return entry.session;
   }
 
   /** Terminally closes a session after an explicit client {@code session.end}. Idempotent. */
