@@ -5,6 +5,7 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCall;
+import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -67,14 +68,21 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
       messages.add(ChatCompletionMessage.user(context.command().prompt()));
       return;
     }
-    messages.add(
-        ChatCompletionMessage.toolOutput(
-            context.command().toolResult().toolCallId(), context.command().toolResult().output()));
+    for (ToolResultSubmission toolResult : context.sessionState().acceptedToolResults()) {
+      messages.add(ChatCompletionMessage.toolOutput(toolResult.toolCallId(), toolResult.output()));
+    }
   }
 
   private ChatCompletionRequest requestBody(
       ProviderContext context, List<ChatCompletionMessage> messages) {
-    return new ChatCompletionRequest(boundModelName(context), messages, false);
+    List<OpenAiTextAgentToolSchemas.ChatCompletionsTool> tools =
+        OpenAiTextAgentToolSchemas.chatCompletionsTools(context.toolCatalog());
+    return new ChatCompletionRequest(
+        boundModelName(context),
+        messages,
+        false,
+        tools.isEmpty() ? null : tools,
+        tools.isEmpty() ? null : "auto");
   }
 
   private QueryResult parseResponse(ChatCompletionResponse response) {
@@ -171,8 +179,13 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
     return value == null || value.isBlank() ? fallback : value;
   }
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private record ChatCompletionRequest(
-      String model, List<ChatCompletionMessage> messages, boolean stream) {}
+      String model,
+      List<ChatCompletionMessage> messages,
+      boolean stream,
+      List<OpenAiTextAgentToolSchemas.ChatCompletionsTool> tools,
+      @JsonProperty("tool_choice") String toolChoice) {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   private record ChatCompletionMessage(
@@ -212,8 +225,7 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
     }
   }
 
-  private record ChatCompletionToolCall(
-      String id, String type, ChatCompletionFunction function) {}
+  private record ChatCompletionToolCall(String id, String type, ChatCompletionFunction function) {}
 
   private record ChatCompletionFunction(String name, String arguments) {}
 

@@ -20,7 +20,7 @@ public interface TextAgentAdapter {
 
   default void applyResultToSessionState(ProviderContext context, QueryResult result) {
     switch (result.status()) {
-      case COMPLETED, FAILED -> context.sessionState().clearPendingToolCalls();
+      case COMPLETED, FAILED -> context.sessionState().clearRequestState();
       case REQUIRES_TOOL -> context.sessionState().replacePendingToolCalls(result.toolCalls());
     }
   }
@@ -44,6 +44,7 @@ public interface TextAgentAdapter {
   default QueryResult notImplementedYet(String detail) {
     String provider = providerKey();
     String suffix = detail == null || detail.isBlank() ? "" : ": " + detail;
-    return QueryResult.failed("provider_not_implemented", provider + " text agent adapter is not implemented" + suffix);
+    return QueryResult.failed(
+        "provider_not_implemented", provider + " text agent adapter is not implemented" + suffix);
   }
 }

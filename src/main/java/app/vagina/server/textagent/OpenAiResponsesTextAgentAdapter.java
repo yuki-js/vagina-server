@@ -5,6 +5,7 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCall;
+import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -55,12 +56,18 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
     Object input =
         context.command().isPromptStep()
             ? context.command().prompt()
-            : List.of(
-                new FunctionCallOutputInput(
-                    "function_call_output",
-                    context.command().toolResult().toolCallId(),
-                    context.command().toolResult().output()));
-    return new ResponsesRequest(boundModelName(context), instructions, previousResponseId, input);
+            : context.sessionState().acceptedToolResults().stream()
+                .map(this::functionCallOutputInput)
+                .toList();
+    List<OpenAiTextAgentToolSchemas.ResponsesTool> tools =
+        OpenAiTextAgentToolSchemas.responsesTools(context.toolCatalog());
+    return new ResponsesRequest(
+        boundModelName(context),
+        instructions,
+        previousResponseId,
+        input,
+        tools.isEmpty() ? null : tools,
+        tools.isEmpty() ? null : "auto");
   }
 
   private QueryResult parseResponse(ResponsesResponse response) {
@@ -73,8 +80,7 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
     if (response.output() != null) {
       for (ResponsesOutputItem item : response.output()) {
         if ("function_call".equals(item.type())) {
-          toolCalls.add(
-              new ToolCall(item.callId(), item.name(), fallback(item.arguments(), "{}")));
+          toolCalls.add(new ToolCall(item.callId(), item.name(), fallback(item.arguments(), "{}")));
         } else if ("message".equals(item.type())) {
           appendOutputText(textParts, item.content());
         }
@@ -86,7 +92,8 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
     if (!textParts.isEmpty()) {
       return QueryResult.completed(String.join("", textParts));
     }
-    return QueryResult.failed("provider_response_error", "Responses response had no text or tool calls");
+    return QueryResult.failed(
+        "provider_response_error", "Responses response had no text or tool calls");
   }
 
   private void appendOutputText(List<String> textParts, List<ResponsesContentPart> content) {
@@ -155,6 +162,11 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
     }
   }
 
+  private FunctionCallOutputInput functionCallOutputInput(ToolResultSubmission toolResult) {
+    return new FunctionCallOutputInput(
+        "function_call_output", toolResult.toolCallId(), toolResult.output());
+  }
+
   private static String fallback(String value, String fallback) {
     return value == null || value.isBlank() ? fallback : value;
   }
@@ -164,12 +176,16 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
       String model,
       String instructions,
       @JsonProperty("previous_response_id") String previousResponseId,
-      Object input) {}
+      Object input,
+      List<OpenAiTextAgentToolSchemas.ResponsesTool> tools,
+      @JsonProperty("tool_choice") String toolChoice) {}
 
-  private record FunctionCallOutputInput(String type, @JsonProperty("call_id") String callId, String output) {}
+  private record FunctionCallOutputInput(
+      String type, @JsonProperty("call_id") String callId, String output) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
-  private record ResponsesResponse(String id, List<ResponsesOutputItem> output, ProviderError error) {}
+  private record ResponsesResponse(
+      String id, List<ResponsesOutputItem> output, ProviderError error) {}
 
   private record ResponsesOutputItem(
       String id,
@@ -183,7 +199,8 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
       List<?> summary,
       List<ResponsesContentPart> content) {}
 
-  private record ResponsesContentPart(String type, String text, Object annotations, Object logprobs) {}
+  private record ResponsesContentPart(
+      String type, String text, Object annotations, Object logprobs) {}
 
   private record ProviderError(String code, String message, String type, String param) {}
 }

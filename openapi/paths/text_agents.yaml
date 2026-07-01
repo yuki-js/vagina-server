@@ -249,6 +249,45 @@ paths:
                     New user prompt for this step. Exactly one of `prompt` or
                     `toolResult` must be present.
                   example: Summarize what the caller just said.
+                toolSchemas:
+                  type: array
+                  description: >-
+                    Client-supplied schemas for Text Agent client-executable
+                    tools. Tool execution is client-side, so these schemas come
+                    from the client runtime tool registry, not from Voice Agent
+                    `tools.set` or Speed Dial exposed tools. The server filters
+                    this list by the persisted Text Agent `enabledTools`
+                    overrides and server policy before constructing provider
+                    requests.
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - name
+                      - description
+                      - parameters
+                    properties:
+                      name:
+                        type: string
+                        minLength: 1
+                        maxLength: 128
+                        description: Client runtime tool name. Text Agent schemas are supplied by the client because the client executes tools.
+                        example: document_read
+                      description:
+                        type: string
+                        description: AI-facing tool description supplied by the client runtime registry.
+                        example: Read the content of an active filesystem file by path.
+                      parameters:
+                        type: object
+                        description: JSON Schema object for tool parameters supplied by the client runtime registry.
+                        example:
+                          type: object
+                          properties:
+                            path:
+                              type: string
+                              description: Absolute path of the active file to read.
+                          required:
+                            - path
                 toolResult:
                   type: object
                   additionalProperties: false

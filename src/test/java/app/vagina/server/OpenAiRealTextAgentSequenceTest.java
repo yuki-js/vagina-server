@@ -41,13 +41,13 @@ import org.junit.jupiter.api.Test;
  * <p>These scenarios deliberately keep the Text Agent query path end-to-end through the REST API:
  * Harigata OIDC, DB-backed JWT, hosted VHRP session ownership, Text Agent persistence, and real
  * OpenAI Chat Completions execution through the configured {@code text-agent-prod} provider. The
- * VHRP realtime adapter is mocked only to keep this class focused on Text Agent behavior and avoid a
- * second provider credential requirement unrelated to {@code /api/text-agents/{id}/query}.
+ * VHRP realtime adapter is mocked only to keep this class focused on Text Agent behavior and avoid
+ * a second provider credential requirement unrelated to {@code /api/text-agents/{id}/query}.
  *
  * <p>Tool-call coverage is not included here yet. The current Text Agent REST product path persists
  * {@code enabledTools}, but the OpenAI Text Agent adapters do not send a client tool catalog in
- * provider requests. Without an exposed REST-path tool catalog, asserting {@code requires_tool} from
- * real OpenAI would test prompt luck instead of a stable product contract.
+ * provider requests. Without an exposed REST-path tool catalog, asserting {@code requires_tool}
+ * from real OpenAI would test prompt luck instead of a stable product contract.
  */
 @QuarkusTest
 @QuarkusTestResource(HarigataOidcMockServerResource.class)
@@ -101,8 +101,8 @@ class OpenAiRealTextAgentSequenceTest {
    *   <li>Real OpenAI acknowledges the notes through the REST query path.
    *   <li>User asks a natural follow-up without restating the owner or due date.
    *   <li>Real OpenAI answers from the same session's Text Agent memory.
-   *   <li>User starts a second VHRP session and asks for the same meeting detail without pasting the
-   *       notes.
+   *   <li>User starts a second VHRP session and asks for the same meeting detail without pasting
+   *       the notes.
    *   <li>Real OpenAI follows the no-prior-note instruction and does not leak the first session's
    *       meeting details.
    *   <li>User explicitly ends the hosted sessions.
@@ -183,10 +183,11 @@ class OpenAiRealTextAgentSequenceTest {
    *   <li>User creates two distinct Text Agents: a meeting analyst and a risk reviewer.
    *   <li>User gives the meeting analyst a budget-owner note.
    *   <li>User asks the risk reviewer for a budget owner without giving it that note.
-   *   <li>Real OpenAI answers through the risk reviewer without leaking the meeting analyst's owner.
+   *   <li>Real OpenAI answers through the risk reviewer without leaking the meeting analyst's
+   *       owner.
    *   <li>User returns to the meeting analyst and asks a follow-up without restating the owner.
-   *   <li>Real OpenAI recalls the owner from the meeting analyst's own state, proving state is keyed
-   *       by Text Agent id inside the same VHRP session.
+   *   <li>Real OpenAI recalls the owner from the meeting analyst's own state, proving state is
+   *       keyed by Text Agent id inside the same VHRP session.
    *   <li>User explicitly ends the hosted session.
    * </ol>
    */
@@ -299,7 +300,8 @@ class OpenAiRealTextAgentSequenceTest {
     SessionIds secondSession = openAuthenticatedSession(jwt);
     Response secondPolicy =
         queryTextAgent(jwt, textAgentId, secondSession.sessionId(), requestId(), supportCasePrompt);
-    assertCompletedWithMarkers(secondPolicy, "TRIAGE_V2", "category=billing_refund", "escalation=finance");
+    assertCompletedWithMarkers(
+        secondPolicy, "TRIAGE_V2", "category=billing_refund", "escalation=finance");
     assertResponseTextDoesNotContain(secondPolicy, "TRIAGE_V1");
 
     writeTranscriptArtifact(
@@ -395,7 +397,8 @@ class OpenAiRealTextAgentSequenceTest {
             Map.of(
                 "voiceSessionId", voiceSessionId,
                 "requestId", requestId,
-                "prompt", prompt))
+                "prompt", prompt,
+                "toolSchemas", List.of()))
         .when()
         .post("/api/text-agents/{textAgentId}/query", textAgentId)
         .then()
@@ -420,12 +423,14 @@ class OpenAiRealTextAgentSequenceTest {
   private static void assertResponseTextDoesNotContain(Response response, String forbidden) {
     String text = response.jsonPath().getString("text");
     assertNotNull(text, "completed Text Agent response must include text");
-    assertTrue(!text.contains(forbidden), "Text Agent response must not expose marker " + forbidden);
+    assertTrue(
+        !text.contains(forbidden), "Text Agent response must not expose marker " + forbidden);
   }
 
   private void closeSession() throws InterruptedException {
     client.send("session.end", Map.of());
-    assertTrue(client.waitForClose(10, TimeUnit.SECONDS) != -1, "session.end must close the socket");
+    assertTrue(
+        client.waitForClose(10, TimeUnit.SECONDS) != -1, "session.end must close the socket");
   }
 
   private int testPort() {
@@ -444,7 +449,8 @@ class OpenAiRealTextAgentSequenceTest {
   }
 
   private static boolean hasRequiredOpenAiConfig() {
-    return hasNonBlankConfig(REQUIRED_API_KEY_PROPERTY) && hasNonBlankConfig(REQUIRED_BASE_URL_PROPERTY);
+    return hasNonBlankConfig(REQUIRED_API_KEY_PROPERTY)
+        && hasNonBlankConfig(REQUIRED_BASE_URL_PROPERTY);
   }
 
   private static boolean hasNonBlankConfig(String propertyName) {
@@ -484,8 +490,8 @@ class OpenAiRealTextAgentSequenceTest {
     return entry;
   }
 
-  private static void writeTranscriptArtifact(String sequenceName, List<Map<String, Object>> entries)
-      throws IOException {
+  private static void writeTranscriptArtifact(
+      String sequenceName, List<Map<String, Object>> entries) throws IOException {
     Optional<Path> maybeDir = transcriptDir();
     if (maybeDir.isEmpty()) {
       return;
@@ -503,9 +509,14 @@ class OpenAiRealTextAgentSequenceTest {
         StandardCharsets.UTF_8);
   }
 
-  private static String renderTranscriptMarkdown(String sequenceName, List<Map<String, Object>> entries) {
+  private static String renderTranscriptMarkdown(
+      String sequenceName, List<Map<String, Object>> entries) {
     StringBuilder markdown = new StringBuilder();
-    markdown.append("# ").append(sequenceName).append(" Text Agent transcript").append(System.lineSeparator());
+    markdown
+        .append("# ")
+        .append(sequenceName)
+        .append(" Text Agent transcript")
+        .append(System.lineSeparator());
     markdown.append(System.lineSeparator());
     int index = 1;
     for (Map<String, Object> entry : entries) {
@@ -523,16 +534,28 @@ class OpenAiRealTextAgentSequenceTest {
       appendMarkdownField(markdown, "status", entry.get("status"));
       markdown.append(System.lineSeparator());
       markdown.append("### Request").append(System.lineSeparator()).append(System.lineSeparator());
-      markdown.append(entry.get("requestPrompt")).append(System.lineSeparator()).append(System.lineSeparator());
+      markdown
+          .append(entry.get("requestPrompt"))
+          .append(System.lineSeparator())
+          .append(System.lineSeparator());
       markdown.append("### Response").append(System.lineSeparator()).append(System.lineSeparator());
-      markdown.append(entry.get("responseText")).append(System.lineSeparator()).append(System.lineSeparator());
+      markdown
+          .append(entry.get("responseText"))
+          .append(System.lineSeparator())
+          .append(System.lineSeparator());
     }
     return markdown.toString();
   }
 
   private static void appendMarkdownField(StringBuilder markdown, String key, Object value) {
     if (value != null) {
-      markdown.append("- ").append(key).append(": `").append(value).append('`').append(System.lineSeparator());
+      markdown
+          .append("- ")
+          .append(key)
+          .append(": `")
+          .append(value)
+          .append('`')
+          .append(System.lineSeparator());
     }
   }
 

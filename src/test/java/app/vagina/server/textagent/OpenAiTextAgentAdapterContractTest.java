@@ -18,11 +18,13 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryStatus;
 import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
+import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCatalogEntry;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,6 +82,40 @@ class OpenAiTextAgentAdapterContractTest {
         "id": "chatcmpl-DwigtB5LzpU1OyUHtdCKubCpgGho9",
         "model": "gpt-5.5-2026-04-24",
         "object": "chat.completion"
+      }
+      """;
+
+  private static final String CHAT_MULTI_TOOL_CALL_RESPONSE =
+      """
+      {
+        "choices": [
+          {
+            "finish_reason": "tool_calls",
+            "index": 0,
+            "message": {
+              "content": null,
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\\\"path\\\":\\\"/contract.md\\\"}",
+                    "name": "document_read"
+                  },
+                  "id": "call_first",
+                  "type": "function"
+                },
+                {
+                  "function": {
+                    "arguments": "{\\\"expression\\\":\\\"2+2\\\"}",
+                    "name": "calculator"
+                  },
+                  "id": "call_second",
+                  "type": "function"
+                }
+              ]
+            }
+          }
+        ]
       }
       """;
 
@@ -217,8 +253,13 @@ class OpenAiTextAgentAdapterContractTest {
         post(urlPathEqualTo("/v1/chat/completions"))
             .withRequestBody(matchingJsonPath("$.model", equalTo("gpt-5.5")))
             .withRequestBody(matchingJsonPath("$.messages[0].role", equalTo("system")))
-            .withRequestBody(matchingJsonPath("$.messages[1].content", equalTo("Reply with exactly: live chat ok")))
-            .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody(CHAT_COMPLETED_RESPONSE)));
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.messages[1].content", equalTo("Reply with exactly: live chat ok")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(CHAT_COMPLETED_RESPONSE)));
     OpenAiChatCompletionsTextAgentAdapter adapter =
         new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
     ProviderContext context =
@@ -238,14 +279,27 @@ class OpenAiTextAgentAdapterContractTest {
   void chatCompletionsToolCallAndContinuationUseCapturedGpt55Shapes() {
     provider.stubFor(
         post(urlPathEqualTo("/v1/chat/completions"))
-            .withRequestBody(matchingJsonPath("$.messages[1].content", equalTo("Use the document_read tool for /contract.md.")))
-            .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody(CHAT_TOOL_CALL_RESPONSE)));
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.messages[1].content",
+                    equalTo("Use the document_read tool for /contract.md.")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(CHAT_TOOL_CALL_RESPONSE)));
     provider.stubFor(
         post(urlPathEqualTo("/v1/chat/completions"))
-            .withRequestBody(matchingJsonPath("$.messages[2].tool_calls[0].id", equalTo("call_wtIGCW9WMkDpULFW5or9izIa")))
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.messages[2].tool_calls[0].id", equalTo("call_wtIGCW9WMkDpULFW5or9izIa")))
             .withRequestBody(matchingJsonPath("$.messages[3].role", equalTo("tool")))
-            .withRequestBody(matchingJsonPath("$.messages[3].tool_call_id", equalTo("call_wtIGCW9WMkDpULFW5or9izIa")))
-            .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody(CHAT_TOOL_CONTINUATION_RESPONSE)));
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.messages[3].tool_call_id", equalTo("call_wtIGCW9WMkDpULFW5or9izIa")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(CHAT_TOOL_CONTINUATION_RESPONSE)));
     OpenAiChatCompletionsTextAgentAdapter adapter =
         new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
     ProviderContext promptContext =
@@ -268,12 +322,67 @@ class OpenAiTextAgentAdapterContractTest {
   }
 
   @Test
+  void chatCompletionsContinuationIncludesAllAcceptedToolOutputsBeforeProviderCall()
+      throws Exception {
+    provider.stubFor(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.messages[1].content", equalTo("Use multiple tools before answering.")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(CHAT_MULTI_TOOL_CALL_RESPONSE)));
+    provider.stubFor(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .withRequestBody(matchingJsonPath("$.messages[2].tool_calls[0].id", equalTo("call_first")))
+            .withRequestBody(
+                matchingJsonPath("$.messages[2].tool_calls[1].id", equalTo("call_second")))
+            .withRequestBody(matchingJsonPath("$.messages[3].role", equalTo("tool")))
+            .withRequestBody(matchingJsonPath("$.messages[3].tool_call_id", equalTo("call_first")))
+            .withRequestBody(matchingJsonPath("$.messages[3].content", equalTo("first output")))
+            .withRequestBody(matchingJsonPath("$.messages[4].role", equalTo("tool")))
+            .withRequestBody(matchingJsonPath("$.messages[4].tool_call_id", equalTo("call_second")))
+            .withRequestBody(matchingJsonPath("$.messages[4].content", equalTo("second output")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(CHAT_TOOL_CONTINUATION_RESPONSE)));
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+    ProviderContext promptContext =
+        promptContext(
+            TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS,
+            "Use multiple tools before answering.");
+
+    QueryResult toolRequest = adapter.execute(promptContext);
+    adapter.applyResultToSessionState(promptContext, toolRequest);
+    promptContext
+        .sessionState()
+        .acceptPendingToolResult(new ToolResultSubmission("call_first", "first output", false));
+    promptContext
+        .sessionState()
+        .acceptPendingToolResult(new ToolResultSubmission("call_second", "second output", false));
+    ProviderContext continuationContext = toolResultContext(promptContext.sessionState(), "call_second");
+    QueryResult completed = adapter.execute(continuationContext);
+
+    assertEquals(QueryStatus.REQUIRES_TOOL, toolRequest.status());
+    assertEquals(List.of("call_first", "call_second"), toolRequest.toolCalls().stream().map(TextAgentRuntimeModels.ToolCall::id).toList());
+    assertEquals(QueryStatus.COMPLETED, completed.status());
+    provider.verify(2, postRequestedFor(urlPathEqualTo("/v1/chat/completions")));
+  }
+
+  @Test
   void responsesCompletedResponseUsesCapturedGpt55OutputTextShape() {
     provider.stubFor(
         post(urlPathEqualTo("/v1/responses"))
             .withRequestBody(matchingJsonPath("$.model", equalTo("gpt-5.5")))
-            .withRequestBody(matchingJsonPath("$.input", equalTo("Reply with exactly: live responses ok")))
-            .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody(RESPONSES_COMPLETED_RESPONSE)));
+            .withRequestBody(
+                matchingJsonPath("$.input", equalTo("Reply with exactly: live responses ok")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(RESPONSES_COMPLETED_RESPONSE)));
     OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
     ProviderContext context =
         promptContext(
@@ -284,21 +393,35 @@ class OpenAiTextAgentAdapterContractTest {
 
     assertEquals(QueryStatus.COMPLETED, result.status());
     assertEquals("live responses ok", result.text());
-    assertEquals("resp_0657109dfe0338bf006a44b315b21081958cf5c183d326b5d2", adapter.previousResponseId(context));
+    assertEquals(
+        "resp_0657109dfe0338bf006a44b315b21081958cf5c183d326b5d2",
+        adapter.previousResponseId(context));
   }
 
   @Test
   void responsesToolCallAndArrayContinuationUseCapturedGpt55Shapes() {
     provider.stubFor(
         post(urlPathEqualTo("/v1/responses"))
-            .withRequestBody(matchingJsonPath("$.input", equalTo("Use the document_read tool for /contract.md.")))
-            .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody(RESPONSES_TOOL_CALL_RESPONSE)));
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.input", equalTo("Use the document_read tool for /contract.md.")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(RESPONSES_TOOL_CALL_RESPONSE)));
     provider.stubFor(
         post(urlPathEqualTo("/v1/responses"))
-            .withRequestBody(matchingJsonPath("$.previous_response_id", equalTo("resp_05c749160a4fb710006a44b317c5788193b7c6d343252fe08e")))
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.previous_response_id",
+                    equalTo("resp_05c749160a4fb710006a44b317c5788193b7c6d343252fe08e")))
             .withRequestBody(matchingJsonPath("$.input[0].type", equalTo("function_call_output")))
-            .withRequestBody(matchingJsonPath("$.input[0].call_id", equalTo("call_mAH7OHpzsnpQQ8DfBhdS3L6J")))
-            .willReturn(aResponse().withHeader("Content-Type", "application/json").withBody(RESPONSES_TOOL_CONTINUATION_RESPONSE)));
+            .withRequestBody(
+                matchingJsonPath("$.input[0].call_id", equalTo("call_mAH7OHpzsnpQQ8DfBhdS3L6J")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(RESPONSES_TOOL_CONTINUATION_RESPONSE)));
     OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
     ProviderContext promptContext =
         promptContext(
@@ -317,26 +440,273 @@ class OpenAiTextAgentAdapterContractTest {
     assertEquals("{\"path\":\"/contract.md\"}", toolRequest.toolCalls().get(0).arguments());
     assertEquals(QueryStatus.COMPLETED, completed.status());
     assertEquals("The document says: “The renewal clause is section 8.”", completed.text());
-    assertEquals("resp_05c749160a4fb710006a44b38846d08193b4246c9d0b1a56ef", adapter.previousResponseId(continuationContext));
+    assertEquals(
+        "resp_05c749160a4fb710006a44b38846d08193b4246c9d0b1a56ef",
+        adapter.previousResponseId(continuationContext));
+  }
+
+  @Test
+  void chatCompletionsRequestIncludesToolCatalogWhenPresent() throws Exception {
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+    ProviderContext context =
+        promptContext(
+            TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS,
+            "Use tools when useful.",
+            toolCatalog());
+
+    String body = adapter.previewRequestBody(context);
+
+    assertEquals(
+        "function", objectMapper.readTree(body).path("tools").path(0).path("type").asText());
+    assertEquals(
+        "document_read",
+        objectMapper.readTree(body).path("tools").path(0).path("function").path("name").asText());
+    assertEquals(
+        "object",
+        objectMapper
+            .readTree(body)
+            .path("tools")
+            .path(0)
+            .path("function")
+            .path("parameters")
+            .path("type")
+            .asText());
+    assertEquals("auto", objectMapper.readTree(body).path("tool_choice").asText());
+  }
+
+  @Test
+  void chatCompletionsContinuationUsesErrorToolOutputAsContentOnly() throws Exception {
+    provider.stubFor(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.messages[1].content",
+                    equalTo("Use the document_read tool for /contract.md.")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(CHAT_TOOL_CALL_RESPONSE)));
+    provider.stubFor(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .withRequestBody(matchingJsonPath("$.messages[3].role", equalTo("tool")))
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.messages[3].tool_call_id", equalTo("call_wtIGCW9WMkDpULFW5or9izIa")))
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.messages[3].content",
+                    equalTo("{\"success\":false,\"error\":\"read failed\"}")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(CHAT_TOOL_CONTINUATION_RESPONSE)));
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+    ProviderContext promptContext =
+        promptContext(
+            TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS,
+            "Use the document_read tool for /contract.md.");
+    QueryResult toolRequest = adapter.execute(promptContext);
+    adapter.applyResultToSessionState(promptContext, toolRequest);
+    ProviderContext continuationContext =
+        toolResultContext(
+            promptContext.sessionState(),
+            "call_wtIGCW9WMkDpULFW5or9izIa",
+            "{\"success\":false,\"error\":\"read failed\"}",
+            true,
+            List.of());
+
+    QueryResult completed = adapter.execute(continuationContext);
+    String body =
+        provider.getAllServeEvents().stream()
+            .map(event -> event.getRequest().getBodyAsString())
+            .filter(requestBody -> requestBody.contains("read failed"))
+            .findFirst()
+            .orElseThrow();
+
+    assertEquals(QueryStatus.REQUIRES_TOOL, toolRequest.status());
+    assertEquals(QueryStatus.COMPLETED, completed.status());
+    assertEquals(
+        "tool", objectMapper.readTree(body).path("messages").path(3).path("role").asText());
+    assertEquals(
+        "call_wtIGCW9WMkDpULFW5or9izIa",
+        objectMapper.readTree(body).path("messages").path(3).path("tool_call_id").asText());
+    assertEquals(
+        "{\"success\":false,\"error\":\"read failed\"}",
+        objectMapper.readTree(body).path("messages").path(3).path("content").asText());
+    assertFalse(objectMapper.readTree(body).path("messages").path(3).has("isError"));
+    assertFalse(objectMapper.readTree(body).path("messages").path(3).has("is_error"));
+  }
+
+  @Test
+  void chatCompletionsRequestOmitsToolsWhenCatalogEmpty() throws Exception {
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+    ProviderContext context =
+        promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS, "No tool catalog.");
+
+    String body = adapter.previewRequestBody(context);
+
+    assertFalse(objectMapper.readTree(body).has("tools"));
+    assertFalse(objectMapper.readTree(body).has("tool_choice"));
+  }
+
+  @Test
+  void responsesRequestIncludesToolCatalogOnPromptAndContinuation() throws Exception {
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+    ProviderSessionState state =
+        new ProviderSessionState(
+            "ta_contract", binding(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES));
+    ProviderContext promptContext =
+        promptContext(
+            TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
+            "Use tools when useful.",
+            state,
+            toolCatalog());
+    adapter.rememberPreviousResponseId(promptContext, "resp_previous");
+    ProviderContext continuationContext = toolResultContext(state, "call_document", toolCatalog());
+
+    String promptBody = adapter.previewRequestBody(promptContext);
+    String continuationBody = adapter.previewRequestBody(continuationContext);
+
+    assertEquals(
+        "function", objectMapper.readTree(promptBody).path("tools").path(0).path("type").asText());
+    assertEquals(
+        "document_read",
+        objectMapper.readTree(promptBody).path("tools").path(0).path("name").asText());
+    assertEquals("auto", objectMapper.readTree(promptBody).path("tool_choice").asText());
+    assertEquals(
+        "document_read",
+        objectMapper.readTree(continuationBody).path("tools").path(0).path("name").asText());
+    assertEquals("auto", objectMapper.readTree(continuationBody).path("tool_choice").asText());
+  }
+
+  @Test
+  void responsesContinuationUsesErrorToolOutputAsFunctionCallOutputOnly() throws Exception {
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+    ProviderSessionState state =
+        new ProviderSessionState(
+            "ta_contract", binding(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES));
+    ProviderContext promptContext =
+        promptContext(
+            TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
+            "Use the document_read tool for /contract.md.",
+            state,
+            List.of());
+    adapter.rememberPreviousResponseId(promptContext, "resp_previous");
+    ProviderContext continuationContext =
+        toolResultContext(
+            state,
+            "call_document",
+            "{\"success\":false,\"error\":\"read failed\"}",
+            true,
+            List.of());
+
+    String body = adapter.previewRequestBody(continuationContext);
+
+    assertEquals(
+        "resp_previous", objectMapper.readTree(body).path("previous_response_id").asText());
+    assertEquals(
+        "function_call_output",
+        objectMapper.readTree(body).path("input").path(0).path("type").asText());
+    assertEquals(
+        "call_document",
+        objectMapper.readTree(body).path("input").path(0).path("call_id").asText());
+    assertEquals(
+        "{\"success\":false,\"error\":\"read failed\"}",
+        objectMapper.readTree(body).path("input").path(0).path("output").asText());
+    assertFalse(objectMapper.readTree(body).path("input").path(0).has("isError"));
+    assertFalse(objectMapper.readTree(body).path("input").path(0).has("is_error"));
+  }
+
+  @Test
+  void responsesRequestOmitsToolsWhenCatalogEmpty() throws Exception {
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+    ProviderContext context =
+        promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES, "No tool catalog.");
+
+    String body = adapter.previewRequestBody(context);
+
+    assertFalse(objectMapper.readTree(body).has("tools"));
+    assertFalse(objectMapper.readTree(body).has("tool_choice"));
   }
 
   private ProviderContext promptContext(String providerKey, String prompt) {
+    ProviderSessionState state = new ProviderSessionState("ta_contract", binding(providerKey));
+    return promptContext(providerKey, prompt, state, List.of());
+  }
+
+  private ProviderContext promptContext(
+      String providerKey, String prompt, List<ToolCatalogEntry> toolCatalog) {
+    ProviderSessionState state = new ProviderSessionState("ta_contract", binding(providerKey));
+    return promptContext(providerKey, prompt, state, toolCatalog);
+  }
+
+  private ProviderContext promptContext(
+      String providerKey,
+      String prompt,
+      ProviderSessionState state,
+      List<ToolCatalogEntry> toolCatalog) {
     TextAgentDefinition definition = new TextAgentDefinition();
     definition.setTextAgentId("ta_contract");
     definition.setTextModelId("text-agent-test");
     definition.setPrompt("You are a terse test assistant.");
-    ProviderSessionState state = new ProviderSessionState("ta_contract", binding(providerKey));
-    return new ProviderContext(definition, new QueryCommand("s_voice", "req_prompt", prompt, null), state);
+    return new ProviderContext(
+        definition,
+        new QueryCommand("s_voice", "req_prompt", prompt, null, List.of()),
+        state,
+        toolCatalog);
   }
 
   private ProviderContext toolResultContext(ProviderSessionState state, String toolCallId) {
+    return toolResultContext(state, toolCallId, List.of());
+  }
+
+  private ProviderContext toolResultContext(
+      ProviderSessionState state, String toolCallId, List<ToolCatalogEntry> toolCatalog) {
+    return toolResultContext(
+        state, toolCallId, "{\"text\":\"The renewal clause is section 8.\"}", false, toolCatalog);
+  }
+
+  private ProviderContext toolResultContext(
+      ProviderSessionState state,
+      String toolCallId,
+      String output,
+      boolean isError,
+      List<ToolCatalogEntry> toolCatalog) {
     TextAgentDefinition definition = new TextAgentDefinition();
     definition.setTextAgentId("ta_contract");
     definition.setTextModelId("text-agent-test");
     definition.setPrompt("You are a terse test assistant.");
-    ToolResultSubmission toolResult =
-        new ToolResultSubmission(toolCallId, "{\"text\":\"The renewal clause is section 8.\"}", false);
-    return new ProviderContext(definition, new QueryCommand("s_voice", "req_tool", null, toolResult), state);
+    ToolResultSubmission toolResult = new ToolResultSubmission(toolCallId, output, isError);
+    if (state.acceptedToolResults().stream()
+        .noneMatch(accepted -> accepted.toolCallId().equals(toolCallId))) {
+      if (!state.hasPendingToolCall(toolCallId)) {
+        state.replacePendingToolCalls(
+            List.of(new TextAgentRuntimeModels.ToolCall(toolCallId, "document_read", "{}")));
+      }
+      state.acceptPendingToolResult(toolResult);
+    }
+    return new ProviderContext(
+        definition,
+        new QueryCommand("s_voice", "req_tool", null, toolResult, List.of()),
+        state,
+        toolCatalog);
+  }
+
+  private List<ToolCatalogEntry> toolCatalog() {
+    return List.of(
+        new ToolCatalogEntry(
+            "document_read",
+            "Read a document by path.",
+            Map.of(
+                "type",
+                "object",
+                "properties",
+                Map.of("path", Map.of("type", "string")),
+                "required",
+                List.of("path"))));
   }
 
   private TextAgentModelBinding binding(String providerKey) {
@@ -363,7 +733,8 @@ class OpenAiTextAgentAdapterContractTest {
         """;
 
     assertInstanceOf(
-        String.class, objectMapper.readTree(invalidObjectError).path("error").path("message").asText());
+        String.class,
+        objectMapper.readTree(invalidObjectError).path("error").path("message").asText());
     assertFalse(invalidObjectError.contains("function_call_output\": {"));
   }
 }

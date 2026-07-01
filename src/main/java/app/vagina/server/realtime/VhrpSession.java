@@ -4,6 +4,7 @@ import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.realtime.model.RealtimeThread;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderSessionState;
 import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
+import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCatalogEntry;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.WebSocketConnection;
 import io.smallrye.mutiny.Uni;
@@ -93,6 +94,16 @@ public class VhrpSession {
       new ConcurrentHashMap<>();
 
   /**
+   * Snapshot of the client-declared Voice Agent / Speed Dial tool catalog.
+   *
+   * <p>Product intent: this is intentionally only the VA catalog mirror used by VA session tests and
+   * diagnostics. Text Agent provider tool availability must not be derived from this snapshot; TA
+   * tools have their own server-side catalog and sparse enabledTools allow-list so VA and TA can
+   * expose different tools by design.
+   */
+  private volatile List<ToolCatalogEntry> textAgentToolCatalog = List.of();
+
+  /**
    * Subscriptions to the adapter's S2C output streams (patches/audio/vad/errors). Held for the
    * session's lifetime and cancelled on {@link #dispose()}; the adapter pushes on its own threads
    * so these feed straight into {@link #writeFrame}.
@@ -154,7 +165,18 @@ public class VhrpSession {
   public Map<String, ProviderSessionState> textAgentProviderStatesSnapshot() {
     return Map.copyOf(textAgentProviderStates);
   }
- 
+
+  /**
+   * Voice Agent tools.set diagnostic snapshot only.
+   *
+   * <p>Do not use this as the Text Agent provider catalog. Text Agent schemas are supplied by the
+   * client on the Text Agent query request because the client executes tools, and TA availability is
+   * intentionally independent from VA / Speed Dial exposed tools.
+   */
+  public List<ToolCatalogEntry> textAgentToolCatalogSnapshot() {
+    return List.copyOf(textAgentToolCatalog);
+  }
+
   // ---------------------------------------------------------------------------
   // Adapter S2C subscription
   // ---------------------------------------------------------------------------
@@ -403,7 +425,18 @@ public class VhrpSession {
                     new RealtimeAdapterModels.ToolDefinition(
                         t.name(), t.description(), t.parameters()))
             .collect(Collectors.toList());
-    return adapter.registerTools(tools).onItem().transformToUni(ignored -> ack(m.messageId()));
+    // Keep a diagnostic mirror of the VA/Speed Dial tools.set payload only. Text Agent provider
+    // catalogs intentionally do not consume this list; delegating to a TA with tools unavailable to
+    // the VA itself is a product capability.
+    List<ToolCatalogEntry> toolCatalog =
+        m.tools().stream()
+            .map(t -> new ToolCatalogEntry(t.name(), t.description(), t.parameters()))
+            .collect(Collectors.toList());
+    return adapter
+        .registerTools(tools)
+        .invoke(() -> textAgentToolCatalog = List.copyOf(toolCatalog))
+        .onItem()
+        .transformToUni(ignored -> ack(m.messageId()));
   }
 
   private Uni<Void> handleSessionExtensionApply(VhrpMessage.SessionExtensionApply m) {

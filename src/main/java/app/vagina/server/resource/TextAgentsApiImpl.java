@@ -6,6 +6,7 @@ import app.vagina.server.generated.model.QueryTextAgent200Response;
 import app.vagina.server.generated.model.QueryTextAgent200ResponseError;
 import app.vagina.server.generated.model.QueryTextAgentRequest;
 import app.vagina.server.generated.model.QueryTextAgentRequestToolResult;
+import app.vagina.server.generated.model.QueryTextAgentRequestToolSchemasInner;
 import app.vagina.server.generated.model.TextAgent;
 import app.vagina.server.generated.model.TextAgentToolCall;
 import app.vagina.server.generated.model.TextAgentWriteRequest;
@@ -15,6 +16,7 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryStatus;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCall;
+import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCatalogEntry;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
 import app.vagina.server.usecase.TextAgentUsecase;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -52,7 +54,8 @@ public class TextAgentsApiImpl implements TextAgentsApi {
   @Override
   public Response createTextAgent(TextAgentWriteRequest textAgentWriteRequest) {
     Long userId = authenticatedUser.get().getId();
-    TextAgentDefinition created = textAgentUsecase.createTextAgent(userId, toEntity(textAgentWriteRequest));
+    TextAgentDefinition created =
+        textAgentUsecase.createTextAgent(userId, toEntity(textAgentWriteRequest));
     return Response.status(Response.Status.CREATED).entity(toGeneratedModel(created)).build();
   }
 
@@ -81,7 +84,8 @@ public class TextAgentsApiImpl implements TextAgentsApi {
   @Override
   public Response queryTextAgent(String textAgentId, QueryTextAgentRequest queryTextAgentRequest) {
     Long userId = authenticatedUser.get().getId();
-    QueryResult result = textAgentUsecase.queryTextAgent(userId, textAgentId, toCommand(queryTextAgentRequest));
+    QueryResult result =
+        textAgentUsecase.queryTextAgent(userId, textAgentId, toCommand(queryTextAgentRequest));
     return Response.ok(toGeneratedQueryResponse(result)).build();
   }
 
@@ -114,7 +118,39 @@ public class TextAgentsApiImpl implements TextAgentsApi {
         request.getVoiceSessionId(),
         request.getRequestId(),
         request.getPrompt(),
-        toToolResultSubmission(request.getToolResult()));
+        toToolResultSubmission(request.getToolResult()),
+        toToolCatalog(request.getToolSchemas()));
+  }
+
+  private List<ToolCatalogEntry> toToolCatalog(List<QueryTextAgentRequestToolSchemasInner> toolSchemas) {
+    if (toolSchemas == null) {
+      return List.of();
+    }
+    return toolSchemas.stream()
+        .map(
+            toolSchema ->
+                new ToolCatalogEntry(
+                    toolSchema.getName(),
+                    toolSchema.getDescription(),
+                    normalizeToolParameters(toolSchema.getParameters())))
+        .toList();
+  }
+
+  private Map<String, Object> normalizeToolParameters(Object parameters) {
+    if (parameters == null) {
+      return Map.of();
+    }
+    if (!(parameters instanceof Map<?, ?> rawParameters)) {
+      throw new IllegalArgumentException("Text agent tool schema parameters must be a JSON object");
+    }
+    Map<String, Object> normalized = new LinkedHashMap<>();
+    for (Entry<?, ?> entry : rawParameters.entrySet()) {
+      if (!(entry.getKey() instanceof String key)) {
+        throw new IllegalArgumentException("Text agent tool schema parameter keys must be strings");
+      }
+      normalized.put(key, entry.getValue());
+    }
+    return normalized;
   }
 
   private ToolResultSubmission toToolResultSubmission(QueryTextAgentRequestToolResult toolResult) {
@@ -122,7 +158,9 @@ public class TextAgentsApiImpl implements TextAgentsApi {
       return null;
     }
     return new ToolResultSubmission(
-        toolResult.getToolCallId(), toolResult.getOutput(), Boolean.TRUE.equals(toolResult.getIsError()));
+        toolResult.getToolCallId(),
+        toolResult.getOutput(),
+        Boolean.TRUE.equals(toolResult.getIsError()));
   }
 
   private QueryTextAgent200Response toGeneratedQueryResponse(QueryResult result) {

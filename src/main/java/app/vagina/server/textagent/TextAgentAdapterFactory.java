@@ -30,7 +30,9 @@ public class TextAgentAdapterFactory {
     return switch (provider) {
       case PROVIDER_OPENAI_CHAT_COMPLETIONS -> buildOpenAiChatCompletionsAdapter();
       case PROVIDER_OPENAI_RESPONSES -> buildOpenAiResponsesAdapter();
-      default -> throw new ProviderNotImplementedException("Text agent provider not implemented: " + provider);
+      default ->
+          throw new ProviderNotImplementedException(
+              "Text agent provider not implemented: " + provider);
     };
   }
 
@@ -43,7 +45,10 @@ public class TextAgentAdapterFactory {
   }
 
   public TextAgentModelBinding binding(
-      String textModelId, String provider, Optional<String> baseUrl, Optional<String> apiKey,
+      String textModelId,
+      String provider,
+      Optional<String> baseUrl,
+      Optional<String> apiKey,
       Optional<String> model) {
     return new TextAgentModelBinding(textModelId, provider, baseUrl, apiKey, model);
   }

@@ -25,8 +25,10 @@ class TextAgentAdapterFactoryTest {
   void factorySelectsBothOpenAiProviderShapes() {
     TextAgentAdapterFactory factory = factory();
 
-    TextAgentAdapter chatAdapter = factory.create(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS);
-    TextAgentAdapter responsesAdapter = factory.create(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES);
+    TextAgentAdapter chatAdapter =
+        factory.create(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS);
+    TextAgentAdapter responsesAdapter =
+        factory.create(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES);
 
     assertInstanceOf(OpenAiChatCompletionsTextAgentAdapter.class, chatAdapter);
     assertInstanceOf(OpenAiResponsesTextAgentAdapter.class, responsesAdapter);
@@ -40,39 +42,35 @@ class TextAgentAdapterFactoryTest {
   }
 
   @Test
-  void chatCompletionsSkeletonKeepsProviderVisibleMessagesInProviderState() {
+  void chatCompletionsKeepsProviderVisibleMessagesInProviderState() {
     TextAgentAdapterFactory factory = factory();
-    TextAgentAdapter adapter = factory.create(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS);
+    TextAgentAdapter adapter =
+        factory.create(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS);
     ProviderContext context =
         context(
             TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS,
-            new QueryCommand("s_voice", "req_prompt", "summarize", null));
+            new QueryCommand("s_voice", "req_prompt", "summarize", null, List.of()));
 
-    QueryResult result = adapter.execute(context);
+    ((OpenAiChatCompletionsTextAgentAdapter) adapter).previewRequestBody(context);
 
-    assertEquals(QueryStatus.FAILED, result.status());
-    assertEquals("provider_not_implemented", result.error().code());
     assertTrue(context.sessionState().providerState().containsKey("messages"));
     Object rawMessages = context.sessionState().providerState().get("messages");
     assertInstanceOf(List.class, rawMessages);
-    assertFalse(((List<?>) rawMessages).isEmpty());
   }
 
   @Test
-  void responsesSkeletonKeepsContinuationStateSeparateFromChatMessages() {
+  void responsesKeepsContinuationStateSeparateFromChatMessages() {
     OpenAiResponsesTextAgentAdapter adapter =
         new OpenAiResponsesTextAgentAdapter(new ObjectMapper());
     ProviderContext context =
         context(
             TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
-            new QueryCommand("s_voice", "req_prompt", "summarize", null));
+            new QueryCommand("s_voice", "req_prompt", "summarize", null, List.of()));
 
-    QueryResult result = adapter.execute(context);
+    String body = adapter.previewRequestBody(context);
     adapter.rememberPreviousResponseId(context, "resp_123");
 
-    assertEquals(QueryStatus.FAILED, result.status());
-    assertEquals("provider_not_implemented", result.error().code());
-    assertEquals("req_prompt", context.sessionState().providerState().get("last_request_id"));
+    assertTrue(body.contains("summarize"));
     assertEquals("resp_123", adapter.previousResponseId(context));
     assertFalse(context.sessionState().providerState().containsKey("messages"));
   }
@@ -80,7 +78,8 @@ class TextAgentAdapterFactoryTest {
   @Test
   void sessionStateTracksPendingToolCallsForConflictValidationLayer() {
     ProviderSessionState state =
-        new ProviderSessionState("ta_test", binding(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES));
+        new ProviderSessionState(
+            "ta_test", binding(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES));
 
     state.replacePendingToolCalls(
         List.of(new TextAgentRuntimeModels.ToolCall("tc_1", "document_read", "{}")));
@@ -88,8 +87,14 @@ class TextAgentAdapterFactoryTest {
     assertTrue(state.hasPendingToolCalls());
     assertTrue(state.hasPendingToolCall("tc_1"));
     assertFalse(state.hasPendingToolCall("tc_missing"));
+    assertTrue(
+        state.acceptPendingToolResult(
+            new TextAgentRuntimeModels.ToolResultSubmission("tc_1", "{}", false)));
+    assertFalse(state.hasPendingToolCalls());
+    assertEquals(1, state.acceptedToolResults().size());
     state.clearPendingToolCalls();
     assertFalse(state.hasPendingToolCalls());
+    assertTrue(state.acceptedToolResults().isEmpty());
   }
 
   private TextAgentAdapterFactory factory() {

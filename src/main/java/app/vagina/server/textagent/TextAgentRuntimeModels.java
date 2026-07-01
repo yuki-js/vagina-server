@@ -4,9 +4,11 @@ import app.vagina.server.entity.TextAgentDefinition;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public final class TextAgentRuntimeModels {
   private TextAgentRuntimeModels() {}
@@ -23,7 +25,10 @@ public final class TextAgentRuntimeModels {
   }
 
   public record TextAgentModelBinding(
-      String textModelId, String provider, Optional<String> baseUrl, Optional<String> apiKey,
+      String textModelId,
+      String provider,
+      Optional<String> baseUrl,
+      Optional<String> apiKey,
       Optional<String> model) {
     public TextAgentModelBinding {
       if (textModelId == null || textModelId.isBlank()) {
@@ -47,7 +52,15 @@ public final class TextAgentRuntimeModels {
   }
 
   public record QueryCommand(
-      String voiceSessionId, String requestId, String prompt, ToolResultSubmission toolResult) {
+      String voiceSessionId,
+      String requestId,
+      String prompt,
+      ToolResultSubmission toolResult,
+      List<ToolCatalogEntry> toolCatalog) {
+    public QueryCommand {
+      toolCatalog = toolCatalog == null ? List.of() : List.copyOf(toolCatalog);
+    }
+
     public boolean isPromptStep() {
       return prompt != null;
     }
@@ -100,6 +113,18 @@ public final class TextAgentRuntimeModels {
     }
   }
 
+  public record ToolCatalogEntry(String name, String description, Map<String, Object> parameters) {
+    public ToolCatalogEntry {
+      if (name == null || name.isBlank()) {
+        throw new IllegalArgumentException("Tool catalog entry name is required");
+      }
+      if (description == null) {
+        description = "";
+      }
+      parameters = parameters == null ? Map.of() : Map.copyOf(parameters);
+    }
+  }
+
   public record QueryError(String code, String message) {
     public QueryError {
       if (code == null || code.isBlank()) {
@@ -111,7 +136,8 @@ public final class TextAgentRuntimeModels {
     }
   }
 
-  public record QueryResult(QueryStatus status, String text, List<ToolCall> toolCalls, QueryError error) {
+  public record QueryResult(
+      QueryStatus status, String text, List<ToolCall> toolCalls, QueryError error) {
     public QueryResult {
       if (status == null) {
         status = QueryStatus.FAILED;
@@ -140,6 +166,8 @@ public final class TextAgentRuntimeModels {
     private final TextAgentModelBinding binding;
     private final Map<String, Object> providerState = new LinkedHashMap<>();
     private final List<ToolCall> pendingToolCalls = new ArrayList<>();
+    private final Map<String, ToolResultSubmission> acceptedToolResults = new LinkedHashMap<>();
+    private String activeRequestId;
 
     public ProviderSessionState(String textAgentId, TextAgentModelBinding binding) {
       if (textAgentId == null || textAgentId.isBlank()) {
@@ -161,6 +189,29 @@ public final class TextAgentRuntimeModels {
       return providerState;
     }
 
+    public Optional<String> activeRequestId() {
+      return Optional.ofNullable(activeRequestId);
+    }
+
+    public boolean hasActiveRequest() {
+      return activeRequestId != null;
+    }
+
+    public void startRequest(String requestId) {
+      if (requestId == null || requestId.isBlank()) {
+        throw new IllegalArgumentException("Request id is required");
+      }
+      activeRequestId = requestId;
+      pendingToolCalls.clear();
+      acceptedToolResults.clear();
+    }
+
+    public void clearRequestState() {
+      activeRequestId = null;
+      pendingToolCalls.clear();
+      acceptedToolResults.clear();
+    }
+
     public List<ToolCall> pendingToolCalls() {
       return List.copyOf(pendingToolCalls);
     }
@@ -173,8 +224,28 @@ public final class TextAgentRuntimeModels {
       return !pendingToolCalls.isEmpty();
     }
 
+    public boolean acceptPendingToolResult(ToolResultSubmission toolResult) {
+      if (toolResult == null) {
+        throw new IllegalArgumentException("Tool result is required");
+      }
+      String toolCallId = toolResult.toolCallId();
+      if (acceptedToolResults.containsKey(toolCallId)) {
+        return false;
+      }
+      boolean removed = pendingToolCalls.removeIf(toolCall -> toolCall.id().equals(toolCallId));
+      if (removed) {
+        acceptedToolResults.put(toolCallId, toolResult);
+      }
+      return removed;
+    }
+
+    public List<ToolResultSubmission> acceptedToolResults() {
+      return List.copyOf(acceptedToolResults.values());
+    }
+
     public void replacePendingToolCalls(List<ToolCall> toolCalls) {
       pendingToolCalls.clear();
+      acceptedToolResults.clear();
       if (toolCalls != null) {
         pendingToolCalls.addAll(toolCalls);
       }
@@ -182,11 +253,20 @@ public final class TextAgentRuntimeModels {
 
     public void clearPendingToolCalls() {
       pendingToolCalls.clear();
+      acceptedToolResults.clear();
     }
   }
 
   public record ProviderContext(
-      TextAgentDefinition textAgent, QueryCommand command, ProviderSessionState sessionState) {
+      TextAgentDefinition textAgent,
+      QueryCommand command,
+      ProviderSessionState sessionState,
+      List<ToolCatalogEntry> toolCatalog) {
+    public ProviderContext(
+        TextAgentDefinition textAgent, QueryCommand command, ProviderSessionState sessionState) {
+      this(textAgent, command, sessionState, List.of());
+    }
+
     public ProviderContext {
       if (textAgent == null) {
         throw new IllegalArgumentException("Text agent definition is required");
@@ -197,6 +277,7 @@ public final class TextAgentRuntimeModels {
       if (sessionState == null) {
         throw new IllegalArgumentException("Text agent provider session state is required");
       }
+      toolCatalog = toolCatalog == null ? List.of() : List.copyOf(toolCatalog);
       command.requireValidShape();
     }
 
