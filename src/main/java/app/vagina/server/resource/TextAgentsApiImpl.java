@@ -5,6 +5,7 @@ import app.vagina.server.generated.api.TextAgentsApi;
 import app.vagina.server.generated.model.QueryTextAgent200Response;
 import app.vagina.server.generated.model.QueryTextAgent200ResponseError;
 import app.vagina.server.generated.model.QueryTextAgentRequest;
+import app.vagina.server.generated.model.QueryTextAgentRequestImagesInner;
 import app.vagina.server.generated.model.QueryTextAgentRequestToolResult;
 import app.vagina.server.generated.model.QueryTextAgentRequestToolSchemasInner;
 import app.vagina.server.generated.model.TextAgent;
@@ -13,6 +14,7 @@ import app.vagina.server.generated.model.TextAgentWriteRequest;
 import app.vagina.server.support.Authenticated;
 import app.vagina.server.support.AuthenticatedUser;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
+import app.vagina.server.textagent.TextAgentRuntimeModels.QueryImageInput;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryStatus;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCall;
@@ -118,11 +120,27 @@ public class TextAgentsApiImpl implements TextAgentsApi {
         request.getVoiceSessionId(),
         request.getRequestId(),
         request.getPrompt(),
+        toQueryImages(request.getImages()),
         toToolResultSubmission(request.getToolResult()),
         toToolCatalog(request.getToolSchemas()));
   }
 
-  private List<ToolCatalogEntry> toToolCatalog(List<QueryTextAgentRequestToolSchemasInner> toolSchemas) {
+  private List<QueryImageInput> toQueryImages(List<QueryTextAgentRequestImagesInner> images) {
+    if (images == null) {
+      return List.of();
+    }
+    return images.stream()
+        .map(
+            image ->
+                new QueryImageInput(
+                    image.getDataUri(),
+                    image.getDetail() == null ? null : image.getDetail().value(),
+                    image.getName()))
+        .toList();
+  }
+
+  private List<ToolCatalogEntry> toToolCatalog(
+      List<QueryTextAgentRequestToolSchemasInner> toolSchemas) {
     if (toolSchemas == null) {
       return List.of();
     }

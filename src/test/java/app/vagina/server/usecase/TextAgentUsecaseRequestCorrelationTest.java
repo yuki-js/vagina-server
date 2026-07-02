@@ -101,8 +101,7 @@ class TextAgentUsecaseRequestCorrelationTest {
   @Test
   void duplicatePartialToolResultConflictsBeforeAdapterExecution() {
     RecordingAdapter adapter =
-        new RecordingAdapter(
-            QueryResult.requiresTool(List.of(toolCall("tc_1"), toolCall("tc_2"))));
+        new RecordingAdapter(QueryResult.requiresTool(List.of(toolCall("tc_1"), toolCall("tc_2"))));
     Fixture fixture = fixture(adapter);
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_1"));
@@ -126,15 +125,22 @@ class TextAgentUsecaseRequestCorrelationTest {
             QueryResult.completed("done"));
     Fixture fixture = fixture(adapter);
 
-    QueryResult firstResult = fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_1"));
+    QueryResult firstResult =
+        fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_1"));
     QueryResult waitingResult =
         fixture.usecase.queryTextAgent(7L, "ta_contract", toolResultCommand("req_1", "tc_first"));
 
-    assertEquals(QueryResult.requiresTool(List.of(toolCall("tc_first"), toolCall("tc_second"))), firstResult);
+    assertEquals(
+        QueryResult.requiresTool(List.of(toolCall("tc_first"), toolCall("tc_second"))),
+        firstResult);
     assertEquals(QueryResult.requiresTool(List.of(toolCall("tc_second"))), waitingResult);
     assertEquals(Optional.of("req_1"), fixture.sessionState.activeRequestId());
     assertTrue(fixture.sessionState.hasPendingToolCall("tc_second"));
-    assertEquals(List.of("tc_first"), fixture.sessionState.acceptedToolResults().stream().map(ToolResultSubmission::toolCallId).toList());
+    assertEquals(
+        List.of("tc_first"),
+        fixture.sessionState.acceptedToolResults().stream()
+            .map(ToolResultSubmission::toolCallId)
+            .toList());
     assertEquals(1, adapter.executionCount());
   }
 
@@ -154,7 +160,9 @@ class TextAgentUsecaseRequestCorrelationTest {
     assertEquals(QueryResult.completed("done"), completed);
     assertEquals(2, adapter.executionCount());
     assertEquals(List.of("req_1", "req_1"), adapter.requestIds());
-    assertEquals(List.of(List.of(), List.of("tc_first", "tc_second")), adapter.acceptedToolResultIdsByExecution());
+    assertEquals(
+        List.of(List.of(), List.of("tc_first", "tc_second")),
+        adapter.acceptedToolResultIdsByExecution());
     assertEquals(Optional.empty(), fixture.sessionState.activeRequestId());
     assertTrue(fixture.sessionState.pendingToolCalls().isEmpty());
     assertTrue(fixture.sessionState.acceptedToolResults().isEmpty());
@@ -266,12 +274,17 @@ class TextAgentUsecaseRequestCorrelationTest {
   }
 
   private QueryCommand promptCommand(String requestId) {
-    return new QueryCommand("s_voice", requestId, "Use a tool.", null, List.of());
+    return new QueryCommand("s_voice", requestId, "Use a tool.", List.of(), null, List.of());
   }
 
   private QueryCommand toolResultCommand(String requestId, String toolCallId) {
     return new QueryCommand(
-        "s_voice", requestId, null, new ToolResultSubmission(toolCallId, "{}", false), List.of());
+        "s_voice",
+        requestId,
+        null,
+        List.of(),
+        new ToolResultSubmission(toolCallId, "{}", false),
+        List.of());
   }
 
   private ToolCall toolCall(String id) {

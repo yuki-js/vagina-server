@@ -15,6 +15,7 @@ import app.vagina.server.entity.TextAgentDefinition;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderSessionState;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
+import app.vagina.server.textagent.TextAgentRuntimeModels.QueryImageInput;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryStatus;
 import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
@@ -335,7 +336,8 @@ class OpenAiTextAgentAdapterContractTest {
                     .withBody(CHAT_MULTI_TOOL_CALL_RESPONSE)));
     provider.stubFor(
         post(urlPathEqualTo("/v1/chat/completions"))
-            .withRequestBody(matchingJsonPath("$.messages[2].tool_calls[0].id", equalTo("call_first")))
+            .withRequestBody(
+                matchingJsonPath("$.messages[2].tool_calls[0].id", equalTo("call_first")))
             .withRequestBody(
                 matchingJsonPath("$.messages[2].tool_calls[1].id", equalTo("call_second")))
             .withRequestBody(matchingJsonPath("$.messages[3].role", equalTo("tool")))
@@ -363,11 +365,14 @@ class OpenAiTextAgentAdapterContractTest {
     promptContext
         .sessionState()
         .acceptPendingToolResult(new ToolResultSubmission("call_second", "second output", false));
-    ProviderContext continuationContext = toolResultContext(promptContext.sessionState(), "call_second");
+    ProviderContext continuationContext =
+        toolResultContext(promptContext.sessionState(), "call_second");
     QueryResult completed = adapter.execute(continuationContext);
 
     assertEquals(QueryStatus.REQUIRES_TOOL, toolRequest.status());
-    assertEquals(List.of("call_first", "call_second"), toolRequest.toolCalls().stream().map(TextAgentRuntimeModels.ToolCall::id).toList());
+    assertEquals(
+        List.of("call_first", "call_second"),
+        toolRequest.toolCalls().stream().map(TextAgentRuntimeModels.ToolCall::id).toList());
     assertEquals(QueryStatus.COMPLETED, completed.status());
     provider.verify(2, postRequestedFor(urlPathEqualTo("/v1/chat/completions")));
   }
@@ -473,6 +478,76 @@ class OpenAiTextAgentAdapterContractTest {
             .path("type")
             .asText());
     assertEquals("auto", objectMapper.readTree(body).path("tool_choice").asText());
+  }
+
+  @Test
+  void chatCompletionsPromptWithImageUsesMultimodalContentParts() throws Exception {
+    provider.stubFor(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(CHAT_COMPLETED_RESPONSE)));
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+    ProviderSessionState state =
+        new ProviderSessionState(
+            "ta_contract", binding(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS));
+    TextAgentDefinition definition = new TextAgentDefinition();
+    definition.setTextAgentId("ta_contract");
+    definition.setTextModelId("text-agent-test");
+    definition.setPrompt("You are a terse test assistant.");
+    ProviderContext context =
+        new ProviderContext(
+            definition,
+            new QueryCommand(
+                "s_voice",
+                "req_prompt",
+                "Analyze this image.",
+                List.of(
+                    new QueryImageInput(
+                        "data:image/png;base64,iVBORw0KGgo=", "auto", "whiteboard.png")),
+                null,
+                List.of()),
+            state,
+            List.of());
+
+    adapter.execute(context);
+    String body = provider.getAllServeEvents().getFirst().getRequest().getBodyAsString();
+
+    assertEquals(
+        "user", objectMapper.readTree(body).path("messages").path(1).path("role").asText());
+    assertEquals(
+        "text",
+        objectMapper
+            .readTree(body)
+            .path("messages")
+            .path(1)
+            .path("content")
+            .path(0)
+            .path("type")
+            .asText());
+    assertEquals(
+        "image_url",
+        objectMapper
+            .readTree(body)
+            .path("messages")
+            .path(1)
+            .path("content")
+            .path(1)
+            .path("type")
+            .asText());
+    assertEquals(
+        "data:image/png;base64,iVBORw0KGgo=",
+        objectMapper
+            .readTree(body)
+            .path("messages")
+            .path(1)
+            .path("content")
+            .path(1)
+            .path("image_url")
+            .path("url")
+            .asText());
   }
 
   @Test
@@ -583,6 +658,74 @@ class OpenAiTextAgentAdapterContractTest {
   }
 
   @Test
+  void responsesPromptWithImageUsesMultimodalInputParts() throws Exception {
+    provider.stubFor(
+        post(urlPathEqualTo("/v1/responses"))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(RESPONSES_COMPLETED_RESPONSE)));
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+    ProviderSessionState state =
+        new ProviderSessionState(
+            "ta_contract", binding(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES));
+    TextAgentDefinition definition = new TextAgentDefinition();
+    definition.setTextAgentId("ta_contract");
+    definition.setTextModelId("text-agent-test");
+    definition.setPrompt("You are a terse test assistant.");
+    ProviderContext context =
+        new ProviderContext(
+            definition,
+            new QueryCommand(
+                "s_voice",
+                "req_prompt",
+                "Analyze this image.",
+                List.of(
+                    new QueryImageInput(
+                        "data:image/png;base64,iVBORw0KGgo=", "auto", "whiteboard.png")),
+                null,
+                List.of()),
+            state,
+            List.of());
+
+    adapter.execute(context);
+    String body = provider.getAllServeEvents().getFirst().getRequest().getBodyAsString();
+
+    assertEquals(
+        "message", objectMapper.readTree(body).path("input").path(0).path("type").asText());
+    assertEquals(
+        "input_text",
+        objectMapper
+            .readTree(body)
+            .path("input")
+            .path(0)
+            .path("content")
+            .path(0)
+            .path("type")
+            .asText());
+    assertEquals(
+        "input_image",
+        objectMapper
+            .readTree(body)
+            .path("input")
+            .path(0)
+            .path("content")
+            .path(1)
+            .path("type")
+            .asText());
+    assertEquals(
+        "data:image/png;base64,iVBORw0KGgo=",
+        objectMapper
+            .readTree(body)
+            .path("input")
+            .path(0)
+            .path("content")
+            .path(1)
+            .path("image_url")
+            .asText());
+  }
+
+  @Test
   void responsesContinuationUsesErrorToolOutputAsFunctionCallOutputOnly() throws Exception {
     OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
     ProviderSessionState state =
@@ -654,7 +797,7 @@ class OpenAiTextAgentAdapterContractTest {
     definition.setPrompt("You are a terse test assistant.");
     return new ProviderContext(
         definition,
-        new QueryCommand("s_voice", "req_prompt", prompt, null, List.of()),
+        new QueryCommand("s_voice", "req_prompt", prompt, List.of(), null, List.of()),
         state,
         toolCatalog);
   }
@@ -690,7 +833,7 @@ class OpenAiTextAgentAdapterContractTest {
     }
     return new ProviderContext(
         definition,
-        new QueryCommand("s_voice", "req_tool", null, toolResult, List.of()),
+        new QueryCommand("s_voice", "req_tool", null, List.of(), toolResult, List.of()),
         state,
         toolCatalog);
   }

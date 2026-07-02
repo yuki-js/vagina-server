@@ -96,9 +96,9 @@ public class VhrpSession {
   /**
    * Snapshot of the client-declared Voice Agent / Speed Dial tool catalog.
    *
-   * <p>Product intent: this is intentionally only the VA catalog mirror used by VA session tests and
-   * diagnostics. Text Agent provider tool availability must not be derived from this snapshot; TA
-   * tools have their own server-side catalog and sparse enabledTools allow-list so VA and TA can
+   * <p>Product intent: this is intentionally only the VA catalog mirror used by VA session tests
+   * and diagnostics. Text Agent provider tool availability must not be derived from this snapshot;
+   * TA tools have their own server-side catalog and sparse enabledTools allow-list so VA and TA can
    * expose different tools by design.
    */
   private volatile List<ToolCatalogEntry> textAgentToolCatalog = List.of();
@@ -170,8 +170,8 @@ public class VhrpSession {
    * Voice Agent tools.set diagnostic snapshot only.
    *
    * <p>Do not use this as the Text Agent provider catalog. Text Agent schemas are supplied by the
-   * client on the Text Agent query request because the client executes tools, and TA availability is
-   * intentionally independent from VA / Speed Dial exposed tools.
+   * client on the Text Agent query request because the client executes tools, and TA availability
+   * is intentionally independent from VA / Speed Dial exposed tools.
    */
   public List<ToolCatalogEntry> textAgentToolCatalogSnapshot() {
     return List.copyOf(textAgentToolCatalog);

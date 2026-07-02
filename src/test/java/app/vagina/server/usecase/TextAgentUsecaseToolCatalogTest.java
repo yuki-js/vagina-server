@@ -42,7 +42,8 @@ class TextAgentUsecaseToolCatalogTest {
 
   @Test
   void queryTextAgentCanDisableToolEvenWhenVoiceAgentSpeedDialExposesIt() {
-    Fixture fixture = fixture("{\"document_read\":false,\"calculator\":true}", List.of("document_read"));
+    Fixture fixture =
+        fixture("{\"document_read\":false,\"calculator\":true}", List.of("document_read"));
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
@@ -55,7 +56,9 @@ class TextAgentUsecaseToolCatalogTest {
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
-    assertEquals(List.of("document_read", "calculator", "list_available_agents"), fixture.capturedToolNames());
+    assertEquals(
+        List.of("document_read", "calculator", "list_available_agents"),
+        fixture.capturedToolNames());
   }
 
   @Test
@@ -100,7 +103,9 @@ class TextAgentUsecaseToolCatalogTest {
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
-    assertEquals(List.of("document_read", "calculator", "list_available_agents"), fixture.capturedToolNames());
+    assertEquals(
+        List.of("document_read", "calculator", "list_available_agents"),
+        fixture.capturedToolNames());
   }
 
   @Test
@@ -109,7 +114,9 @@ class TextAgentUsecaseToolCatalogTest {
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
-    assertEquals(List.of("document_read", "calculator", "list_available_agents"), fixture.capturedToolNames());
+    assertEquals(
+        List.of("document_read", "calculator", "list_available_agents"),
+        fixture.capturedToolNames());
   }
 
   @Test
@@ -118,7 +125,9 @@ class TextAgentUsecaseToolCatalogTest {
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
-    assertEquals(List.of("document_read", "calculator", "list_available_agents"), fixture.capturedToolNames());
+    assertEquals(
+        List.of("document_read", "calculator", "list_available_agents"),
+        fixture.capturedToolNames());
   }
 
   @Test
@@ -191,7 +200,9 @@ class TextAgentUsecaseToolCatalogTest {
   }
 
   private List<ToolCatalogEntry> entries(List<String> names) {
-    return names.stream().map(name -> new ToolCatalogEntry(name, name + " description.", Map.of())).toList();
+    return names.stream()
+        .map(name -> new ToolCatalogEntry(name, name + " description.", Map.of()))
+        .toList();
   }
 
   private QueryCommand command() {
@@ -199,6 +210,7 @@ class TextAgentUsecaseToolCatalogTest {
         "s_voice",
         "req_1",
         "Use an enabled tool.",
+        List.of(),
         null,
         entries(
             List.of(
@@ -210,7 +222,9 @@ class TextAgentUsecaseToolCatalogTest {
   }
 
   private record Fixture(
-      TextAgentUsecase usecase, ArgumentCaptor<ProviderContext> contextCaptor, VhrpSession session) {
+      TextAgentUsecase usecase,
+      ArgumentCaptor<ProviderContext> contextCaptor,
+      VhrpSession session) {
     ProviderContext capturedContext() {
       return contextCaptor.getValue();
     }

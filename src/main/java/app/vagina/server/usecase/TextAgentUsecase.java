@@ -77,7 +77,8 @@ public class TextAgentUsecase {
     }
     TextAgentAdapter adapter = textAgentAdapterFactory.create(sessionState.binding());
     ProviderContext context =
-        new ProviderContext(textAgent, command, sessionState, allowedToolCatalog(textAgent, command));
+        new ProviderContext(
+            textAgent, command, sessionState, allowedToolCatalog(textAgent, command));
     QueryResult result = adapter.execute(context);
     adapter.applyResultToSessionState(context, result);
     return result;
@@ -145,11 +146,15 @@ public class TextAgentUsecase {
 
     // Product intent: Text Agent and Voice Agent / Speed Dial tool allow-lists are intentionally
     // independent. TA tool schemas are supplied by the client because ToolRunner executes tools on
-    // the client. Do not derive this provider catalog from VhrpSession.textAgentToolCatalogSnapshot(),
+    // the client. Do not derive this provider catalog from
+    // VhrpSession.textAgentToolCatalogSnapshot(),
     // VA tools.set, or the Voice Agent's Speed Dial exposed tools. A Voice Agent may delegate to a
-    // smarter Text Agent that can use tools unavailable to the VA; preserving that independence is a
-    // key product capability. end_call is a Voice Agent authority tool: child Text Agents must not be
-    // delegated authority to terminate their parent voice call even when sparse enabledTools defaults
+    // smarter Text Agent that can use tools unavailable to the VA; preserving that independence is
+    // a
+    // key product capability. end_call is a Voice Agent authority tool: child Text Agents must not
+    // be
+    // delegated authority to terminate their parent voice call even when sparse enabledTools
+    // defaults
     // or explicit true apply.
     return command.toolCatalog().stream()
         .filter(tool -> !QUERY_TEXT_AGENT_TOOL_NAME.equals(tool.name()))

@@ -3,12 +3,11 @@ package app.vagina.server.textagent;
 import app.vagina.server.entity.TextAgentDefinition;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 public final class TextAgentRuntimeModels {
   private TextAgentRuntimeModels() {}
@@ -55,9 +54,14 @@ public final class TextAgentRuntimeModels {
       String voiceSessionId,
       String requestId,
       String prompt,
+      List<QueryImageInput> images,
       ToolResultSubmission toolResult,
       List<ToolCatalogEntry> toolCatalog) {
+    public static final int MAX_IMAGE_COUNT = 4;
+    public static final int MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
     public QueryCommand {
+      images = images == null ? List.of() : List.copyOf(images);
       toolCatalog = toolCatalog == null ? List.of() : List.copyOf(toolCatalog);
     }
 
@@ -82,9 +86,75 @@ public final class TextAgentRuntimeModels {
       if (isPromptStep() && prompt.isBlank()) {
         throw new IllegalArgumentException("Prompt must not be blank");
       }
+      if (isPromptStep()) {
+        if (images.size() > MAX_IMAGE_COUNT) {
+          throw new IllegalArgumentException("At most " + MAX_IMAGE_COUNT + " images are allowed");
+        }
+        images.forEach(QueryImageInput::requireValidShape);
+      }
       if (isToolResultStep()) {
+        if (!images.isEmpty()) {
+          throw new IllegalArgumentException("Images are allowed only with prompt steps");
+        }
         toolResult.requireValidShape();
       }
+    }
+  }
+
+  public record QueryImageInput(String dataUri, String detail, String name) {
+    public QueryImageInput {
+      detail = detail == null || detail.isBlank() ? "auto" : detail;
+    }
+
+    public void requireValidShape() {
+      if (dataUri == null || dataUri.isBlank()) {
+        throw new IllegalArgumentException("Image dataUri is required");
+      }
+      if (!detail.equals("auto") && !detail.equals("low") && !detail.equals("high")) {
+        throw new IllegalArgumentException("Image detail must be auto, low, or high");
+      }
+      String prefix;
+      if (dataUri.startsWith("data:image/png;base64,")) {
+        prefix = "data:image/png;base64,";
+      } else if (dataUri.startsWith("data:image/jpeg;base64,")) {
+        prefix = "data:image/jpeg;base64,";
+      } else {
+        throw new IllegalArgumentException("Image dataUri must be a PNG or JPEG data URI");
+      }
+      byte[] decoded;
+      try {
+        decoded = Base64.getDecoder().decode(dataUri.substring(prefix.length()));
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException("Image dataUri base64 is invalid", e);
+      }
+      if (decoded.length > QueryCommand.MAX_IMAGE_BYTES) {
+        throw new IllegalArgumentException("Image dataUri exceeds maximum decoded size");
+      }
+      if (prefix.contains("png") && !hasPngMagic(decoded)) {
+        throw new IllegalArgumentException("PNG image dataUri does not contain PNG bytes");
+      }
+      if (prefix.contains("jpeg") && !hasJpegMagic(decoded)) {
+        throw new IllegalArgumentException("JPEG image dataUri does not contain JPEG bytes");
+      }
+    }
+
+    private static boolean hasPngMagic(byte[] bytes) {
+      return bytes.length >= 8
+          && (bytes[0] & 0xFF) == 0x89
+          && (bytes[1] & 0xFF) == 0x50
+          && (bytes[2] & 0xFF) == 0x4E
+          && (bytes[3] & 0xFF) == 0x47
+          && (bytes[4] & 0xFF) == 0x0D
+          && (bytes[5] & 0xFF) == 0x0A
+          && (bytes[6] & 0xFF) == 0x1A
+          && (bytes[7] & 0xFF) == 0x0A;
+    }
+
+    private static boolean hasJpegMagic(byte[] bytes) {
+      return bytes.length >= 3
+          && (bytes[0] & 0xFF) == 0xFF
+          && (bytes[1] & 0xFF) == 0xD8
+          && (bytes[2] & 0xFF) == 0xFF;
     }
   }
 

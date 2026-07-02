@@ -3,6 +3,7 @@ package app.vagina.server.textagent;
 import app.vagina.server.domain.error.ExternalServiceException;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
+import app.vagina.server.textagent.TextAgentRuntimeModels.QueryImageInput;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCall;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
@@ -16,6 +17,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAdapter {
   static final String PROVIDER_STATE_MESSAGES = "messages";
@@ -65,7 +67,8 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
 
   private void appendCurrentInput(ProviderContext context, List<ChatCompletionMessage> messages) {
     if (context.command().isPromptStep()) {
-      messages.add(ChatCompletionMessage.user(context.command().prompt()));
+      messages.add(
+          ChatCompletionMessage.user(context.command().prompt(), context.command().images()));
       return;
     }
     for (ToolResultSubmission toolResult : context.sessionState().acceptedToolResults()) {
@@ -190,15 +193,28 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
   @JsonInclude(JsonInclude.Include.NON_NULL)
   private record ChatCompletionMessage(
       String role,
-      String content,
+      Object content,
       @JsonProperty("tool_call_id") String toolCallId,
       @JsonProperty("tool_calls") List<ChatCompletionToolCall> toolCalls) {
     static ChatCompletionMessage system(String content) {
       return new ChatCompletionMessage("system", content, null, null);
     }
 
-    static ChatCompletionMessage user(String content) {
-      return new ChatCompletionMessage("user", content, null, null);
+    static ChatCompletionMessage user(String content, List<QueryImageInput> images) {
+      if (images == null || images.isEmpty()) {
+        return new ChatCompletionMessage("user", content, null, null);
+      }
+      List<Object> parts = new ArrayList<>();
+      parts.add(Map.of("type", "text", "text", content));
+      for (QueryImageInput image : images) {
+        parts.add(
+            Map.of(
+                "type",
+                "image_url",
+                "image_url",
+                Map.of("url", image.dataUri(), "detail", image.detail())));
+      }
+      return new ChatCompletionMessage("user", parts, null, null);
     }
 
     static ChatCompletionMessage assistantText(String content) {

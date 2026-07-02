@@ -3,6 +3,7 @@ package app.vagina.server.textagent;
 import app.vagina.server.domain.error.ExternalServiceException;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
+import app.vagina.server.textagent.TextAgentRuntimeModels.QueryImageInput;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCall;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
@@ -55,7 +56,7 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
     String instructions = previousResponseId == null ? context.textAgent().getPrompt() : null;
     Object input =
         context.command().isPromptStep()
-            ? context.command().prompt()
+            ? promptInput(context)
             : context.sessionState().acceptedToolResults().stream()
                 .map(this::functionCallOutputInput)
                 .toList();
@@ -162,6 +163,20 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
     }
   }
 
+  private Object promptInput(ProviderContext context) {
+    if (context.command().images().isEmpty()) {
+      return context.command().prompt();
+    }
+    List<Object> content = new ArrayList<>();
+    content.add(
+        new ResponsesInputContentPart("input_text", context.command().prompt(), null, null));
+    for (QueryImageInput image : context.command().images()) {
+      content.add(
+          new ResponsesInputContentPart("input_image", null, image.dataUri(), image.detail()));
+    }
+    return List.of(new ResponsesMessageInput("message", "user", content));
+  }
+
   private FunctionCallOutputInput functionCallOutputInput(ToolResultSubmission toolResult) {
     return new FunctionCallOutputInput(
         "function_call_output", toolResult.toolCallId(), toolResult.output());
@@ -182,6 +197,12 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
 
   private record FunctionCallOutputInput(
       String type, @JsonProperty("call_id") String callId, String output) {}
+
+  private record ResponsesMessageInput(String type, String role, List<Object> content) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private record ResponsesInputContentPart(
+      String type, String text, @JsonProperty("image_url") String imageUrl, String detail) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   private record ResponsesResponse(

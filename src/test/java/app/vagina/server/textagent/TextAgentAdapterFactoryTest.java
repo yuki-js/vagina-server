@@ -10,8 +10,6 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderSessionState;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
-import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
-import app.vagina.server.textagent.TextAgentRuntimeModels.QueryStatus;
 import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
@@ -49,7 +47,7 @@ class TextAgentAdapterFactoryTest {
     ProviderContext context =
         context(
             TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS,
-            new QueryCommand("s_voice", "req_prompt", "summarize", null, List.of()));
+            new QueryCommand("s_voice", "req_prompt", "summarize", List.of(), null, List.of()));
 
     ((OpenAiChatCompletionsTextAgentAdapter) adapter).previewRequestBody(context);
 
@@ -65,7 +63,7 @@ class TextAgentAdapterFactoryTest {
     ProviderContext context =
         context(
             TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
-            new QueryCommand("s_voice", "req_prompt", "summarize", null, List.of()));
+            new QueryCommand("s_voice", "req_prompt", "summarize", List.of(), null, List.of()));
 
     String body = adapter.previewRequestBody(context);
     adapter.rememberPreviousResponseId(context, "resp_123");

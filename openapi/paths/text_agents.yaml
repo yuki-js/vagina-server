@@ -247,8 +247,46 @@ paths:
                   minLength: 1
                   description: >-
                     New user prompt for this step. Exactly one of `prompt` or
-                    `toolResult` must be present.
+                    `toolResult` must be present. Prompt steps may include
+                    `images`; tool-result continuation steps must not include
+                    images.
                   example: Summarize what the caller just said.
+                images:
+                  type: array
+                  maxItems: 4
+                  description: >-
+                    Optional image attachments for this prompt step. Images are
+                    first-class multimodal input parts, not text embedded in the
+                    prompt. The client resolves semantic refs such as
+                    `attach_last_user_image` before calling this API. Each image
+                    must be a PNG or JPEG RFC 2397 data URI and 8 MiB or smaller
+                    after base64 decoding. Images are accepted only when
+                    `prompt` is present and are rejected on `toolResult`
+                    continuation steps.
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - dataUri
+                    properties:
+                      dataUri:
+                        type: string
+                        minLength: 1
+                        description: RFC 2397 data URI containing a PNG or JPEG image, for example `data:image/png;base64,...`.
+                        example: data:image/png;base64,iVBORw0KGgo=
+                      detail:
+                        type: string
+                        enum:
+                          - auto
+                          - low
+                          - high
+                        default: auto
+                        description: Provider vision detail level.
+                      name:
+                        type: string
+                        maxLength: 255
+                        description: Optional user-visible source filename.
+                        example: whiteboard.png
                 toolSchemas:
                   type: array
                   description: >-
