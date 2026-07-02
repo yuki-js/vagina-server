@@ -551,6 +551,14 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     String mimeType = sniffImageMime(imageBytes);
     String dataUri =
         "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(imageBytes);
+    RealtimeThread.Item userItem =
+        patch.addItem(
+            itemId,
+            RealtimeThread.ItemType.MESSAGE,
+            RealtimeThread.ItemRole.USER,
+            RealtimeThread.ItemStatus.COMPLETED);
+    patch.putImagePart(userItem, 0, dataUri, "auto");
+    flush();
     Map<String, Object> item =
         Map.of(
             "id",
