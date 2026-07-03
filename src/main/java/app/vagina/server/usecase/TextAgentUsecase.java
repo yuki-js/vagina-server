@@ -102,7 +102,8 @@ public class TextAgentUsecase {
       QueryCommand command, ProviderSessionState sessionState) {
     boolean expired = sessionState.clearExpiredRequest(PENDING_REQUEST_TTL, Instant.now());
     if (expired && command.isToolResultStep()) {
-      throw new ConflictException("Submitted tool result is stale; the active text-agent request expired");
+      throw new ConflictException(
+          "Submitted tool result is stale; the active text-agent request expired");
     }
     if (command.isPromptStep()) {
       validateAndStartPromptRequest(command, sessionState);
@@ -142,14 +143,16 @@ public class TextAgentUsecase {
               + activeRequestId);
     }
     if (sessionState.hasAcceptedToolResult(toolCallId)) {
-      throw new ConflictException("Submitted duplicate tool result for tool call id: " + toolCallId);
+      throw new ConflictException(
+          "Submitted duplicate tool result for tool call id: " + toolCallId);
     }
     if (!sessionState.hasPendingToolCall(toolCallId)) {
       throw new ConflictException(
           "Submitted tool result does not match pending tool call id: " + toolCallId);
     }
     if (!sessionState.acceptPendingToolResult(command.toolResult())) {
-      throw new ConflictException("Submitted duplicate tool result for tool call id: " + toolCallId);
+      throw new ConflictException(
+          "Submitted duplicate tool result for tool call id: " + toolCallId);
     }
     if (sessionState.hasPendingToolCalls()) {
       return QueryResult.requiresTool(sessionState.pendingToolCalls());

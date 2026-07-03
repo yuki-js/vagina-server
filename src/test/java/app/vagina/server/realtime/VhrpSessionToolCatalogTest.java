@@ -139,7 +139,8 @@ class VhrpSessionToolCatalogTest {
         VhrpException.MediaUnsupportedImage.class,
         () ->
             session
-                .dispatch(new VhrpMessage.TurnImageSubmit("msg_img", "ci_img", new byte[] {1, 2, 3}))
+                .dispatch(
+                    new VhrpMessage.TurnImageSubmit("msg_img", "ci_img", new byte[] {1, 2, 3}))
                 .await()
                 .indefinitely());
     assertTrue(adapter.sentImages.isEmpty());

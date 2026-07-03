@@ -550,7 +550,8 @@ public class VhrpSession {
 
   private void validateTurnImageSubmit(byte[] imageBytes) {
     if (imageBytes == null || imageBytes.length == 0) {
-      throw new VhrpException.MediaUnsupportedImage("turn.image.submit imageBytes must not be empty");
+      throw new VhrpException.MediaUnsupportedImage(
+          "turn.image.submit imageBytes must not be empty");
     }
     if (imageBytes.length > MAX_IMAGE_BYTES) {
       throw new VhrpException.MediaUnsupportedImage(

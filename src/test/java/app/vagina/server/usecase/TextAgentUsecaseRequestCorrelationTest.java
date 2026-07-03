@@ -128,8 +128,7 @@ class TextAgentUsecaseRequestCorrelationTest {
     fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_expiring"));
 
     assertTrue(
-        fixture.sessionState.clearExpiredRequest(
-            Duration.ZERO, Instant.now().plusMillis(1)));
+        fixture.sessionState.clearExpiredRequest(Duration.ZERO, Instant.now().plusMillis(1)));
     assertEquals(Optional.empty(), fixture.sessionState.activeRequestId());
     assertTrue(fixture.sessionState.pendingToolCalls().isEmpty());
     assertTrue(fixture.sessionState.acceptedToolResults().isEmpty());
