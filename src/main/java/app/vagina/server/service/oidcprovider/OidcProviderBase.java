@@ -53,9 +53,9 @@ public abstract class OidcProviderBase {
       String rawProfileJson) {}
 
   public interface OidcProviderInfo {
-    String clientId();
+    Optional<String> clientId();
 
-    String clientSecret();
+    Optional<String> clientSecret();
 
     Optional<String> configurationUrl();
 
@@ -83,8 +83,24 @@ public abstract class OidcProviderBase {
 
   public abstract OidcProviderInfo getProviderConfiguration();
 
+  public boolean isConfigured() {
+    OidcProviderInfo info = getProviderConfiguration();
+    return info.clientId().filter(value -> !value.isBlank()).isPresent()
+        && info.clientSecret().filter(value -> !value.isBlank()).isPresent();
+  }
+
   protected ConfiguredOidcProviderInfo configureProvider() {
     OidcProviderInfo info = getProviderConfiguration();
+    String clientId =
+        info.clientId()
+            .filter(value -> !value.isBlank())
+            .orElseThrow(
+                () -> new IllegalStateException(getProviderKey() + " OIDC clientId is required"));
+    String clientSecret =
+        info.clientSecret()
+            .filter(value -> !value.isBlank())
+            .orElseThrow(
+                () -> new IllegalStateException(getProviderKey() + " OIDC clientSecret is required"));
 
     if (info.configurationUrl().isPresent()
         && info.jwksUrl().isEmpty()
@@ -136,8 +152,8 @@ public abstract class OidcProviderBase {
               : Optional.empty();
 
       return new ConfiguredOidcProviderInfo(
-          info.clientId(),
-          info.clientSecret(),
+          clientId,
+          clientSecret,
           jwksUrl,
           issuer,
           authorizationEndpoint,
@@ -170,8 +186,8 @@ public abstract class OidcProviderBase {
                       new IllegalStateException(
                           "tokenEndpoint is required when configurationUrl is not provided"));
       return new ConfiguredOidcProviderInfo(
-          info.clientId(),
-          info.clientSecret(),
+          clientId,
+          clientSecret,
           jwksUrl,
           issuer,
           authorizationEndpoint,

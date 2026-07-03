@@ -1,6 +1,7 @@
 package app.vagina.server.realtime;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,6 +67,18 @@ class VhrpCrossCodecTest {
     Path base = Paths.get("../.private.local/vhrp_fixtures");
     C2S_DIR = base.resolve("c2s");
     S2C_DIR = base.resolve("s2c");
+
+    assumeTrue(
+        Files.isDirectory(C2S_DIR),
+        "Skipping VHRP cross-codec tests because local Dart-generated fixtures are absent: "
+            + C2S_DIR);
+    try (Stream<Path> c2sFixtures = Files.list(C2S_DIR)) {
+      assumeTrue(
+          c2sFixtures.anyMatch(path -> path.getFileName().toString().endsWith(".cbor")),
+          "Skipping VHRP cross-codec tests because no Dart-generated CBOR fixtures exist in: "
+              + C2S_DIR);
+    }
+
     Files.createDirectories(S2C_DIR);
   }
 

@@ -93,7 +93,7 @@ public class AuthService {
       throw new ValidationException("OIDC provider is required");
     }
     for (OidcProviderBase provider : oidcProviders) {
-      if (providerKey.equals(provider.getProviderKey())) {
+      if (providerKey.equals(provider.getProviderKey()) && provider.isConfigured()) {
         return provider;
       }
     }
