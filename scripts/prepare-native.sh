@@ -11,11 +11,11 @@ NATIVE_RUNNER=$(find build -name '*-runner' -type f ! -path "*/quarkus-app/*" | 
 
 if [ -z "$NATIVE_RUNNER" ]; then
     echo "ERROR: Native runner not found!"
-    echo "Please build the native executable first using:"
-    echo "  ./gradlew build -Dquarkus.package.type=native"
+    echo "Please build the native executable first using installed GraalVM/native-image:"
+    echo "  ./gradlew quarkusBuild -Dquarkus.native.enabled=true -Dquarkus.package.jar.enabled=false -Dquarkus.native.container-build=false"
     echo ""
     echo "Or with container build (if GraalVM is not installed):"
-    echo "  ./gradlew build -Dquarkus.package.type=native -Dquarkus.native.container-build=true"
+    echo "  ./gradlew quarkusBuild -Dquarkus.native.enabled=true -Dquarkus.package.jar.enabled=false -Dquarkus.native.container-build=true"
     exit 1
 fi
 

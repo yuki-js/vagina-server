@@ -161,7 +161,7 @@ jobs:
 
       - name: Build native executable once
         run: |
-          ./gradlew quarkusBuild -Dquarkus.package.type=native
+          ./gradlew quarkusBuild -Dquarkus.native.enabled=true -Dquarkus.package.jar.enabled=false -Dquarkus.native.container-build=false
 
       - name: Prepare native executable for Jib
         run: |

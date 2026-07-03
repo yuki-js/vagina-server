@@ -101,7 +101,7 @@ jobs:
           native-image-job-reports: 'true'
 
       - name: Build native binary
-        run: ./gradlew quarkusBuild -Dquarkus.package.type=native -Dquarkus.native.container-build=false --no-daemon
+        run: ./gradlew quarkusBuild -Dquarkus.native.enabled=true -Dquarkus.package.jar.enabled=false -Dquarkus.native.container-build=false --no-daemon
         env:
           QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://localhost:5432/vagina_server
           QUARKUS_DATASOURCE_USERNAME: postgres
