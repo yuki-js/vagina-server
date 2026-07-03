@@ -100,7 +100,8 @@ public abstract class OidcProviderBase {
         info.clientSecret()
             .filter(value -> !value.isBlank())
             .orElseThrow(
-                () -> new IllegalStateException(getProviderKey() + " OIDC clientSecret is required"));
+                () ->
+                    new IllegalStateException(getProviderKey() + " OIDC clientSecret is required"));
 
     if (info.configurationUrl().isPresent()
         && info.jwksUrl().isEmpty()

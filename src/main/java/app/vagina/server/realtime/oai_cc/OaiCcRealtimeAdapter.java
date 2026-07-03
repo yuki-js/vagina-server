@@ -384,7 +384,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       case OaiCcEvent.AudioDelta audio -> onAudioDelta(assistantItem, textPart, audio);
       case OaiCcEvent.ToolCallDelta tool -> onToolCallDelta(tool);
       case OaiCcEvent.Finished ignored -> onFinished(assistantItem, textPart);
-      case OaiCcEvent.ErrorEvent error -> onProviderError(assistantItem, error.message());
+      case OaiCcEvent.ErrorEvent error -> onProviderError(assistantItem, error);
     }
   }
 
@@ -414,7 +414,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
                 assistantItem.id(), assistantItem.content().indexOf(audioPart), pcm));
         flush();
       } catch (IllegalArgumentException e) {
-        emitError("audio_decode_error", "Failed to decode Chat Completions audio delta");
+        emitError("audio_decode_error", "Failed to decode Chat Completions audio delta", e);
       }
     }
   }
@@ -466,15 +466,15 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     responseSubscription = null;
   }
 
-  private void onProviderError(RealtimeThread.Item assistantItem, String message) {
+  private void onProviderError(RealtimeThread.Item assistantItem, OaiCcEvent.ErrorEvent error) {
     patch.setStatus(assistantItem, RealtimeThread.ItemStatus.INCOMPLETE);
     flush();
-    emitError("chat_completions_error", message);
+    emitError("chat_completions_error", error.message(), error.upstreamError());
     responseSubscription = null;
   }
 
   private void onStreamFailure(Throwable error) {
-    emitError("stream_error", error.getMessage());
+    emitError("stream_error", error.getMessage(), error);
     responseSubscription = null;
   }
 
@@ -772,8 +772,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     connectionBus.onNext(value);
   }
 
-  private void emitError(String code, String message) {
-    errorBus.onNext(new RealtimeAdapterModels.Error(code, message, null));
+  private void emitError(String code, String message, Object cause) {
+    errorBus.onNext(new RealtimeAdapterModels.Error(code, message, cause));
   }
 
   private static ResolvedEndpoint resolveEndpoint(String baseUrl, String configuredModel) {

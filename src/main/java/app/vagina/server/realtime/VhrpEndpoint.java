@@ -224,6 +224,7 @@ public class VhrpEndpoint {
     }
 
     boolean recoverable = bootstrapped;
+    logVhrpErrorPacket(connection, ve, recoverable, error);
 
     // Recover send/close failures so that a "connection closed just now" race does not re-enter
     // @OnError. Pattern mirrors VhrpSession.writeFrame(): fail → log debug → swallow.
@@ -256,6 +257,22 @@ public class VhrpEndpoint {
                   connection.id(), closeFailure.getMessage());
               return Uni.createFrom().voidItem();
             });
+  }
+
+  private void logVhrpErrorPacket(
+      WebSocketConnection connection,
+      VhrpException errorToClient,
+      boolean recoverable,
+      Throwable upstreamError) {
+    Log.errorf(
+        upstreamError,
+        "Sending VHRP error packet: connection=%s recoverable=%s code=%s message=%s upstreamErrorClass=%s upstreamErrorMessage=%s",
+        connection.id(),
+        recoverable,
+        errorToClient.wireCode(),
+        errorToClient.getMessage(),
+        upstreamError.getClass().getName(),
+        upstreamError.getMessage());
   }
 
   /**

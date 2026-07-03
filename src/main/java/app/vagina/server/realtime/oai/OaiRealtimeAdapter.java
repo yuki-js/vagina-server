@@ -724,7 +724,7 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
 
   private void onErrorEvent(OaiRealtimeEvent.ErrorEvent event) {
     OaiRealtimeEvent.ErrorDetail detail = event.error();
-    emitError(detail.code() != null ? detail.code() : detail.type(), detail.message());
+    emitError(detail.code() != null ? detail.code() : detail.type(), detail.message(), detail);
   }
 
   private void onConversationCreated(OaiRealtimeEvent.ConversationCreated event) {
@@ -840,7 +840,7 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
           new RealtimeAdapterModels.AssistantAudioFrame(
               item.id(), item.content().indexOf(audioPart), pcm));
     } catch (IllegalArgumentException error) {
-      emitError("audio_output_decode_error", "Failed to decode assistant audio delta.");
+      emitError("audio_output_decode_error", "Failed to decode assistant audio delta.", error);
     }
     flush();
   }
@@ -1123,8 +1123,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     speakingBus.onNext(value);
   }
 
-  private void emitError(String code, String message) {
-    errorBus.onNext(new RealtimeAdapterModels.Error(code, message, null));
+  private void emitError(String code, String message, Object cause) {
+    errorBus.onNext(new RealtimeAdapterModels.Error(code, message, cause));
   }
 
   // ---------------------------------------------------------------------------

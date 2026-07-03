@@ -19,7 +19,7 @@ public sealed interface OaiCcEvent
 
   record Finished(String finishReason) implements OaiCcEvent {}
 
-  record ErrorEvent(String message) implements OaiCcEvent {}
+  record ErrorEvent(String message, Object upstreamError) implements OaiCcEvent {}
 
   final class Parser {
     private final ObjectMapper json;
@@ -75,7 +75,8 @@ public sealed interface OaiCcEvent
         }
         return null;
       } catch (Exception e) {
-        return new ErrorEvent("Failed to parse Chat Completions stream chunk: " + e.getMessage());
+        return new ErrorEvent(
+            "Failed to parse Chat Completions stream chunk: " + e.getMessage(), e);
       }
     }
 

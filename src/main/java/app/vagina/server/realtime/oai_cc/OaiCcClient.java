@@ -6,6 +6,7 @@ import io.smallrye.mutiny.subscription.MultiEmitter;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
@@ -33,8 +34,7 @@ public final class OaiCcClient {
               ActiveRequest requestState = new ActiveRequest();
               LineSubscriber subscriber = new LineSubscriber(emitter, parser, requestState);
               CompletableFuture<HttpResponse<Void>> future =
-                  http.sendAsync(
-                      httpRequest, HttpResponse.BodyHandlers.fromLineSubscriber(subscriber));
+                  http.sendAsync(httpRequest, responseHandler(emitter, subscriber));
               requestState.future =
                   future.whenComplete(
                       (response, error) -> {
@@ -42,12 +42,9 @@ public final class OaiCcClient {
                           if (!requestState.cancelled.get()) {
                             emitter.emit(
                                 new OaiCcEvent.ErrorEvent(
-                                    "Chat Completions request failed: " + error.getMessage()));
+                                    "Chat Completions request failed: " + error.getMessage(),
+                                    error));
                           }
-                        } else if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                          emitter.emit(
-                              new OaiCcEvent.ErrorEvent(
-                                  "Chat Completions API returned HTTP " + response.statusCode()));
                         }
                         emitter.complete();
                       });
@@ -80,6 +77,25 @@ public final class OaiCcClient {
     }
   }
 
+  private HttpResponse.BodyHandler<Void> responseHandler(
+      MultiEmitter<? super OaiCcEvent> emitter, LineSubscriber subscriber) {
+    return responseInfo -> {
+      int statusCode = responseInfo.statusCode();
+      if (statusCode >= 200 && statusCode < 300) {
+        return HttpResponse.BodySubscribers.fromLineSubscriber(subscriber);
+      }
+      return HttpResponse.BodySubscribers.mapping(
+          HttpResponse.BodySubscribers.ofString(StandardCharsets.UTF_8),
+          body -> {
+            emitter.emit(
+                new OaiCcEvent.ErrorEvent(
+                    "Chat Completions API returned HTTP " + statusCode,
+                    new HttpError(statusCode, body)));
+            return null;
+          });
+    };
+  }
+
   private HttpRequest buildRequest(OaiCcConnectConfig config, OaiCcRequest request) {
     HttpRequest.Builder builder =
         HttpRequest.newBuilder(config.chatCompletionsUri())
@@ -96,6 +112,8 @@ public final class OaiCcClient {
     }
     return builder.build();
   }
+
+  private record HttpError(int statusCode, String body) {}
 
   private static final class ActiveRequest {
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
@@ -139,7 +157,8 @@ public final class OaiCcClient {
     public void onError(Throwable throwable) {
       if (!request.cancelled.get()) {
         emitter.emit(
-            new OaiCcEvent.ErrorEvent("Chat Completions stream failed: " + throwable.getMessage()));
+            new OaiCcEvent.ErrorEvent(
+                "Chat Completions stream failed: " + throwable.getMessage(), throwable));
       }
     }
 

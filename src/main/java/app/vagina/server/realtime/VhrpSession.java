@@ -271,10 +271,28 @@ public class VhrpSession {
   }
 
   private void emitError(RealtimeAdapterModels.Error error) {
+    logAdapterErrorPacket(error);
     VhrpMessage.Error wire = new VhrpMessage.Error(null, error.code(), error.message(), true);
     sendToClient(wire)
         .subscribe()
         .with(ignored -> {}, t -> Log.errorf(t, "VHRP %s error write", sessionId));
+  }
+
+  private void logAdapterErrorPacket(RealtimeAdapterModels.Error error) {
+    Object cause = error.cause();
+    if (cause instanceof Throwable throwable) {
+      Log.errorf(
+          throwable,
+          "Sending VHRP adapter error packet: session=%s code=%s message=%s upstreamError=%s",
+          sessionId,
+          error.code(),
+          error.message(),
+          cause);
+      return;
+    }
+    Log.errorf(
+        "Sending VHRP adapter error packet: session=%s code=%s message=%s upstreamError=%s",
+        sessionId, error.code(), error.message(), cause);
   }
 
   /**
