@@ -362,6 +362,18 @@ task copyOpenApiToResources(type: Copy) {
     dependsOn compileOpenApi
 }
 
+// Publish the compiled OpenAPI spec into the sibling client repository for florval.
+task copyCompiledOpenApiToClient(type: Copy) {
+    group = 'openapi'
+    description = 'Copy compiled OpenAPI specification to ../client/openapi/openapi.yaml for Flutter client code generation'
+
+    from "$buildDir/openapi-compiled/openapi.yaml"
+    into "$rootDir/../client/openapi"
+    rename { 'openapi.yaml' }
+
+    dependsOn compileOpenApi
+}
+
 // Add generated sources to source sets
 sourceSets {
     main {
