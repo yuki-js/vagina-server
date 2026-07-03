@@ -1,6 +1,7 @@
 package app.vagina.server.realtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
@@ -88,6 +89,62 @@ class VhrpSessionToolCatalogTest {
         session.textAgentToolCatalogSnapshot().stream().map(tool -> tool.name()).toList());
   }
 
+  @Test
+  void rejectsOversizedTurnImageBeforeAdapterReceivesIt() {
+    CapturingAdapter adapter = new CapturingAdapter();
+    VhrpSession session = session(adapter, Set.of());
+    byte[] oversizedPng = new byte[1024 * 1024 + 1];
+    oversizedPng[0] = (byte) 0x89;
+    oversizedPng[1] = 0x50;
+    oversizedPng[2] = 0x4E;
+    oversizedPng[3] = 0x47;
+    oversizedPng[4] = 0x0D;
+    oversizedPng[5] = 0x0A;
+    oversizedPng[6] = 0x1A;
+    oversizedPng[7] = 0x0A;
+
+    assertThrows(
+        VhrpException.MediaUnsupportedImage.class,
+        () ->
+            session
+                .dispatch(new VhrpMessage.TurnImageSubmit("msg_img", "ci_img", oversizedPng))
+                .await()
+                .indefinitely());
+    assertTrue(adapter.sentImages.isEmpty());
+  }
+
+  @Test
+  void rejectsMismatchedManualAudioFormatBeforeAdapterReceivesIt() {
+    CapturingAdapter adapter = new CapturingAdapter();
+    VhrpSession session = session(adapter, Set.of());
+
+    assertThrows(
+        VhrpException.MediaAudioFormatMismatch.class,
+        () ->
+            session
+                .dispatch(
+                    new VhrpMessage.TurnAudioSubmit(
+                        "msg_audio", "ci_audio", new byte[] {0, 1}, 16000, 1, 16))
+                .await()
+                .indefinitely());
+    assertTrue(adapter.sentAudioTurns.isEmpty());
+  }
+
+  @Test
+  void rejectsUnsupportedImageBytesBeforeAdapterReceivesIt() {
+    CapturingAdapter adapter = new CapturingAdapter();
+    VhrpSession session = session(adapter, Set.of());
+
+    assertThrows(
+        VhrpException.MediaUnsupportedImage.class,
+        () ->
+            session
+                .dispatch(new VhrpMessage.TurnImageSubmit("msg_img", "ci_img", new byte[] {1, 2, 3}))
+                .await()
+                .indefinitely());
+    assertTrue(adapter.sentImages.isEmpty());
+  }
+
   private VhrpSession session(CapturingAdapter adapter, Set<String> allowedToolNames) {
     return new VhrpSession(
         "s_test",
@@ -104,6 +161,8 @@ class VhrpSessionToolCatalogTest {
   private static final class CapturingAdapter implements RealtimeAdapter {
     private final List<List<RealtimeAdapterModels.ToolDefinition>> registeredTools =
         new ArrayList<>();
+    private final List<byte[]> sentAudioTurns = new ArrayList<>();
+    private final List<byte[]> sentImages = new ArrayList<>();
 
     List<String> registeredToolNames() {
       if (registeredTools.isEmpty()) {
@@ -205,6 +264,7 @@ class VhrpSessionToolCatalogTest {
 
     @Override
     public Uni<String> sendAudioOneShot(byte[] audioBytes) {
+      sentAudioTurns.add(audioBytes);
       return Uni.createFrom().item("audio_item");
     }
 
@@ -215,6 +275,7 @@ class VhrpSessionToolCatalogTest {
 
     @Override
     public Uni<String> sendImage(byte[] imageBytes) {
+      sentImages.add(imageBytes);
       return Uni.createFrom().item("image_item");
     }
 

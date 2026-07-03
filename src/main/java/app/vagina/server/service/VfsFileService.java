@@ -5,6 +5,7 @@ import app.vagina.server.mapper.VfsFileMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,8 @@ import java.util.TreeSet;
 @ApplicationScoped
 public class VfsFileService {
   public static final int MAX_PATH_LENGTH = 512;
+  public static final int MAX_FILE_SIZE_BYTES = 1024 * 1024;
+  public static final int MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024;
   // Bound the raw input before normalization so split()/normalization can't be driven with a
   // multi-megabyte traversal string; the authoritative storage bound is MAX_PATH_LENGTH on the
   // normalized result.
@@ -26,6 +29,8 @@ public class VfsFileService {
   public static final String ERROR_PATH_MUST_TARGET_FILE = "Path must target a file";
   public static final String ERROR_SOURCE_FILE_NOT_FOUND = "Source file not found";
   public static final String ERROR_DESTINATION_ALREADY_EXISTS = "Destination already exists";
+  public static final String ERROR_FILE_TOO_LARGE = "File too large";
+  public static final String ERROR_FILESYSTEM_QUOTA_EXCEEDED = "Filesystem quota exceeded";
 
   @Inject VfsFileMapper vfsFileMapper;
 
@@ -48,6 +53,7 @@ public class VfsFileService {
   @Transactional
   public VfsFileEntity write(Long userId, String path, String content) {
     String normalizedPath = validateFilePath(path);
+    validateContentSize(userId, normalizedPath, content);
     LocalDateTime now = LocalDateTime.now();
 
     Optional<VfsFileEntity> existing = vfsFileMapper.findByUserIdAndPath(userId, normalizedPath);
@@ -97,6 +103,34 @@ public class VfsFileService {
   public boolean delete(Long userId, String path) {
     String normalizedPath = validateFilePath(path);
     return vfsFileMapper.deleteByUserIdAndPath(userId, normalizedPath) > 0;
+  }
+
+  private void validateContentSize(Long userId, String normalizedPath, String content) {
+    int nextFileSize = byteSize(content);
+    if (nextFileSize > MAX_FILE_SIZE_BYTES) {
+      throw new IllegalArgumentException(
+          ERROR_FILE_TOO_LARGE + " (max " + MAX_FILE_SIZE_BYTES + " bytes)");
+    }
+
+    int currentFileSize = 0;
+    int totalSize = 0;
+    for (VfsFileEntity file : vfsFileMapper.findByUserId(userId)) {
+      int fileSize = byteSize(file.getContent());
+      totalSize += fileSize;
+      if (normalizedPath.equals(file.getPath())) {
+        currentFileSize = fileSize;
+      }
+    }
+
+    int nextTotalSize = totalSize - currentFileSize + nextFileSize;
+    if (nextTotalSize > MAX_TOTAL_SIZE_BYTES) {
+      throw new IllegalArgumentException(
+          ERROR_FILESYSTEM_QUOTA_EXCEEDED + " (max " + MAX_TOTAL_SIZE_BYTES + " bytes)");
+    }
+  }
+
+  private int byteSize(String value) {
+    return value == null ? 0 : value.getBytes(StandardCharsets.UTF_8).length;
   }
 
   private String validateFilePath(String path) {

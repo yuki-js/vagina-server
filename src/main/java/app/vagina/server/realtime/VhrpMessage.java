@@ -241,7 +241,8 @@ public sealed interface VhrpMessage {
    * the client replaces its local thread wholesale. It is the single recovery primitive — there is
    * no revision or sequence to validate it against.
    */
-  record ThreadSnapshot(String threadId, String conversationId, List<Map<String, Object>> items)
+  record ThreadSnapshot(
+      int schemaVersion, String threadId, String conversationId, List<Map<String, Object>> items)
       implements S2C {
     @Override
     public String type() {

@@ -22,6 +22,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ import java.util.Map;
 public class TextAgentUsecase {
   private static final String QUERY_TEXT_AGENT_TOOL_NAME = "query_text_agent";
   private static final String END_CALL_TOOL_NAME = "end_call";
+  private static final Duration PENDING_REQUEST_TTL = Duration.ofMinutes(5);
   private static final TypeReference<Map<String, Boolean>> ENABLED_TOOLS_TYPE =
       new TypeReference<>() {};
 
@@ -97,6 +100,10 @@ public class TextAgentUsecase {
 
   private QueryResult validateAndApplyRequestState(
       QueryCommand command, ProviderSessionState sessionState) {
+    boolean expired = sessionState.clearExpiredRequest(PENDING_REQUEST_TTL, Instant.now());
+    if (expired && command.isToolResultStep()) {
+      throw new ConflictException("Submitted tool result is stale; the active text-agent request expired");
+    }
     if (command.isPromptStep()) {
       validateAndStartPromptRequest(command, sessionState);
       return null;
@@ -110,7 +117,10 @@ public class TextAgentUsecase {
       sessionState.startRequest(command.requestId());
       return;
     }
-    throw new ConflictException("Text agent request is waiting for pending tool results");
+    String activeRequestId = sessionState.activeRequestId().orElse("<unknown>");
+    throw new ConflictException(
+        "Text agent request is waiting for pending tool results for request id: "
+            + activeRequestId);
   }
 
   private QueryResult validateAndRecordToolResult(
@@ -126,10 +136,20 @@ public class TextAgentUsecase {
                         "Submitted tool result does not match an active request"));
     if (!activeRequestId.equals(requestId)) {
       throw new ConflictException(
-          "Submitted tool result request id does not match the active request");
+          "Submitted tool result request id "
+              + requestId
+              + " does not match active request id "
+              + activeRequestId);
+    }
+    if (sessionState.hasAcceptedToolResult(toolCallId)) {
+      throw new ConflictException("Submitted duplicate tool result for tool call id: " + toolCallId);
+    }
+    if (!sessionState.hasPendingToolCall(toolCallId)) {
+      throw new ConflictException(
+          "Submitted tool result does not match pending tool call id: " + toolCallId);
     }
     if (!sessionState.acceptPendingToolResult(command.toolResult())) {
-      throw new ConflictException("Submitted tool result does not match a pending tool call");
+      throw new ConflictException("Submitted duplicate tool result for tool call id: " + toolCallId);
     }
     if (sessionState.hasPendingToolCalls()) {
       return QueryResult.requiresTool(sessionState.pendingToolCalls());

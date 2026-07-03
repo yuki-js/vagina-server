@@ -23,6 +23,8 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCall;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -113,8 +115,24 @@ class TextAgentUsecaseRequestCorrelationTest {
             () ->
                 fixture.usecase.queryTextAgent(
                     7L, "ta_contract", toolResultCommand("req_1", "tc_1")));
-    assertTrue(error.getMessage().contains("pending tool call"));
+    assertTrue(error.getMessage().contains("duplicate tool result"));
     assertEquals(1, adapter.executionCount());
+  }
+
+  @Test
+  void providerSessionStateCanClearExpiredPendingRequest() {
+    RecordingAdapter adapter =
+        new RecordingAdapter(QueryResult.requiresTool(List.of(toolCall("tc_expiring"))));
+    Fixture fixture = fixture(adapter);
+
+    fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_expiring"));
+
+    assertTrue(
+        fixture.sessionState.clearExpiredRequest(
+            Duration.ZERO, Instant.now().plusMillis(1)));
+    assertEquals(Optional.empty(), fixture.sessionState.activeRequestId());
+    assertTrue(fixture.sessionState.pendingToolCalls().isEmpty());
+    assertTrue(fixture.sessionState.acceptedToolResults().isEmpty());
   }
 
   @Test

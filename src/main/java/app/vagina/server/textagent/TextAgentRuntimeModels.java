@@ -2,6 +2,8 @@ package app.vagina.server.textagent;
 
 import app.vagina.server.entity.TextAgentDefinition;
 import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -238,6 +240,7 @@ public final class TextAgentRuntimeModels {
     private final List<ToolCall> pendingToolCalls = new ArrayList<>();
     private final Map<String, ToolResultSubmission> acceptedToolResults = new LinkedHashMap<>();
     private String activeRequestId;
+    private Instant activeRequestStartedAt;
 
     public ProviderSessionState(String textAgentId, TextAgentModelBinding binding) {
       if (textAgentId == null || textAgentId.isBlank()) {
@@ -272,12 +275,25 @@ public final class TextAgentRuntimeModels {
         throw new IllegalArgumentException("Request id is required");
       }
       activeRequestId = requestId;
+      activeRequestStartedAt = Instant.now();
       pendingToolCalls.clear();
       acceptedToolResults.clear();
     }
 
+    public boolean clearExpiredRequest(Duration ttl, Instant now) {
+      if (activeRequestId == null || activeRequestStartedAt == null) {
+        return false;
+      }
+      if (activeRequestStartedAt.plus(ttl).isAfter(now)) {
+        return false;
+      }
+      clearRequestState();
+      return true;
+    }
+
     public void clearRequestState() {
       activeRequestId = null;
+      activeRequestStartedAt = null;
       pendingToolCalls.clear();
       acceptedToolResults.clear();
     }
@@ -292,6 +308,10 @@ public final class TextAgentRuntimeModels {
 
     public boolean hasPendingToolCalls() {
       return !pendingToolCalls.isEmpty();
+    }
+
+    public boolean hasAcceptedToolResult(String toolCallId) {
+      return acceptedToolResults.containsKey(toolCallId);
     }
 
     public boolean acceptPendingToolResult(ToolResultSubmission toolResult) {

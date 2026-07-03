@@ -684,7 +684,7 @@ class VhrpCrossCodecTest {
     item2.put("content", "Hi there!");
 
     VhrpMessage.ThreadSnapshot msg =
-        new VhrpMessage.ThreadSnapshot("thread_snap01", "conv_snap01", List.of(item1, item2));
+        new VhrpMessage.ThreadSnapshot(1, "thread_snap01", "conv_snap01", List.of(item1, item2));
 
     byte[] cbor = encode(msg);
     writeFixture(
@@ -695,6 +695,7 @@ class VhrpCrossCodecTest {
             null,
             b -> {
               ObjectNode body = b.putObject("body");
+              body.put("schemaVersion", 1);
               body.put("threadId", "thread_snap01");
               body.put("conversationId", "conv_snap01");
               ArrayNode items = body.putArray("items");

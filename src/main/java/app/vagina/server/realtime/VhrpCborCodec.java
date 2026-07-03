@@ -181,6 +181,7 @@ public class VhrpCborCodec {
         body.put("applied", m.applied());
       }
       case VhrpMessage.ThreadSnapshot m -> {
+        body.put("schemaVersion", m.schemaVersion());
         body.put("threadId", m.threadId());
         putIfPresent(body, "conversationId", m.conversationId());
         body.set("items", toArrayOfMaps(m.items()));

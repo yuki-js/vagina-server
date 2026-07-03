@@ -58,6 +58,13 @@ import java.util.stream.Collectors;
  * the current-connection reference is volatile.
  */
 public class VhrpSession {
+  private static final int THREAD_SNAPSHOT_SCHEMA_VERSION = 1;
+  private static final int EXPECTED_AUDIO_SAMPLE_RATE = 24000;
+  private static final int EXPECTED_AUDIO_CHANNELS = 1;
+  private static final int EXPECTED_AUDIO_BIT_DEPTH = 16;
+  private static final int MAX_LIVE_AUDIO_CHUNK_BYTES = 64 * 1024;
+  private static final int MAX_TURN_AUDIO_BYTES = 1024 * 1024;
+  private static final int MAX_IMAGE_BYTES = 1024 * 1024;
 
   /** Stable resume handle; constant across the connections this session serves. */
   private final String sessionId;
@@ -377,11 +384,13 @@ public class VhrpSession {
   }
 
   private Uni<Void> handleLiveAudioChunk(VhrpMessage.LiveAudioChunk m) {
+    validateLiveAudioChunk(m.pcm());
     adapter.pushLiveAudioChunk(m.pcm());
     return Uni.createFrom().voidItem();
   }
 
   private Uni<Void> handleTurnAudioSubmit(VhrpMessage.TurnAudioSubmit m) {
+    validateTurnAudioSubmit(m);
     return adapter
         .sendAudioOneShot(m.pcm())
         .onItem()
@@ -396,6 +405,7 @@ public class VhrpSession {
   }
 
   private Uni<Void> handleTurnImageSubmit(VhrpMessage.TurnImageSubmit m) {
+    validateTurnImageSubmit(m.imageBytes());
     return adapter
         .sendImage(m.imageBytes())
         .onItem()
@@ -483,16 +493,92 @@ public class VhrpSession {
   private VhrpMessage.ThreadSnapshot buildSnapshot() {
     RealtimeThread thread = adapter.thread();
     return new VhrpMessage.ThreadSnapshot(
-        threadId, thread.conversationId(), ThreadPatchBuilder.snapshotItems(thread));
+        THREAD_SNAPSHOT_SCHEMA_VERSION,
+        threadId,
+        thread.conversationId(),
+        ThreadPatchBuilder.snapshotItems(thread));
   }
 
   public Map<String, Object> buildSessionHistoryThread() {
     RealtimeThread thread = adapter.thread();
     Map<String, Object> historyThread = new LinkedHashMap<>();
+    historyThread.put("schemaVersion", THREAD_SNAPSHOT_SCHEMA_VERSION);
     historyThread.put("id", threadId);
     historyThread.put("conversationId", thread.conversationId());
     historyThread.put("items", ThreadPatchBuilder.snapshotItems(thread));
     return historyThread;
+  }
+
+  private void validateLiveAudioChunk(byte[] pcm) {
+    if (pcm == null || pcm.length == 0) {
+      throw new VhrpException.MediaAudioFormatMismatch("live.audio.chunk pcm must not be empty");
+    }
+    if (pcm.length > MAX_LIVE_AUDIO_CHUNK_BYTES) {
+      throw new VhrpException.MediaAudioFormatMismatch(
+          "live.audio.chunk pcm exceeds " + MAX_LIVE_AUDIO_CHUNK_BYTES + " bytes");
+    }
+    if (pcm.length % bytesPerAudioFrame() != 0) {
+      throw new VhrpException.MediaAudioFormatMismatch(
+          "live.audio.chunk pcm is not aligned to 16-bit mono frames");
+    }
+  }
+
+  private void validateTurnAudioSubmit(VhrpMessage.TurnAudioSubmit message) {
+    byte[] pcm = message.pcm();
+    if (pcm == null || pcm.length == 0) {
+      throw new VhrpException.MediaAudioFormatMismatch("turn.audio.submit pcm must not be empty");
+    }
+    if (pcm.length > MAX_TURN_AUDIO_BYTES) {
+      throw new VhrpException.MediaAudioFormatMismatch(
+          "turn.audio.submit pcm exceeds " + MAX_TURN_AUDIO_BYTES + " bytes");
+    }
+    if (message.sampleRate() != EXPECTED_AUDIO_SAMPLE_RATE
+        || message.channels() != EXPECTED_AUDIO_CHANNELS
+        || message.bitDepth() != EXPECTED_AUDIO_BIT_DEPTH) {
+      throw new VhrpException.MediaAudioFormatMismatch(
+          "turn.audio.submit format must be 24kHz mono PCM16");
+    }
+    if (pcm.length % bytesPerAudioFrame() != 0) {
+      throw new VhrpException.MediaAudioFormatMismatch(
+          "turn.audio.submit pcm is not aligned to 16-bit mono frames");
+    }
+  }
+
+  private int bytesPerAudioFrame() {
+    return EXPECTED_AUDIO_CHANNELS * (EXPECTED_AUDIO_BIT_DEPTH / 8);
+  }
+
+  private void validateTurnImageSubmit(byte[] imageBytes) {
+    if (imageBytes == null || imageBytes.length == 0) {
+      throw new VhrpException.MediaUnsupportedImage("turn.image.submit imageBytes must not be empty");
+    }
+    if (imageBytes.length > MAX_IMAGE_BYTES) {
+      throw new VhrpException.MediaUnsupportedImage(
+          "turn.image.submit imageBytes exceeds " + MAX_IMAGE_BYTES + " bytes");
+    }
+    if (!hasPngMagic(imageBytes) && !hasJpegMagic(imageBytes)) {
+      throw new VhrpException.MediaUnsupportedImage(
+          "turn.image.submit supports only PNG and JPEG image bytes");
+    }
+  }
+
+  private boolean hasPngMagic(byte[] bytes) {
+    return bytes.length >= 8
+        && (bytes[0] & 0xFF) == 0x89
+        && (bytes[1] & 0xFF) == 0x50
+        && (bytes[2] & 0xFF) == 0x4E
+        && (bytes[3] & 0xFF) == 0x47
+        && (bytes[4] & 0xFF) == 0x0D
+        && (bytes[5] & 0xFF) == 0x0A
+        && (bytes[6] & 0xFF) == 0x1A
+        && (bytes[7] & 0xFF) == 0x0A;
+  }
+
+  private boolean hasJpegMagic(byte[] bytes) {
+    return bytes.length >= 3
+        && (bytes[0] & 0xFF) == 0xFF
+        && (bytes[1] & 0xFF) == 0xD8
+        && (bytes[2] & 0xFF) == 0xFF;
   }
 
   // ---------------------------------------------------------------------------
