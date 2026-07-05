@@ -2,7 +2,6 @@ package app.vagina.server.usecase;
 
 import app.vagina.server.domain.error.ConflictException;
 import app.vagina.server.domain.error.NotFoundException;
-import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.entity.TextAgentDefinition;
 import app.vagina.server.realtime.VhrpSession;
 import app.vagina.server.realtime.VhrpSessionRegistry;
@@ -50,14 +49,14 @@ public class TextAgentUsecase {
 
   @Transactional
   public TextAgentDefinition createTextAgent(Long userId, TextAgentDefinition candidate) {
-    validateTextModel(candidate.getTextModelId());
+    textAgentModelRegistryService.validateKnownModelId(candidate.getTextModelId());
     return textAgentService.create(userId, candidate);
   }
 
   @Transactional
   public TextAgentDefinition updateTextAgent(
       Long userId, String textAgentId, TextAgentDefinition candidate) {
-    validateTextModel(candidate.getTextModelId());
+    textAgentModelRegistryService.validateKnownModelId(candidate.getTextModelId());
     return textAgentService
         .update(userId, textAgentId, candidate)
         .orElseThrow(() -> new NotFoundException("Text agent not found"));
@@ -180,15 +179,6 @@ public class TextAgentUsecase {
         .filter(tool -> !END_CALL_TOOL_NAME.equals(tool.name()))
         .filter(tool -> enabledTools.overrides().getOrDefault(tool.name(), true))
         .toList();
-  }
-
-  private void validateTextModel(String textModelId) {
-    if (textModelId == null || textModelId.isBlank()) {
-      throw new ValidationException("Text model id is required");
-    }
-    if (!textAgentModelRegistryService.isKnownModel(textModelId)) {
-      throw new ValidationException("Unknown text model id: " + textModelId);
-    }
   }
 
   @Transactional

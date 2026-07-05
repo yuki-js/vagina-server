@@ -1,6 +1,8 @@
 package app.vagina.server.service;
 
 import app.vagina.server.config.TextAgentModelsConfig;
+import app.vagina.server.domain.error.ValidationException;
+import app.vagina.server.service.VoiceAgentService.ModelCatalogItem;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -21,15 +23,15 @@ public class TextAgentModelRegistryService {
     }
   }
 
-  public List<TextAgentModelPresetView> listTextAgentModels() {
+  public List<ModelCatalogItem> listTextAgentModels() {
     return modelsConfig.models().entrySet().stream()
         .sorted(Comparator.comparing(entry -> entry.getKey()))
         .map(
             entry ->
-                new TextAgentModelPresetView(
+                new ModelCatalogItem(
                     entry.getKey(),
                     entry.getValue().displayName().orElse(entry.getKey()),
-                    isDefault(entry.getKey())))
+                    entry.getKey().equals(defaultModelId())))
         .toList();
   }
 
@@ -41,6 +43,15 @@ public class TextAgentModelRegistryService {
     return modelsConfig.models().containsKey(modelId);
   }
 
+  public void validateKnownModelId(String modelId) {
+    if (modelId == null || modelId.isBlank()) {
+      throw new ValidationException("Text model id is required");
+    }
+    if (!isKnownModel(modelId)) {
+      throw new ValidationException("Unknown text model id: " + modelId);
+    }
+  }
+
   public TextAgentModelConfigView getModelConfig(String modelId) {
     TextAgentModelsConfig.ModelConfig model = modelsConfig.models().get(modelId);
     if (model == null) {
@@ -49,12 +60,6 @@ public class TextAgentModelRegistryService {
     return new TextAgentModelConfigView(
         modelId, model.provider(), model.baseUrl(), model.apiKey(), model.model());
   }
-
-  private boolean isDefault(String modelId) {
-    return modelId.equals(modelsConfig.defaultModel());
-  }
-
-  public record TextAgentModelPresetView(String id, String displayName, boolean isDefault) {}
 
   public record TextAgentModelConfigView(
       String id,

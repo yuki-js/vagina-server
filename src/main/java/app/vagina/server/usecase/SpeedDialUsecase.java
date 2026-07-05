@@ -2,7 +2,6 @@ package app.vagina.server.usecase;
 
 import app.vagina.server.domain.error.ConflictException;
 import app.vagina.server.domain.error.NotFoundException;
-import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.service.SpeedDialService;
 import app.vagina.server.service.VoiceAgentService;
@@ -33,14 +32,14 @@ public class SpeedDialUsecase {
 
   @Transactional
   public SpeedDialPreset createSpeedDial(Long userId, SpeedDialPreset candidate) {
-    validateVoiceAgent(candidate.getVoiceAgentId());
+    voiceAgentService.validateKnownModelId(candidate.getVoiceAgentId());
     return speedDialService.create(userId, candidate);
   }
 
   @Transactional
   public SpeedDialPreset updateSpeedDial(
       Long userId, String speedDialId, SpeedDialPreset candidate) {
-    validateVoiceAgent(candidate.getVoiceAgentId());
+    voiceAgentService.validateKnownModelId(candidate.getVoiceAgentId());
 
     if (SpeedDialService.DEFAULT_SPEED_DIAL_ID.equals(speedDialId)) {
       speedDialService.ensureDefaultExists(userId);
@@ -52,15 +51,6 @@ public class SpeedDialUsecase {
     return speedDialService
         .update(userId, speedDialId, candidate)
         .orElseThrow(() -> new NotFoundException("Speed dial not found"));
-  }
-
-  private void validateVoiceAgent(String voiceAgentId) {
-    if (voiceAgentId == null || voiceAgentId.isBlank()) {
-      throw new ValidationException("Voice agent id is required");
-    }
-    if (!voiceAgentService.isKnownModel(voiceAgentId)) {
-      throw new ValidationException("Unknown voice agent id: " + voiceAgentId);
-    }
   }
 
   @Transactional

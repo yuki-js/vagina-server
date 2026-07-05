@@ -1,5 +1,6 @@
 package app.vagina.server.service;
 
+import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.realtime.RealtimeModelsConfig;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -20,10 +21,10 @@ public class VoiceAgentService {
     }
   }
 
-  public List<VoiceAgentView> listVoiceAgents() {
+  public List<ModelCatalogItem> listVoiceAgents() {
     return modelsConfig.models().keySet().stream()
         .sorted(Comparator.naturalOrder())
-        .map(modelId -> new VoiceAgentView(modelId, modelId, isDefault(modelId)))
+        .map(modelId -> new ModelCatalogItem(modelId, modelId, modelId.equals(defaultModelId())))
         .toList();
   }
 
@@ -35,9 +36,14 @@ public class VoiceAgentService {
     return modelsConfig.models().containsKey(modelId);
   }
 
-  private boolean isDefault(String modelId) {
-    return modelId.equals(modelsConfig.defaultModel());
+  public void validateKnownModelId(String modelId) {
+    if (modelId == null || modelId.isBlank()) {
+      throw new ValidationException("Voice agent id is required");
+    }
+    if (!isKnownModel(modelId)) {
+      throw new ValidationException("Unknown voice agent id: " + modelId);
+    }
   }
 
-  public record VoiceAgentView(String id, String displayName, boolean isDefault) {}
+  public record ModelCatalogItem(String id, String displayName, boolean isDefault) {}
 }
