@@ -4,13 +4,13 @@ import app.vagina.server.entity.CallSession;
 import app.vagina.server.entity.SessionThreadData;
 import app.vagina.server.mapper.CallSessionMapper;
 import app.vagina.server.mapper.CallSessionMapper.Row;
+import app.vagina.server.support.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.io.IOException;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -130,10 +130,6 @@ public class CallSessionService {
   }
 
   private String sessionThreadBlobKey(Long userId, String vhrpSessionId) {
-    return "sessions/" + userId + "/" + encodeKeyPart(vhrpSessionId) + "/thread.json";
-  }
-
-  private String encodeKeyPart(String value) {
-    return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+    return "sessions/" + userId + "/" + Util.urlEncodePathSegment(vhrpSessionId) + "/thread.json";
   }
 }

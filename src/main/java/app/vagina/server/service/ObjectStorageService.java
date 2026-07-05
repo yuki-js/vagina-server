@@ -1,6 +1,7 @@
 package app.vagina.server.service;
 
 import app.vagina.server.config.ObjectStorageConfig;
+import app.vagina.server.support.Util;
 import io.quarkus.logging.Log;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.core.buffer.Buffer;
@@ -10,7 +11,6 @@ import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
@@ -105,7 +105,7 @@ public class ObjectStorageService {
     URI endpoint = URI.create(config.endpoint());
     String endpointBase = config.endpoint().replaceAll("/+$", "");
     String objectPath =
-        "/" + encodePathSegment(config.bucket()) + "/" + encodeObjectKey(normalizedKey);
+        "/" + Util.urlEncodePathSegment(config.bucket()) + "/" + encodeObjectKey(normalizedKey);
     String url = endpointBase + objectPath;
     Instant now = Instant.now();
     String amzDate = AMZ_DATE.format(now);
@@ -231,13 +231,9 @@ public class ObjectStorageService {
       if (i > 0) {
         encoded.append('/');
       }
-      encoded.append(encodePathSegment(parts[i]));
+      encoded.append(Util.urlEncodePathSegment(parts[i]));
     }
     return encoded.toString();
-  }
-
-  private String encodePathSegment(String value) {
-    return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
   }
 
   private record RequestSpec(String url, Map<String, String> headers) {}

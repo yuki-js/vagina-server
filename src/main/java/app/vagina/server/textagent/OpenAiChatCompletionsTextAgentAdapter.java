@@ -1,6 +1,7 @@
 package app.vagina.server.textagent;
 
 import app.vagina.server.domain.error.ExternalServiceException;
+import app.vagina.server.support.Util;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryImageInput;
@@ -18,6 +19,7 @@ import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAdapter {
   static final String PROVIDER_STATE_MESSAGES = "messages";
@@ -91,9 +93,13 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
   private QueryResult parseResponse(ChatCompletionResponse response) {
     if (response.error() != null) {
       return QueryResult.failed(
-          fallback(response.error().code(), "provider_error"), response.error().message());
+          Optional.ofNullable(response.error().code())
+              .filter(code -> !code.isBlank())
+              .orElse("provider_error"),
+          response.error().message());
     }
-    ChatCompletionChoice choice = first(response.choices());
+    ChatCompletionChoice choice =
+        response.choices() == null ? null : response.choices().stream().findFirst().orElse(null);
     if (choice == null || choice.message() == null) {
       return QueryResult.failed(
           "provider_response_error", "Chat Completions response had no choices");
@@ -107,7 +113,9 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
               new ToolCall(
                   toolCall.id(),
                   toolCall.function().name(),
-                  fallback(toolCall.function().arguments(), "{}")));
+                  Optional.ofNullable(toolCall.function().arguments())
+                      .filter(arguments -> !arguments.isBlank())
+                      .orElse("{}")));
         }
       }
       return QueryResult.requiresTool(calls);
@@ -144,15 +152,8 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
   }
 
   private URI chatCompletionsUri(ProviderContext context) {
-    URI baseUri = context.binding().baseUri().orElseThrow();
-    String path = baseUri.getPath();
-    String normalizedPath = path == null || path.isBlank() ? "" : path.replaceAll("/+$", "");
-    if (!normalizedPath.endsWith("/chat/completions")) {
-      normalizedPath = normalizedPath + "/chat/completions";
-    }
-    String query =
-        baseUri.getQuery() == null || baseUri.getQuery().isBlank() ? "" : "?" + baseUri.getQuery();
-    return baseUri.resolve(normalizedPath + query);
+    return Util.resolveUriWithPathSuffix(
+        context.binding().baseUri().orElseThrow(), "/chat/completions");
   }
 
   @SuppressWarnings("unchecked")
@@ -172,14 +173,6 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
     } catch (Exception e) {
       throw new IllegalStateException("Failed to encode Chat Completions text agent request", e);
     }
-  }
-
-  private static <T> T first(List<T> values) {
-    return values == null || values.isEmpty() ? null : values.get(0);
-  }
-
-  private static String fallback(String value, String fallback) {
-    return value == null || value.isBlank() ? fallback : value;
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)

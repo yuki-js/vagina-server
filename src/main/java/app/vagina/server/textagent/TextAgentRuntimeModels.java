@@ -1,6 +1,7 @@
 package app.vagina.server.textagent;
 
 import app.vagina.server.entity.TextAgentDefinition;
+import app.vagina.server.support.Util;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
@@ -132,31 +133,12 @@ public final class TextAgentRuntimeModels {
       if (decoded.length > QueryCommand.MAX_IMAGE_BYTES) {
         throw new IllegalArgumentException("Image dataUri exceeds maximum decoded size");
       }
-      if (prefix.contains("png") && !hasPngMagic(decoded)) {
+      if (prefix.contains("png") && !Util.hasPngMagic(decoded)) {
         throw new IllegalArgumentException("PNG image dataUri does not contain PNG bytes");
       }
-      if (prefix.contains("jpeg") && !hasJpegMagic(decoded)) {
+      if (prefix.contains("jpeg") && !Util.hasJpegMagic(decoded)) {
         throw new IllegalArgumentException("JPEG image dataUri does not contain JPEG bytes");
       }
-    }
-
-    private static boolean hasPngMagic(byte[] bytes) {
-      return bytes.length >= 8
-          && (bytes[0] & 0xFF) == 0x89
-          && (bytes[1] & 0xFF) == 0x50
-          && (bytes[2] & 0xFF) == 0x4E
-          && (bytes[3] & 0xFF) == 0x47
-          && (bytes[4] & 0xFF) == 0x0D
-          && (bytes[5] & 0xFF) == 0x0A
-          && (bytes[6] & 0xFF) == 0x1A
-          && (bytes[7] & 0xFF) == 0x0A;
-    }
-
-    private static boolean hasJpegMagic(byte[] bytes) {
-      return bytes.length >= 3
-          && (bytes[0] & 0xFF) == 0xFF
-          && (bytes[1] & 0xFF) == 0xD8
-          && (bytes[2] & 0xFF) == 0xFF;
     }
   }
 

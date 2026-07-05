@@ -1,6 +1,7 @@
 package app.vagina.server.support;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -65,6 +66,46 @@ public final class Util {
 
   public static String randomPublicId(String prefix) {
     return prefix + randomHex(16);
+  }
+
+  public static boolean hasPngMagic(byte[] bytes) {
+    return bytes.length >= 8
+        && (bytes[0] & 0xFF) == 0x89
+        && (bytes[1] & 0xFF) == 0x50
+        && (bytes[2] & 0xFF) == 0x4E
+        && (bytes[3] & 0xFF) == 0x47
+        && (bytes[4] & 0xFF) == 0x0D
+        && (bytes[5] & 0xFF) == 0x0A
+        && (bytes[6] & 0xFF) == 0x1A
+        && (bytes[7] & 0xFF) == 0x0A;
+  }
+
+  public static boolean hasJpegMagic(byte[] bytes) {
+    return bytes.length >= 3
+        && (bytes[0] & 0xFF) == 0xFF
+        && (bytes[1] & 0xFF) == 0xD8
+        && (bytes[2] & 0xFF) == 0xFF;
+  }
+
+  public static String urlEncodePathSegment(String value) {
+    return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+  }
+
+  public static URI resolveUriWithPathSuffix(URI baseUri, String pathSuffix) {
+    if (baseUri == null) {
+      throw new IllegalArgumentException("Base URI is required");
+    }
+    if (pathSuffix == null || pathSuffix.isBlank() || !pathSuffix.startsWith("/")) {
+      throw new IllegalArgumentException("Path suffix must start with /");
+    }
+    String path = baseUri.getPath();
+    String normalizedPath = path == null || path.isBlank() ? "" : path.replaceAll("/+$", "");
+    if (!normalizedPath.endsWith(pathSuffix)) {
+      normalizedPath = normalizedPath + pathSuffix;
+    }
+    String querySuffix =
+        baseUri.getQuery() == null || baseUri.getQuery().isBlank() ? "" : "?" + baseUri.getQuery();
+    return baseUri.resolve(normalizedPath + querySuffix);
   }
 
   private static String randomHex(int byteLength) {

@@ -1,6 +1,7 @@
 package app.vagina.server.textagent;
 
 import app.vagina.server.domain.error.ExternalServiceException;
+import app.vagina.server.support.Util;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryImageInput;
@@ -17,6 +18,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   static final String PROVIDER_STATE_PREVIOUS_RESPONSE_ID = "previous_response_id";
@@ -74,14 +76,23 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   private QueryResult parseResponse(ResponsesResponse response) {
     if (response.error() != null) {
       return QueryResult.failed(
-          fallback(response.error().code(), "provider_error"), response.error().message());
+          Optional.ofNullable(response.error().code())
+              .filter(code -> !code.isBlank())
+              .orElse("provider_error"),
+          response.error().message());
     }
     List<ToolCall> toolCalls = new ArrayList<>();
     List<String> textParts = new ArrayList<>();
     if (response.output() != null) {
       for (ResponsesOutputItem item : response.output()) {
         if ("function_call".equals(item.type())) {
-          toolCalls.add(new ToolCall(item.callId(), item.name(), fallback(item.arguments(), "{}")));
+          toolCalls.add(
+              new ToolCall(
+                  item.callId(),
+                  item.name(),
+                  Optional.ofNullable(item.arguments())
+                      .filter(arguments -> !arguments.isBlank())
+                      .orElse("{}")));
         } else if ("message".equals(item.type())) {
           appendOutputText(textParts, item.content());
         }
@@ -133,15 +144,7 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   }
 
   private URI responsesUri(ProviderContext context) {
-    URI baseUri = context.binding().baseUri().orElseThrow();
-    String path = baseUri.getPath();
-    String normalizedPath = path == null || path.isBlank() ? "" : path.replaceAll("/+$", "");
-    if (!normalizedPath.endsWith("/responses")) {
-      normalizedPath = normalizedPath + "/responses";
-    }
-    String query =
-        baseUri.getQuery() == null || baseUri.getQuery().isBlank() ? "" : "?" + baseUri.getQuery();
-    return baseUri.resolve(normalizedPath + query);
+    return Util.resolveUriWithPathSuffix(context.binding().baseUri().orElseThrow(), "/responses");
   }
 
   public void rememberPreviousResponseId(ProviderContext context, String responseId) {
@@ -180,10 +183,6 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   private FunctionCallOutputInput functionCallOutputInput(ToolResultSubmission toolResult) {
     return new FunctionCallOutputInput(
         "function_call_output", toolResult.toolCallId(), toolResult.output());
-  }
-
-  private static String fallback(String value, String fallback) {
-    return value == null || value.isBlank() ? fallback : value;
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)

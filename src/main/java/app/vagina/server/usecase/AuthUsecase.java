@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import java.net.URI;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
@@ -140,11 +141,18 @@ public class AuthUsecase {
     String avatarUrl = null;
 
     if (primaryAuthnProvider != null) {
-      displayName = blankToNull(primaryAuthnProvider.getDisplayName());
-      if (displayName == null) {
-        displayName = blankToNull(primaryAuthnProvider.getProviderLogin());
-      }
-      avatarUrl = blankToNull(primaryAuthnProvider.getAvatarUrl());
+      displayName =
+          Optional.ofNullable(primaryAuthnProvider.getDisplayName())
+              .filter(value -> !value.isBlank())
+              .or(
+                  () ->
+                      Optional.ofNullable(primaryAuthnProvider.getProviderLogin())
+                          .filter(value -> !value.isBlank()))
+              .orElse(null);
+      avatarUrl =
+          Optional.ofNullable(primaryAuthnProvider.getAvatarUrl())
+              .filter(value -> !value.isBlank())
+              .orElse(null);
     }
 
     String accountLifecycle =
@@ -152,12 +160,5 @@ public class AuthUsecase {
     OffsetDateTime createdAt = user.getCreatedAt().atOffset(ZoneOffset.UTC);
     return new AuthUserView(
         String.valueOf(user.getId()), accountLifecycle, displayName, avatarUrl, createdAt);
-  }
-
-  private String blankToNull(String value) {
-    if (value == null || value.isBlank()) {
-      return null;
-    }
-    return value;
   }
 }

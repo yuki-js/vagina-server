@@ -18,8 +18,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
@@ -67,15 +65,27 @@ public class SessionsApiImpl implements SessionsApi {
   private ListSessions200ResponseItemsInner toListItem(CallSession callSession) {
     return new ListSessions200ResponseItemsInner()
         .id(callSession.getCallSessionId())
-        .startedAt(toOffsetDateTime(callSession.getStartedAt()))
-        .endedAt(toOffsetDateTime(callSession.getEndedAt()));
+        .startedAt(
+            callSession.getStartedAt() == null
+                ? null
+                : callSession.getStartedAt().atOffset(ZoneOffset.UTC))
+        .endedAt(
+            callSession.getEndedAt() == null
+                ? null
+                : callSession.getEndedAt().atOffset(ZoneOffset.UTC));
   }
 
   private GetSession200Response toDetailResponse(CallSession callSession) {
     return new GetSession200Response()
         .id(callSession.getCallSessionId())
-        .startedAt(toOffsetDateTime(callSession.getStartedAt()))
-        .endedAt(toOffsetDateTime(callSession.getEndedAt()))
+        .startedAt(
+            callSession.getStartedAt() == null
+                ? null
+                : callSession.getStartedAt().atOffset(ZoneOffset.UTC))
+        .endedAt(
+            callSession.getEndedAt() == null
+                ? null
+                : callSession.getEndedAt().atOffset(ZoneOffset.UTC))
         .speedDialId(callSession.getSpeedDialId())
         .voiceAgentId(callSession.getVoiceAgentId())
         .thread(toThread(callSession.getThread()));
@@ -90,9 +100,5 @@ public class SessionsApiImpl implements SessionsApi {
     thread.setConversationId(threadData.getConversationId());
     thread.setItems(threadData.getItems());
     return thread;
-  }
-
-  private OffsetDateTime toOffsetDateTime(LocalDateTime value) {
-    return value == null ? null : value.atOffset(ZoneOffset.UTC);
   }
 }

@@ -3,6 +3,7 @@ package app.vagina.server.realtime.oai;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Maps a raw OpenAI Realtime JSON frame onto one typed {@link OaiRealtimeEvent}, mirroring the Dart
@@ -130,7 +131,7 @@ public final class OaiRealtimeEventParser {
     if (node == null) {
       return new OaiRealtimeEvent.Conversation("");
     }
-    return new OaiRealtimeEvent.Conversation(orEmpty(text(node, "id")));
+    return new OaiRealtimeEvent.Conversation(Objects.requireNonNullElse(text(node, "id"), ""));
   }
 
   private OaiRealtimeEvent.Session session(JsonNode node) {
@@ -138,7 +139,7 @@ public final class OaiRealtimeEventParser {
       return new OaiRealtimeEvent.Session("", null, null, null);
     }
     return new OaiRealtimeEvent.Session(
-        orEmpty(text(node, "id")),
+        Objects.requireNonNullElse(text(node, "id"), ""),
         text(node, "model"),
         text(node, "voice"),
         text(node, "instructions"));
@@ -152,7 +153,7 @@ public final class OaiRealtimeEventParser {
     return new OaiRealtimeEvent.ErrorDetail(
         t == null ? "unknown" : t,
         text(node, "code"),
-        orElse(text(node, "message"), "Unknown error"),
+        Objects.requireNonNullElse(text(node, "message"), "Unknown error"),
         text(node, "param"));
   }
 
@@ -161,7 +162,7 @@ public final class OaiRealtimeEventParser {
       return null;
     }
     return new OaiRealtimeEvent.ContentPart(
-        orEmpty(text(node, "type")),
+        Objects.requireNonNullElse(text(node, "type"), ""),
         text(node, "text"),
         text(node, "audio"),
         text(node, "transcript"),
@@ -183,9 +184,9 @@ public final class OaiRealtimeEventParser {
         }
       }
     }
-    String itemType = orEmpty(text(node, "type"));
+    String itemType = Objects.requireNonNullElse(text(node, "type"), "");
     return new OaiRealtimeEvent.ConversationItem(
-        orEmpty(text(node, "id")),
+        Objects.requireNonNullElse(text(node, "id"), ""),
         itemType,
         itemStatus(node, itemType),
         text(node, "role"),
@@ -233,13 +234,5 @@ public final class OaiRealtimeEventParser {
   private static Integer integer(JsonNode node, String field) {
     JsonNode value = node.get(field);
     return value == null || value.isNull() || !value.isNumber() ? null : value.asInt();
-  }
-
-  private static String orEmpty(String value) {
-    return value == null ? "" : value;
-  }
-
-  private static String orElse(String value, String fallback) {
-    return value == null ? fallback : value;
   }
 }

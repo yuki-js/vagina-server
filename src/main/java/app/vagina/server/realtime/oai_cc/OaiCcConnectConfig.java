@@ -1,5 +1,6 @@
 package app.vagina.server.realtime.oai_cc;
 
+import app.vagina.server.support.Util;
 import java.net.URI;
 import java.util.Map;
 
@@ -18,15 +19,6 @@ public record OaiCcConnectConfig(
   }
 
   public URI chatCompletionsUri() {
-    String path = baseUri.getPath();
-    String normalizedPath = path == null || path.isBlank() ? "" : path.replaceAll("/+$", "");
-    if (!normalizedPath.endsWith("/chat/completions")) {
-      normalizedPath = normalizedPath + "/chat/completions";
-    }
-    return baseUri.resolve(normalizedPath + querySuffix(baseUri));
-  }
-
-  private static String querySuffix(URI uri) {
-    return uri.getQuery() == null || uri.getQuery().isBlank() ? "" : "?" + uri.getQuery();
+    return Util.resolveUriWithPathSuffix(baseUri, "/chat/completions");
   }
 }
