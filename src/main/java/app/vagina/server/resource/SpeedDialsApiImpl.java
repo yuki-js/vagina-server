@@ -87,34 +87,53 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
   }
 
   private SpeedDialPreset toEntity(SpeedDialCreateRequest model) {
-    SpeedDialPreset preset = new SpeedDialPreset();
-    preset.setName(model.getName());
-    preset.setSystemPrompt(model.getSystemPrompt());
-    preset.setDescription(model.getDescription());
-    preset.setIconEmoji(model.getIconEmoji());
-    preset.setVoice(model.getVoice());
-    preset.setVoiceAgentId(model.getVoiceAgentId());
-    preset.setReasoningEffort(toEntityReasoningEffort(model.getReasoningEffort()));
-    preset.setToolChoiceRequired(Boolean.TRUE.equals(model.getToolChoiceRequired()));
-    preset.setEnabledTools(
-        EnabledToolsJson.serialize(
-            objectMapper, model.getEnabledTools(), ENABLED_TOOL_LABEL, ENABLED_TOOLS_LABEL));
-    return preset;
+    return toEntity(
+        model.getName(),
+        model.getSystemPrompt(),
+        model.getDescription(),
+        model.getIconEmoji(),
+        model.getVoice(),
+        model.getVoiceAgentId(),
+        toEntityReasoningEffort(model.getReasoningEffort()),
+        model.getToolChoiceRequired(),
+        model.getEnabledTools());
   }
 
   private SpeedDialPreset toEntity(SpeedDialUpdateRequest model) {
+    return toEntity(
+        model.getName(),
+        model.getSystemPrompt(),
+        model.getDescription(),
+        model.getIconEmoji(),
+        model.getVoice(),
+        model.getVoiceAgentId(),
+        toEntityReasoningEffort(model.getReasoningEffort()),
+        model.getToolChoiceRequired(),
+        model.getEnabledTools());
+  }
+
+  private SpeedDialPreset toEntity(
+      String name,
+      String systemPrompt,
+      String description,
+      String iconEmoji,
+      String voice,
+      String voiceAgentId,
+      String reasoningEffort,
+      Boolean toolChoiceRequired,
+      Object enabledTools) {
     SpeedDialPreset preset = new SpeedDialPreset();
-    preset.setName(model.getName());
-    preset.setSystemPrompt(model.getSystemPrompt());
-    preset.setDescription(model.getDescription());
-    preset.setIconEmoji(model.getIconEmoji());
-    preset.setVoice(model.getVoice());
-    preset.setVoiceAgentId(model.getVoiceAgentId());
-    preset.setReasoningEffort(toEntityReasoningEffort(model.getReasoningEffort()));
-    preset.setToolChoiceRequired(Boolean.TRUE.equals(model.getToolChoiceRequired()));
+    preset.setName(name);
+    preset.setSystemPrompt(systemPrompt);
+    preset.setDescription(description);
+    preset.setIconEmoji(iconEmoji);
+    preset.setVoice(voice);
+    preset.setVoiceAgentId(voiceAgentId);
+    preset.setReasoningEffort(reasoningEffort);
+    preset.setToolChoiceRequired(Boolean.TRUE.equals(toolChoiceRequired));
     preset.setEnabledTools(
         EnabledToolsJson.serialize(
-            objectMapper, model.getEnabledTools(), ENABLED_TOOL_LABEL, ENABLED_TOOLS_LABEL));
+            objectMapper, enabledTools, ENABLED_TOOL_LABEL, ENABLED_TOOLS_LABEL));
     return preset;
   }
 
@@ -127,17 +146,15 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
 
   private String toEntityReasoningEffort(
       SpeedDialCreateRequest.ReasoningEffortEnum reasoningEffort) {
-    if (reasoningEffort == null) {
-      return SpeedDialCreateRequest.ReasoningEffortEnum.OFF.value();
-    }
-    return reasoningEffort.value();
+    return reasoningEffort == null ? defaultReasoningEffort() : reasoningEffort.value();
   }
 
   private String toEntityReasoningEffort(
       SpeedDialUpdateRequest.ReasoningEffortEnum reasoningEffort) {
-    if (reasoningEffort == null) {
-      return SpeedDialUpdateRequest.ReasoningEffortEnum.OFF.value();
-    }
-    return reasoningEffort.value();
+    return reasoningEffort == null ? defaultReasoningEffort() : reasoningEffort.value();
+  }
+
+  private String defaultReasoningEffort() {
+    return SpeedDialCreateRequest.ReasoningEffortEnum.OFF.value();
   }
 }
