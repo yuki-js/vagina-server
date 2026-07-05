@@ -8,9 +8,9 @@ paths:
       description: >-
         WebSocket upgrade entry point for the hosted realtime voice protocol
         (VHRP/1). This is a discoverability stub only: the connection is a binary
-        WebSocket negotiating the `vhrp.cbor.v1` subprotocol and exchanges CBOR
-        frames, which OpenAPI cannot describe. No request/response body is modeled
-        here on purpose. Authentication is NOT performed at upgrade time; the
+        WebSocket exchanging CBOR frames, which OpenAPI cannot describe. Clients
+        may offer the `vhrp.cbor.v1` subprotocol, but it is not required. No
+        request/response body is modeled here on purpose. Authentication is NOT performed at upgrade time; the
         first application message MUST be `session.open` carrying a JWT in
         `body.token`. See the linked design docs for the full wire contract,
         message types, and thread projection rules.
@@ -20,8 +20,8 @@ paths:
       parameters:
         - name: Sec-WebSocket-Protocol
           in: header
-          required: true
-          description: Must include the `vhrp.cbor.v1` subprotocol token.
+          required: false
+          description: Optional `vhrp.cbor.v1` subprotocol token.
           schema:
             type: string
             example: vhrp.cbor.v1
@@ -32,7 +32,7 @@ paths:
             WebSocket speaking VHRP/1 over CBOR. All subsequent communication is
             out of OpenAPI scope.
         "400":
-          description: Malformed upgrade request or unsupported subprotocol.
+          description: Malformed upgrade request.
           content:
             application/json:
               schema:

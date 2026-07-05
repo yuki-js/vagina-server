@@ -47,8 +47,6 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class VhrpTestClient implements Closeable {
 
-  private static final String VHRP_SUBPROTOCOL = "vhrp.cbor.v1";
-
   /** Plain Jackson CBOR mapper for both encoding and decoding in tests. */
   private final ObjectMapper cbor = new ObjectMapper(new CBORFactory());
 
@@ -75,8 +73,16 @@ public final class VhrpTestClient implements Closeable {
   // =========================================================================
 
   /**
-   * Connects to {@code ws://localhost:<port>/api/hosted-realtime/v1/connect} with the {@code
-   * vhrp.cbor.v1} subprotocol. Blocks until the WebSocket handshake completes or throws.
+   * Connects to {@code ws://localhost:<port>/api/hosted-realtime/v1/connect} without offering a
+   * WebSocket subprotocol. Blocks until the WebSocket handshake completes or throws.
+   */
+  public void connect(int port) throws Exception {
+    connect(port, null);
+  }
+
+  /**
+   * Connects to {@code ws://localhost:<port>/api/hosted-realtime/v1/connect}, optionally offering a
+   * WebSocket subprotocol. Blocks until the WebSocket handshake completes or throws.
    */
   public void connect(int port, String subProtocol) throws Exception {
     httpClient =
@@ -94,8 +100,10 @@ public final class VhrpTestClient implements Closeable {
         new WebSocketConnectOptions()
             .setHost("localhost")
             .setPort(port)
-            .setURI("/api/hosted-realtime/v1/connect")
-            .addSubProtocol(subProtocol);
+            .setURI("/api/hosted-realtime/v1/connect");
+    if (subProtocol != null && !subProtocol.isBlank()) {
+      opts.addSubProtocol(subProtocol);
+    }
 
     httpClient
         .webSocket(opts)

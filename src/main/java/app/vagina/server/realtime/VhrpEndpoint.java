@@ -54,14 +54,11 @@ import java.nio.channels.ClosedChannelException;
  * no close reason carried on the exception.
  *
  * <p>Wire contract (see {@code 02_vhrp_wire_protocol.md}): scheme {@code wss}, path {@code
- * /api/hosted-realtime/v1/connect}, subprotocol {@code vhrp.cbor.v1}, one binary frame per CBOR
- * map, first application message MUST be {@code session.open}.
+ * /api/hosted-realtime/v1/connect}, one binary frame per CBOR map, first application message MUST be
+ * {@code session.open}.
  */
 @WebSocket(path = "/api/hosted-realtime/v1/connect")
 public class VhrpEndpoint {
-
-  /** Subprotocol that the handshake must have negotiated for a valid VHRP/1 connection. */
-  private static final String VHRP_SUBPROTOCOL = "vhrp.cbor.v1";
 
   /**
    * Binding pointer from the current connection to its session. Authority stays in {@link
@@ -70,10 +67,6 @@ public class VhrpEndpoint {
    */
   private static final UserData.TypedKey<VhrpSession> SESSION_KEY =
       new UserData.TypedKey<>("vhrp.session");
-
-  /** Close sent when the negotiated subprotocol is not {@code vhrp.cbor.v1} (RFC-6455 1003-ish). */
-  private static final CloseReason CLOSE_BAD_SUBPROTOCOL =
-      new CloseReason(4406, "Subprotocol must be " + VHRP_SUBPROTOCOL);
 
   /**
    * Close sent when bootstrap fails; the specific reason already went out as an {@code error}
@@ -90,19 +83,12 @@ public class VhrpEndpoint {
 
   @OnOpen
   public Uni<Void> onOpen(WebSocketConnection connection) {
-    // Defensive: a correctly configured server rejects a bad subprotocol during the handshake
-    // (quarkus.websockets-next.server.supported-subprotocols), but a client that connected with no
-    // subprotocol would otherwise slip through to the first frame. Reject here so every surviving
-    // connection is known to be vhrp.cbor.v1.
-    if (!VHRP_SUBPROTOCOL.equals(connection.subprotocol())) {
-      Log.warnf(
-          "VHRP rejecting connection %s: subprotocol=%s",
-          connection.id(), connection.subprotocol());
-      return connection.close(CLOSE_BAD_SUBPROTOCOL);
-    }
     // No session yet: per the wire contract the session is bootstrapped by the first application
     // frame (session.open). No token exists before that frame, so no authentication happens here.
-    Log.debugf("VHRP connection opened: %s", connection.id());
+    // Subprotocol negotiation is intentionally advisory: clients may offer vhrp.cbor.v1, but the
+    // application-layer CBOR decoder and session.open authentication remain the actual gates.
+    Log.debugf(
+        "VHRP connection opened: %s subprotocol=%s", connection.id(), connection.subprotocol());
     return Uni.createFrom().voidItem();
   }
 
