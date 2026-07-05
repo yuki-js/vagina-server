@@ -3,9 +3,8 @@ package app.vagina.server.usecase;
 import app.vagina.server.domain.error.NotFoundException;
 import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.entity.CallSession;
+import app.vagina.server.entity.SessionThreadData;
 import app.vagina.server.service.CallSessionService;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +29,6 @@ public class CallSessionUsecase {
   private static final String CURSOR_SEPARATOR = "~";
 
   @Inject CallSessionService callSessionService;
-  @Inject ObjectMapper objectMapper;
 
   public SessionPage listSessions(Long userId, Integer limit, String cursor) {
     int effectiveLimit = normalizeLimit(limit);
@@ -102,16 +100,47 @@ public class CallSessionUsecase {
       return false;
     }
 
-    CallSession callSession = new CallSession();
-    callSession.setUserId(command.userId());
-    callSession.setVhrpSessionId(command.vhrpSessionId());
-    callSession.setVhrpThreadId(command.vhrpThreadId());
-    callSession.setSpeedDialId(command.speedDialId());
-    callSession.setVoiceAgentId(command.voiceAgentId());
-    callSession.setStartedAt(command.startedAt());
-    callSession.setEndedAt(command.endedAt() == null ? LocalDateTime.now() : command.endedAt());
-    callSession.setThread(writeThreadJson(thread));
-    return callSessionService.insertIdempotently(callSession);
+    return callSessionService.insertTerminalSession(
+        command.userId(),
+        command.vhrpSessionId(),
+        command.vhrpThreadId(),
+        command.speedDialId(),
+        command.voiceAgentId(),
+        command.startedAt(),
+        command.endedAt(),
+        toSessionThreadData(thread));
+  }
+
+  private SessionThreadData toSessionThreadData(Map<String, Object> thread) {
+    return new SessionThreadData(
+        stringValue(thread.get("id")),
+        stringValue(thread.get("conversationId")),
+        itemMaps(thread.get("items")));
+  }
+
+  private String stringValue(Object value) {
+    return value == null ? null : String.valueOf(value);
+  }
+
+  private List<Map<String, Object>> itemMaps(Object value) {
+    if (!(value instanceof List<?> list)) {
+      return List.of();
+    }
+    List<Map<String, Object>> items = new ArrayList<>();
+    for (Object item : list) {
+      if (item instanceof Map<?, ?> map) {
+        items.add(stringKeyedMap(map));
+      }
+    }
+    return items;
+  }
+
+  private Map<String, Object> stringKeyedMap(Map<?, ?> map) {
+    LinkedHashMap<String, Object> result = new LinkedHashMap<>();
+    for (Map.Entry<?, ?> entry : map.entrySet()) {
+      result.put(String.valueOf(entry.getKey()), entry.getValue());
+    }
+    return result;
   }
 
   private Map<String, Object> normalizeThread(Map<String, Object> thread) {
@@ -170,14 +199,6 @@ public class CallSessionUsecase {
             item ->
                 item instanceof Map<?, ?> itemMap
                     && "visible".equals(String.valueOf(itemMap.get("displayState"))));
-  }
-
-  private String writeThreadJson(Map<String, Object> thread) {
-    try {
-      return objectMapper.writeValueAsString(thread);
-    } catch (JsonProcessingException e) {
-      throw new ValidationException("Session thread could not be serialized", e);
-    }
   }
 
   private boolean isBlank(String value) {

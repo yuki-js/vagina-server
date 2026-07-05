@@ -54,8 +54,8 @@ import java.nio.channels.ClosedChannelException;
  * no close reason carried on the exception.
  *
  * <p>Wire contract (see {@code 02_vhrp_wire_protocol.md}): scheme {@code wss}, path {@code
- * /api/hosted-realtime/v1/connect}, one binary frame per CBOR map, first application message MUST be
- * {@code session.open}.
+ * /api/hosted-realtime/v1/connect}, one binary frame per CBOR map, first application message MUST
+ * be {@code session.open}.
  */
 @WebSocket(path = "/api/hosted-realtime/v1/connect")
 public class VhrpEndpoint {

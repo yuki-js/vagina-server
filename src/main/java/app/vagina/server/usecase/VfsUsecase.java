@@ -1,7 +1,7 @@
 package app.vagina.server.usecase;
 
 import app.vagina.server.domain.error.ValidationException;
-import app.vagina.server.entity.VfsFileEntity;
+import app.vagina.server.entity.VfsFileData;
 import app.vagina.server.service.VfsFileService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -19,14 +19,14 @@ public class VfsUsecase {
     return vfsFileService.list(userId, path, Boolean.TRUE.equals(recursive));
   }
 
-  public Optional<VfsFileEntity> read(Long userId, String path) {
+  public Optional<VfsFileData> read(Long userId, String path) {
     if (path == null || path.isBlank()) {
       throw new ValidationException("Missing or empty params.path");
     }
     return vfsFileService.read(userId, path);
   }
 
-  public VfsFileEntity write(Long userId, String path, String content) {
+  public VfsFileData write(Long userId, String path, String content) {
     if (path == null || path.isBlank()) {
       throw new ValidationException("Missing or empty params.path");
     }

@@ -212,7 +212,7 @@ CREATE TABLE call_sessions (
     voice_agent_id VARCHAR(128) NOT NULL,
     started_at TIMESTAMP NOT NULL,
     ended_at TIMESTAMP,
-    thread JSONB NOT NULL,
+    thread_blob_key VARCHAR(512) NOT NULL,
     deleted_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -228,7 +228,7 @@ COMMENT ON COLUMN call_sessions.speed_dial_id IS 'Public speed dial identifier s
 COMMENT ON COLUMN call_sessions.voice_agent_id IS 'Server registry voice-agent id selected for this call session';
 COMMENT ON COLUMN call_sessions.started_at IS 'Call start timestamp used for session-history ordering';
 COMMENT ON COLUMN call_sessions.ended_at IS 'Call end timestamp recorded when the terminal session is saved';
-COMMENT ON COLUMN call_sessions.thread IS 'Saved realtime thread JSON. Raw audio chunks are not persisted.';
+COMMENT ON COLUMN call_sessions.thread_blob_key IS 'Object-storage key for the saved realtime thread JSON. Raw audio chunks are not persisted.';
 COMMENT ON COLUMN call_sessions.deleted_at IS 'Soft-delete timestamp. Non-null rows are hidden from user session-history APIs.';
 
 CREATE UNIQUE INDEX idx_call_sessions_call_session_id
@@ -242,24 +242,7 @@ CREATE INDEX idx_call_sessions_user_deleted_at
     ON call_sessions(user_id, deleted_at);
 
 -- ============================================================================
--- Persisted Virtual Filesystem Files
--- Directories remain implicit and are derived from path prefixes.
+-- VFS Storage
+-- VFS lives as one stable snapshot blob per user in object storage.
+-- No relational per-file table is kept in the greenfield schema.
 -- ============================================================================
-CREATE TABLE vfs_files (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    path VARCHAR(512) NOT NULL,
-    content TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_vfs_files_user
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-COMMENT ON TABLE vfs_files IS 'User-owned persisted virtual filesystem files';
-COMMENT ON COLUMN vfs_files.path IS 'Absolute virtual filesystem path; directories are implicit';
-COMMENT ON COLUMN vfs_files.content IS 'Persisted file content';
-
-CREATE UNIQUE INDEX idx_vfs_files_unique_user_path
-    ON vfs_files(user_id, path);
-CREATE INDEX idx_vfs_files_user_id ON vfs_files(user_id);

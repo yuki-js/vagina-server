@@ -15,7 +15,7 @@ public class CallSession {
   private String voiceAgentId;
   private LocalDateTime startedAt;
   private LocalDateTime endedAt;
-  private String thread;
+  private SessionThreadData thread;
   private LocalDateTime deletedAt;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
@@ -92,11 +92,11 @@ public class CallSession {
     this.endedAt = endedAt;
   }
 
-  public String getThread() {
+  public SessionThreadData getThread() {
     return thread;
   }
 
-  public void setThread(String thread) {
+  public void setThread(SessionThreadData thread) {
     this.thread = thread;
   }
 

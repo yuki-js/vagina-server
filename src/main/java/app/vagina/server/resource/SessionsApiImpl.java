@@ -1,6 +1,7 @@
 package app.vagina.server.resource;
 
 import app.vagina.server.entity.CallSession;
+import app.vagina.server.entity.SessionThreadData;
 import app.vagina.server.generated.api.SessionsApi;
 import app.vagina.server.generated.model.BulkDeleteSessions200Response;
 import app.vagina.server.generated.model.BulkDeleteSessionsRequest;
@@ -13,9 +14,6 @@ import app.vagina.server.support.AuthenticatedUser;
 import app.vagina.server.usecase.CallSessionUsecase;
 import app.vagina.server.usecase.CallSessionUsecase.BulkDeleteResult;
 import app.vagina.server.usecase.CallSessionUsecase.SessionPage;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Path;
@@ -23,21 +21,14 @@ import jakarta.ws.rs.core.Response;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @ApplicationScoped
 @Path("/sessions")
 @Authenticated
 public class SessionsApiImpl implements SessionsApi {
-  private static final TypeReference<Map<String, Object>> THREAD_TYPE = new TypeReference<>() {};
-  private static final TypeReference<List<Map<String, Object>>> THREAD_ITEMS_TYPE =
-      new TypeReference<>() {};
-
   @Inject CallSessionUsecase callSessionUsecase;
   @Inject AuthenticatedUser authenticatedUser;
-  @Inject ObjectMapper objectMapper;
 
   @Override
   public Response listSessions(Integer limit, String cursor) {
@@ -90,17 +81,15 @@ public class SessionsApiImpl implements SessionsApi {
         .thread(toThread(callSession.getThread()));
   }
 
-  private SessionThread toThread(String threadJson) {
-    try {
-      Map<String, Object> rawThread = objectMapper.readValue(threadJson, THREAD_TYPE);
-      SessionThread thread = new SessionThread();
-      thread.setId((String) rawThread.get("id"));
-      thread.setConversationId((String) rawThread.get("conversationId"));
-      thread.setItems(objectMapper.convertValue(rawThread.get("items"), THREAD_ITEMS_TYPE));
-      return thread;
-    } catch (IllegalArgumentException | JsonProcessingException e) {
-      throw new IllegalStateException("Failed to deserialize saved session thread", e);
+  private SessionThread toThread(SessionThreadData threadData) {
+    if (threadData == null) {
+      throw new IllegalStateException("Saved session thread was not loaded");
     }
+    SessionThread thread = new SessionThread();
+    thread.setId(threadData.getId());
+    thread.setConversationId(threadData.getConversationId());
+    thread.setItems(threadData.getItems());
+    return thread;
   }
 
   private OffsetDateTime toOffsetDateTime(LocalDateTime value) {

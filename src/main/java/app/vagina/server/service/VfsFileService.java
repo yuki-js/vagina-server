@@ -1,15 +1,19 @@
 package app.vagina.server.service;
 
-import app.vagina.server.entity.VfsFileEntity;
-import app.vagina.server.mapper.VfsFileMapper;
+import app.vagina.server.entity.VfsFileData;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 @ApplicationScoped
@@ -17,10 +21,8 @@ public class VfsFileService {
   public static final int MAX_PATH_LENGTH = 512;
   public static final int MAX_FILE_SIZE_BYTES = 1024 * 1024;
   public static final int MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024;
-  // Bound the raw input before normalization so split()/normalization can't be driven with a
-  // multi-megabyte traversal string; the authoritative storage bound is MAX_PATH_LENGTH on the
-  // normalized result.
   private static final int MAX_RAW_PATH_LENGTH = 8192;
+  private static final int SNAPSHOT_SCHEMA_VERSION = 1;
 
   public static final String ERROR_PATH_MUST_BE_ABSOLUTE = "Path must be absolute";
   public static final String ERROR_PATH_TOO_LONG = "Path too long";
@@ -32,12 +34,12 @@ public class VfsFileService {
   public static final String ERROR_FILE_TOO_LARGE = "File too large";
   public static final String ERROR_FILESYSTEM_QUOTA_EXCEEDED = "Filesystem quota exceeded";
 
-  @Inject VfsFileMapper vfsFileMapper;
+  @Inject ObjectStorageService objectStorageService;
+  @Inject ObjectMapper objectMapper;
 
   public List<String> list(Long userId, String path, boolean recursive) {
     String normalizedPath = validatePath(path);
-    List<String> paths =
-        vfsFileMapper.findByUserId(userId).stream().map(VfsFileEntity::getPath).sorted().toList();
+    List<String> paths = loadSnapshot(userId).files().keySet().stream().sorted().toList();
 
     if (recursive) {
       return listRecursive(paths, normalizedPath);
@@ -45,37 +47,23 @@ public class VfsFileService {
     return listImmediate(paths, normalizedPath);
   }
 
-  public Optional<VfsFileEntity> read(Long userId, String path) {
+  public Optional<VfsFileData> read(Long userId, String path) {
     String normalizedPath = validateFilePath(path);
-    return vfsFileMapper.findByUserIdAndPath(userId, normalizedPath);
+    String content = loadSnapshot(userId).files().get(normalizedPath);
+    return content == null
+        ? Optional.empty()
+        : Optional.of(new VfsFileData(normalizedPath, content));
   }
 
-  @Transactional
-  public VfsFileEntity write(Long userId, String path, String content) {
+  public VfsFileData write(Long userId, String path, String content) {
     String normalizedPath = validateFilePath(path);
-    validateContentSize(userId, normalizedPath, content);
-    LocalDateTime now = LocalDateTime.now();
-
-    Optional<VfsFileEntity> existing = vfsFileMapper.findByUserIdAndPath(userId, normalizedPath);
-    if (existing.isPresent()) {
-      VfsFileEntity entity = existing.get();
-      entity.setContent(content);
-      entity.setUpdatedAt(now);
-      vfsFileMapper.update(entity);
-      return entity;
-    }
-
-    VfsFileEntity entity = new VfsFileEntity();
-    entity.setUserId(userId);
-    entity.setPath(normalizedPath);
-    entity.setContent(content);
-    entity.setCreatedAt(now);
-    entity.setUpdatedAt(now);
-    vfsFileMapper.insert(entity);
-    return entity;
+    VfsSnapshot snapshot = loadSnapshot(userId);
+    validateContentSize(snapshot, normalizedPath, content);
+    snapshot.files().put(normalizedPath, content);
+    saveSnapshot(userId, snapshot);
+    return new VfsFileData(normalizedPath, content);
   }
 
-  @Transactional
   public MoveResult move(Long userId, String fromPath, String toPath) {
     String normalizedFromPath = validateFilePath(fromPath);
     String normalizedToPath = validateFilePath(toPath);
@@ -84,42 +72,72 @@ public class VfsFileService {
       return new MoveResult(normalizedFromPath, normalizedToPath);
     }
 
-    VfsFileEntity source =
-        vfsFileMapper
-            .findByUserIdAndPath(userId, normalizedFromPath)
-            .orElseThrow(() -> new IllegalStateException(ERROR_SOURCE_FILE_NOT_FOUND));
+    VfsSnapshot snapshot = loadSnapshot(userId);
+    String sourceContent = snapshot.files().get(normalizedFromPath);
+    if (sourceContent == null) {
+      throw new IllegalStateException(ERROR_SOURCE_FILE_NOT_FOUND);
+    }
 
-    if (vfsFileMapper.findByUserIdAndPath(userId, normalizedToPath).isPresent()) {
+    if (snapshot.files().containsKey(normalizedToPath)) {
       throw new IllegalStateException(ERROR_DESTINATION_ALREADY_EXISTS);
     }
 
-    source.setPath(normalizedToPath);
-    source.setUpdatedAt(LocalDateTime.now());
-    vfsFileMapper.update(source);
+    snapshot.files().remove(normalizedFromPath);
+    snapshot.files().put(normalizedToPath, sourceContent);
+    saveSnapshot(userId, snapshot);
     return new MoveResult(normalizedFromPath, normalizedToPath);
   }
 
-  @Transactional
   public boolean delete(Long userId, String path) {
     String normalizedPath = validateFilePath(path);
-    return vfsFileMapper.deleteByUserIdAndPath(userId, normalizedPath) > 0;
+    VfsSnapshot snapshot = loadSnapshot(userId);
+    if (snapshot.files().remove(normalizedPath) == null) {
+      return false;
+    }
+    saveSnapshot(userId, snapshot);
+    return true;
   }
 
-  private void validateContentSize(Long userId, String normalizedPath, String content) {
+  private VfsSnapshot loadSnapshot(Long userId) {
+    return objectStorageService
+        .read(vfsSnapshotBlobKey(userId))
+        .map(this::decodeSnapshot)
+        .orElseGet(VfsSnapshot::empty);
+  }
+
+  private void saveSnapshot(Long userId, VfsSnapshot snapshot) {
+    try {
+      objectStorageService.save(
+          vfsSnapshotBlobKey(userId), objectMapper.writeValueAsBytes(snapshot), "application/json");
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("VFS snapshot could not be serialized", e);
+    }
+  }
+
+  private VfsSnapshot decodeSnapshot(byte[] payload) {
+    try {
+      VfsSnapshot snapshot = objectMapper.readValue(payload, VfsSnapshot.class);
+      return snapshot.normalized();
+    } catch (IOException e) {
+      throw new IllegalStateException("VFS snapshot could not be deserialized", e);
+    }
+  }
+
+  private String vfsSnapshotBlobKey(Long userId) {
+    return "vfs/" + userId + "/snapshot.json";
+  }
+
+  private void validateContentSize(VfsSnapshot snapshot, String normalizedPath, String content) {
     int nextFileSize = byteSize(content);
     if (nextFileSize > MAX_FILE_SIZE_BYTES) {
       throw new IllegalArgumentException(
           ERROR_FILE_TOO_LARGE + " (max " + MAX_FILE_SIZE_BYTES + " bytes)");
     }
 
-    int currentFileSize = 0;
+    int currentFileSize = byteSize(snapshot.files().get(normalizedPath));
     int totalSize = 0;
-    for (VfsFileEntity file : vfsFileMapper.findByUserId(userId)) {
-      int fileSize = byteSize(file.getContent());
-      totalSize += fileSize;
-      if (normalizedPath.equals(file.getPath())) {
-        currentFileSize = fileSize;
-      }
+    for (String fileContent : snapshot.files().values()) {
+      totalSize += byteSize(fileContent);
     }
 
     int nextTotalSize = totalSize - currentFileSize + nextFileSize;
@@ -246,4 +264,41 @@ public class VfsFileService {
   }
 
   public record MoveResult(String fromPath, String toPath) {}
+
+  @RegisterForReflection
+  public static final class VfsSnapshot {
+    private int schemaVersion = SNAPSHOT_SCHEMA_VERSION;
+    private Map<String, String> files = new LinkedHashMap<>();
+
+    public static VfsSnapshot empty() {
+      return new VfsSnapshot();
+    }
+
+    public int getSchemaVersion() {
+      return schemaVersion;
+    }
+
+    public void setSchemaVersion(int schemaVersion) {
+      this.schemaVersion = schemaVersion;
+    }
+
+    public Map<String, String> getFiles() {
+      return files;
+    }
+
+    public void setFiles(Map<String, String> files) {
+      this.files = files == null ? new LinkedHashMap<>() : new LinkedHashMap<>(files);
+    }
+
+    Map<String, String> files() {
+      return files;
+    }
+
+    VfsSnapshot normalized() {
+      VfsSnapshot normalized = new VfsSnapshot();
+      normalized.setSchemaVersion(schemaVersion);
+      normalized.setFiles(new TreeMap<>(files));
+      return normalized;
+    }
+  }
 }

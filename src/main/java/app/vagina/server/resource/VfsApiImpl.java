@@ -1,7 +1,7 @@
 package app.vagina.server.resource;
 
 import app.vagina.server.domain.error.ValidationException;
-import app.vagina.server.entity.VfsFileEntity;
+import app.vagina.server.entity.VfsFileData;
 import app.vagina.server.generated.api.VfsApi;
 import app.vagina.server.generated.model.JsonRpcVersion;
 import app.vagina.server.generated.model.VfsFile;
@@ -82,8 +82,8 @@ public class VfsApiImpl implements VfsApi {
   }
 
   private Response readResponse(Long userId, VfsRpcRequest request) {
-    Optional<VfsFileEntity> entity = vfsUsecase.read(userId, request.getParams().getPath());
-    if (entity.isEmpty()) {
+    Optional<VfsFileData> file = vfsUsecase.read(userId, request.getParams().getPath());
+    if (file.isEmpty()) {
       return Response.ok(
               errorResponse(
                   request.getId(),
@@ -94,16 +94,15 @@ public class VfsApiImpl implements VfsApi {
     }
 
     return Response.ok(
-            successResponse(
-                request.getId(), new VfsRpcResult()._file(toGeneratedFile(entity.get()))))
+            successResponse(request.getId(), new VfsRpcResult()._file(toGeneratedFile(file.get()))))
         .build();
   }
 
   private Response writeResponse(Long userId, VfsRpcRequest request) {
-    VfsFileEntity entity =
+    VfsFileData file =
         vfsUsecase.write(userId, request.getParams().getPath(), request.getParams().getContent());
     return Response.ok(
-            successResponse(request.getId(), new VfsRpcResult()._file(toGeneratedFile(entity))))
+            successResponse(request.getId(), new VfsRpcResult()._file(toGeneratedFile(file))))
         .build();
   }
 
@@ -173,7 +172,7 @@ public class VfsApiImpl implements VfsApi {
     return data;
   }
 
-  private VfsFile toGeneratedFile(VfsFileEntity entity) {
-    return new VfsFile().path(entity.getPath()).content(entity.getContent());
+  private VfsFile toGeneratedFile(VfsFileData file) {
+    return new VfsFile().path(file.getPath()).content(file.getContent());
   }
 }

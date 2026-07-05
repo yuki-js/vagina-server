@@ -1,6 +1,5 @@
 package app.vagina.server.mapper;
 
-import app.vagina.server.entity.CallSession;
 import app.vagina.server.mapper.type.UuidTypeHandler;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,27 +14,26 @@ import org.apache.ibatis.annotations.ResultMap;
 import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
-import org.apache.ibatis.type.JdbcType;
 
 @Mapper
 public interface CallSessionMapper {
 
   @Insert(
       "INSERT INTO call_sessions (user_id, call_session_id, vhrp_session_id, vhrp_thread_id, "
-          + "speed_dial_id, voice_agent_id, started_at, ended_at, thread, deleted_at, created_at, updated_at) "
+          + "speed_dial_id, voice_agent_id, started_at, ended_at, thread_blob_key, deleted_at, created_at, updated_at) "
           + "VALUES (#{userId}, #{callSessionId,typeHandler=app.vagina.server.mapper.type.UuidTypeHandler}, #{vhrpSessionId}, #{vhrpThreadId}, "
-          + "#{speedDialId}, #{voiceAgentId}, #{startedAt}, #{endedAt}, #{thread}::jsonb, "
+          + "#{speedDialId}, #{voiceAgentId}, #{startedAt}, #{endedAt}, #{threadBlobKey}, "
           + "#{deletedAt}, #{createdAt}, #{updatedAt}) "
           + "ON CONFLICT (vhrp_session_id) DO NOTHING")
   @Options(useGeneratedKeys = true, keyProperty = "id")
-  int insertIdempotently(CallSession callSession);
+  int insertIdempotently(Row row);
 
   @Select(
       "SELECT id, user_id, call_session_id, vhrp_session_id, vhrp_thread_id, speed_dial_id, "
-          + "voice_agent_id, started_at, ended_at, thread::text as thread, deleted_at, created_at, updated_at "
+          + "voice_agent_id, started_at, ended_at, thread_blob_key, deleted_at, created_at, updated_at "
           + "FROM call_sessions WHERE id = #{id}")
   @Results(
-      id = "callSessionResultMap",
+      id = "callSessionRowResultMap",
       value = {
         @Result(property = "id", column = "id", id = true),
         @Result(property = "userId", column = "user_id"),
@@ -50,17 +48,17 @@ public interface CallSessionMapper {
         @Result(property = "voiceAgentId", column = "voice_agent_id"),
         @Result(property = "startedAt", column = "started_at"),
         @Result(property = "endedAt", column = "ended_at"),
-        @Result(property = "thread", column = "thread"),
+        @Result(property = "threadBlobKey", column = "thread_blob_key"),
         @Result(property = "deletedAt", column = "deleted_at"),
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
-  Optional<CallSession> findById(@Param("id") Long id);
+  Optional<Row> findById(@Param("id") Long id);
 
   @Select(
       "<script>"
           + "SELECT id, user_id, call_session_id, vhrp_session_id, vhrp_thread_id, speed_dial_id, "
-          + "voice_agent_id, started_at, ended_at, thread::text as thread, deleted_at, created_at, updated_at "
+          + "voice_agent_id, started_at, ended_at, thread_blob_key, deleted_at, created_at, updated_at "
           + "FROM call_sessions "
           + "WHERE user_id = #{userId} AND deleted_at IS NULL "
           + "<if test='cursorStartedAt != null and cursorId != null'>"
@@ -68,8 +66,8 @@ public interface CallSessionMapper {
           + "</if>"
           + "ORDER BY started_at DESC, id DESC LIMIT #{limit}"
           + "</script>")
-  @ResultMap("callSessionResultMap")
-  List<CallSession> findActivePageByUserId(
+  @ResultMap("callSessionRowResultMap")
+  List<Row> findActivePageByUserId(
       @Param("userId") Long userId,
       @Param("cursorStartedAt") LocalDateTime cursorStartedAt,
       @Param("cursorId") Long cursorId,
@@ -77,11 +75,11 @@ public interface CallSessionMapper {
 
   @Select(
       "SELECT id, user_id, call_session_id, vhrp_session_id, vhrp_thread_id, speed_dial_id, "
-          + "voice_agent_id, started_at, ended_at, thread::text as thread, deleted_at, created_at, updated_at "
+          + "voice_agent_id, started_at, ended_at, thread_blob_key, deleted_at, created_at, updated_at "
           + "FROM call_sessions "
           + "WHERE user_id = #{userId} AND call_session_id = #{callSessionId,typeHandler=app.vagina.server.mapper.type.UuidTypeHandler} AND deleted_at IS NULL")
-  @ResultMap("callSessionResultMap")
-  Optional<CallSession> findActiveByUserIdAndCallSessionId(
+  @ResultMap("callSessionRowResultMap")
+  Optional<Row> findActiveByUserIdAndCallSessionId(
       @Param("userId") Long userId, @Param("callSessionId") UUID callSessionId);
 
   @Update(
@@ -104,4 +102,124 @@ public interface CallSessionMapper {
       @Param("userId") Long userId,
       @Param("callSessionIds") List<UUID> callSessionIds,
       @Param("deletedAt") LocalDateTime deletedAt);
+
+  final class Row {
+    private Long id;
+    private Long userId;
+    private UUID callSessionId;
+    private String vhrpSessionId;
+    private String vhrpThreadId;
+    private String speedDialId;
+    private String voiceAgentId;
+    private LocalDateTime startedAt;
+    private LocalDateTime endedAt;
+    private String threadBlobKey;
+    private LocalDateTime deletedAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public Long getId() {
+      return id;
+    }
+
+    public void setId(Long id) {
+      this.id = id;
+    }
+
+    public Long getUserId() {
+      return userId;
+    }
+
+    public void setUserId(Long userId) {
+      this.userId = userId;
+    }
+
+    public UUID getCallSessionId() {
+      return callSessionId;
+    }
+
+    public void setCallSessionId(UUID callSessionId) {
+      this.callSessionId = callSessionId;
+    }
+
+    public String getVhrpSessionId() {
+      return vhrpSessionId;
+    }
+
+    public void setVhrpSessionId(String vhrpSessionId) {
+      this.vhrpSessionId = vhrpSessionId;
+    }
+
+    public String getVhrpThreadId() {
+      return vhrpThreadId;
+    }
+
+    public void setVhrpThreadId(String vhrpThreadId) {
+      this.vhrpThreadId = vhrpThreadId;
+    }
+
+    public String getSpeedDialId() {
+      return speedDialId;
+    }
+
+    public void setSpeedDialId(String speedDialId) {
+      this.speedDialId = speedDialId;
+    }
+
+    public String getVoiceAgentId() {
+      return voiceAgentId;
+    }
+
+    public void setVoiceAgentId(String voiceAgentId) {
+      this.voiceAgentId = voiceAgentId;
+    }
+
+    public LocalDateTime getStartedAt() {
+      return startedAt;
+    }
+
+    public void setStartedAt(LocalDateTime startedAt) {
+      this.startedAt = startedAt;
+    }
+
+    public LocalDateTime getEndedAt() {
+      return endedAt;
+    }
+
+    public void setEndedAt(LocalDateTime endedAt) {
+      this.endedAt = endedAt;
+    }
+
+    public String getThreadBlobKey() {
+      return threadBlobKey;
+    }
+
+    public void setThreadBlobKey(String threadBlobKey) {
+      this.threadBlobKey = threadBlobKey;
+    }
+
+    public LocalDateTime getDeletedAt() {
+      return deletedAt;
+    }
+
+    public void setDeletedAt(LocalDateTime deletedAt) {
+      this.deletedAt = deletedAt;
+    }
+
+    public LocalDateTime getCreatedAt() {
+      return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+      this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+      return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+      this.updatedAt = updatedAt;
+    }
+  }
 }
