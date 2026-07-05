@@ -1,6 +1,5 @@
 package app.vagina.server.textagent;
 
-import app.vagina.server.domain.error.ExternalServiceException;
 import app.vagina.server.support.Util;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
@@ -13,9 +12,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -24,12 +20,10 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   static final String PROVIDER_STATE_PREVIOUS_RESPONSE_ID = "previous_response_id";
   static final String PROVIDER_STATE_LAST_REQUEST_ID = "last_request_id";
 
-  private final ObjectMapper objectMapper;
-  private final HttpClient httpClient;
+  private final OpenAiTextAgentHttpClient http;
 
   OpenAiResponsesTextAgentAdapter(ObjectMapper objectMapper) {
-    this.objectMapper = objectMapper;
-    this.httpClient = HttpClient.newHttpClient();
+    this.http = new OpenAiTextAgentHttpClient(objectMapper);
   }
 
   @Override
@@ -48,7 +42,13 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
       return failedProviderConfiguration("OpenAI Responses base URL is required");
     }
     providerState(context).put(PROVIDER_STATE_LAST_REQUEST_ID, context.command().requestId());
-    ResponsesResponse response = postJson(context, responsesUri(context), requestBody(context));
+    ResponsesResponse response =
+        http.postJson(
+            context,
+            responsesUri(context),
+            requestBody(context),
+            ResponsesResponse.class,
+            "Responses text agent request failed");
     rememberPreviousResponseId(context, response.id());
     return parseResponse(response);
   }
@@ -119,30 +119,6 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
     }
   }
 
-  private ResponsesResponse postJson(ProviderContext context, URI uri, Object body) {
-    try {
-      HttpRequest.Builder builder =
-          HttpRequest.newBuilder(uri)
-              .header("Content-Type", "application/json")
-              .header("Accept", "application/json")
-              .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
-      context
-          .binding()
-          .apiKey()
-          .filter(key -> !key.isBlank())
-          .ifPresent(
-              key -> {
-                builder.header("Authorization", "Bearer " + key);
-                builder.header("api-key", key);
-              });
-      HttpResponse<String> response =
-          httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-      return objectMapper.readValue(response.body(), ResponsesResponse.class);
-    } catch (Exception e) {
-      throw new ExternalServiceException("Responses text agent request failed", e);
-    }
-  }
-
   private URI responsesUri(ProviderContext context) {
     return Util.resolveUriWithPathSuffix(context.binding().baseUri().orElseThrow(), "/responses");
   }
@@ -159,11 +135,7 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   }
 
   String previewRequestBody(ProviderContext context) {
-    try {
-      return objectMapper.writeValueAsString(requestBody(context));
-    } catch (Exception e) {
-      throw new IllegalStateException("Failed to encode Responses text agent request", e);
-    }
+    return http.writeJson(requestBody(context), "Failed to encode Responses text agent request");
   }
 
   private Object promptInput(ProviderContext context) {

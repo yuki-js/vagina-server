@@ -13,6 +13,7 @@ import app.vagina.server.generated.model.TextAgentToolCall;
 import app.vagina.server.generated.model.TextAgentWriteRequest;
 import app.vagina.server.support.Authenticated;
 import app.vagina.server.support.AuthenticatedUser;
+import app.vagina.server.support.EnabledToolsJson;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryImageInput;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
@@ -21,8 +22,6 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCall;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCatalogEntry;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
 import app.vagina.server.usecase.TextAgentUsecase;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -38,8 +37,8 @@ import java.util.Map.Entry;
 @Path("/text-agents")
 @Authenticated
 public class TextAgentsApiImpl implements TextAgentsApi {
-  private static final TypeReference<LinkedHashMap<String, Boolean>> ENABLED_TOOLS_TYPE =
-      new TypeReference<>() {};
+  private static final String ENABLED_TOOL_LABEL = "Text agent enabled tool";
+  private static final String ENABLED_TOOLS_LABEL = "text agent enabled tools";
 
   @Inject TextAgentUsecase textAgentUsecase;
   @Inject AuthenticatedUser authenticatedUser;
@@ -98,7 +97,9 @@ public class TextAgentsApiImpl implements TextAgentsApi {
     model.setPrompt(definition.getPrompt());
     model.setDescription(definition.getDescription());
     model.setTextModelId(definition.getTextModelId());
-    model.setEnabledTools(deserializeEnabledTools(definition.getEnabledTools()));
+    model.setEnabledTools(
+        EnabledToolsJson.deserialize(
+            objectMapper, definition.getEnabledTools(), ENABLED_TOOLS_LABEL));
     if (definition.getCreatedAt() != null) {
       model.setCreatedAt(definition.getCreatedAt().atOffset(ZoneOffset.UTC));
     }
@@ -111,7 +112,9 @@ public class TextAgentsApiImpl implements TextAgentsApi {
     definition.setPrompt(model.getPrompt());
     definition.setDescription(model.getDescription());
     definition.setTextModelId(model.getTextModelId());
-    definition.setEnabledTools(serializeEnabledTools(model.getEnabledTools()));
+    definition.setEnabledTools(
+        EnabledToolsJson.serialize(
+            objectMapper, model.getEnabledTools(), ENABLED_TOOL_LABEL, ENABLED_TOOLS_LABEL));
     return definition;
   }
 
@@ -208,46 +211,5 @@ public class TextAgentsApiImpl implements TextAgentsApi {
         .id(toolCall.id())
         .name(toolCall.name())
         .arguments(toolCall.arguments());
-  }
-
-  private String serializeEnabledTools(Object enabledTools) {
-    try {
-      return objectMapper.writeValueAsString(normalizeEnabledTools(enabledTools));
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException("Failed to serialize text agent enabled tools", e);
-    }
-  }
-
-  private Map<String, Boolean> normalizeEnabledTools(Object enabledTools) {
-    if (enabledTools == null) {
-      return Map.of();
-    }
-    if (!(enabledTools instanceof Map<?, ?> rawEnabledTools)) {
-      throw new IllegalArgumentException("Text agent enabled tools must be a JSON object");
-    }
-
-    Map<String, Boolean> normalized = new LinkedHashMap<>();
-    for (Entry<?, ?> entry : rawEnabledTools.entrySet()) {
-      if (!(entry.getKey() instanceof String toolName)) {
-        throw new IllegalArgumentException("Text agent enabled tool names must be strings");
-      }
-      if (!(entry.getValue() instanceof Boolean enabled)) {
-        throw new IllegalArgumentException("Text agent enabled tool values must be booleans");
-      }
-      normalized.put(toolName, enabled);
-    }
-    return normalized;
-  }
-
-  private Map<String, Boolean> deserializeEnabledTools(String enabledToolsJson) {
-    if (enabledToolsJson == null || enabledToolsJson.isBlank()) {
-      return Map.of();
-    }
-
-    try {
-      return objectMapper.readValue(enabledToolsJson, ENABLED_TOOLS_TYPE);
-    } catch (JsonProcessingException e) {
-      throw new IllegalStateException("Failed to deserialize text agent enabled tools", e);
-    }
   }
 }

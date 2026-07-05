@@ -1,6 +1,5 @@
 package app.vagina.server.textagent;
 
-import app.vagina.server.domain.error.ExternalServiceException;
 import app.vagina.server.support.Util;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
@@ -13,9 +12,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -24,12 +20,10 @@ import java.util.Optional;
 public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAdapter {
   static final String PROVIDER_STATE_MESSAGES = "messages";
 
-  private final ObjectMapper objectMapper;
-  private final HttpClient httpClient;
+  private final OpenAiTextAgentHttpClient http;
 
   OpenAiChatCompletionsTextAgentAdapter(ObjectMapper objectMapper) {
-    this.objectMapper = objectMapper;
-    this.httpClient = HttpClient.newHttpClient();
+    this.http = new OpenAiTextAgentHttpClient(objectMapper);
   }
 
   @Override
@@ -51,7 +45,12 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
     ensureSystemMessage(context, messages);
     appendCurrentInput(context, messages);
     ChatCompletionResponse response =
-        postJson(context, chatCompletionsUri(context), requestBody(context, messages));
+        http.postJson(
+            context,
+            chatCompletionsUri(context),
+            requestBody(context, messages),
+            ChatCompletionResponse.class,
+            "Chat Completions text agent request failed");
     QueryResult result = parseResponse(response);
     if (result.status() == TextAgentRuntimeModels.QueryStatus.REQUIRES_TOOL) {
       messages.add(ChatCompletionMessage.assistantToolCalls(result.toolCalls()));
@@ -127,30 +126,6 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
         "provider_response_error", "Chat Completions response had no text or tool calls");
   }
 
-  private ChatCompletionResponse postJson(ProviderContext context, URI uri, Object body) {
-    try {
-      HttpRequest.Builder builder =
-          HttpRequest.newBuilder(uri)
-              .header("Content-Type", "application/json")
-              .header("Accept", "application/json")
-              .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
-      context
-          .binding()
-          .apiKey()
-          .filter(key -> !key.isBlank())
-          .ifPresent(
-              key -> {
-                builder.header("Authorization", "Bearer " + key);
-                builder.header("api-key", key);
-              });
-      HttpResponse<String> response =
-          httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-      return objectMapper.readValue(response.body(), ChatCompletionResponse.class);
-    } catch (Exception e) {
-      throw new ExternalServiceException("Chat Completions text agent request failed", e);
-    }
-  }
-
   private URI chatCompletionsUri(ProviderContext context) {
     return Util.resolveUriWithPathSuffix(
         context.binding().baseUri().orElseThrow(), "/chat/completions");
@@ -168,11 +143,9 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
   }
 
   String previewRequestBody(ProviderContext context) {
-    try {
-      return objectMapper.writeValueAsString(requestBody(context, mutableMessages(context)));
-    } catch (Exception e) {
-      throw new IllegalStateException("Failed to encode Chat Completions text agent request", e);
-    }
+    return http.writeJson(
+        requestBody(context, mutableMessages(context)),
+        "Failed to encode Chat Completions text agent request");
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)

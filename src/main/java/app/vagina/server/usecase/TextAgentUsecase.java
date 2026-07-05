@@ -8,6 +8,8 @@ import app.vagina.server.realtime.VhrpSession;
 import app.vagina.server.realtime.VhrpSessionRegistry;
 import app.vagina.server.service.TextAgentModelRegistryService;
 import app.vagina.server.service.TextAgentService;
+import app.vagina.server.support.EnabledToolsJson;
+import app.vagina.server.support.EnabledToolsJson.ParseResult;
 import app.vagina.server.textagent.TextAgentAdapter;
 import app.vagina.server.textagent.TextAgentAdapterFactory;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
@@ -16,25 +18,19 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
 import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCatalogEntry;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @ApplicationScoped
 public class TextAgentUsecase {
   private static final String QUERY_TEXT_AGENT_TOOL_NAME = "query_text_agent";
   private static final String END_CALL_TOOL_NAME = "end_call";
   private static final Duration PENDING_REQUEST_TTL = Duration.ofMinutes(5);
-  private static final TypeReference<Map<String, Boolean>> ENABLED_TOOLS_TYPE =
-      new TypeReference<>() {};
 
   @Inject TextAgentService textAgentService;
   @Inject TextAgentModelRegistryService textAgentModelRegistryService;
@@ -162,7 +158,7 @@ public class TextAgentUsecase {
 
   private List<ToolCatalogEntry> allowedToolCatalog(
       TextAgentDefinition textAgent, QueryCommand command) {
-    EnabledToolsParseResult enabledTools = parseEnabledTools(textAgent.getEnabledTools());
+    ParseResult enabledTools = EnabledToolsJson.parse(objectMapper, textAgent.getEnabledTools());
     if (!enabledTools.valid()) {
       return List.of();
     }
@@ -184,31 +180,6 @@ public class TextAgentUsecase {
         .filter(tool -> !END_CALL_TOOL_NAME.equals(tool.name()))
         .filter(tool -> enabledTools.overrides().getOrDefault(tool.name(), true))
         .toList();
-  }
-
-  private EnabledToolsParseResult parseEnabledTools(String enabledToolsJson) {
-    if (enabledToolsJson == null || enabledToolsJson.isBlank()) {
-      return EnabledToolsParseResult.valid(Map.of());
-    }
-    try {
-      Map<String, Boolean> parsed = objectMapper.readValue(enabledToolsJson, ENABLED_TOOLS_TYPE);
-      if (parsed == null) {
-        return EnabledToolsParseResult.valid(Map.of());
-      }
-      return EnabledToolsParseResult.valid(new HashMap<>(parsed));
-    } catch (JsonProcessingException e) {
-      return EnabledToolsParseResult.invalid();
-    }
-  }
-
-  private record EnabledToolsParseResult(boolean valid, Map<String, Boolean> overrides) {
-    private static EnabledToolsParseResult valid(Map<String, Boolean> overrides) {
-      return new EnabledToolsParseResult(true, overrides);
-    }
-
-    private static EnabledToolsParseResult invalid() {
-      return new EnabledToolsParseResult(false, Map.of());
-    }
   }
 
   private void validateTextModel(String textModelId) {

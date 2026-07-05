@@ -7,9 +7,9 @@ import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.entity.User;
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.service.AuthService;
+import app.vagina.server.support.EnabledToolsJson;
+import app.vagina.server.support.EnabledToolsJson.ParseResult;
 import app.vagina.server.usecase.CallSessionUsecase;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.logging.Log;
 import io.quarkus.websockets.next.WebSocketConnection;
@@ -20,8 +20,6 @@ import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -29,7 +27,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 /**
  * Application-scoped authority over VHRP/1 sessions: the only place resume is realized.
@@ -57,9 +54,6 @@ public class VhrpSessionRegistry {
 
   /** Live and retained sessions keyed by stable sessionId. Concurrent: connections span threads. */
   private final ConcurrentHashMap<String, Entry> sessions = new ConcurrentHashMap<>();
-
-  private static final TypeReference<LinkedHashMap<String, Boolean>> ENABLED_TOOLS_TYPE =
-      new TypeReference<>() {};
 
   @Inject AuthService authService;
   @Inject RealtimeAdapterFactory adapterFactory;
@@ -345,21 +339,13 @@ public class VhrpSessionRegistry {
   }
 
   private Set<String> parseAllowedToolNames(String enabledToolsJson) {
-    if (enabledToolsJson == null || enabledToolsJson.isBlank()) {
-      return Collections.emptySet();
+    ParseResult enabledTools = EnabledToolsJson.parse(objectMapper, enabledToolsJson);
+    if (!enabledTools.valid()) {
+      Log.warnf(
+          enabledTools.error(),
+          "Failed to parse enabled_tools JSON, failing closed with empty allow-list");
+      return Set.of();
     }
-
-    try {
-      Map<String, Boolean> enabledToolsMap =
-          objectMapper.readValue(enabledToolsJson, ENABLED_TOOLS_TYPE);
-      return enabledToolsMap.entrySet().stream()
-          .filter(e -> Boolean.TRUE.equals(e.getValue()))
-          .map(Map.Entry::getKey)
-          .filter(name -> name != null && !name.isBlank())
-          .collect(Collectors.toSet());
-    } catch (JsonProcessingException e) {
-      Log.warnf(e, "Failed to parse enabled_tools JSON, failing closed with empty allow-list");
-      return Collections.emptySet();
-    }
+    return EnabledToolsJson.enabledToolNames(enabledTools.overrides());
   }
 }
