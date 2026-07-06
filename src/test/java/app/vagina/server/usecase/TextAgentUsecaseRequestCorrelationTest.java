@@ -236,11 +236,18 @@ class TextAgentUsecaseRequestCorrelationTest {
   }
 
   private Fixture fixture(RecordingAdapter adapter) {
-    TextAgentDefinition definition = new TextAgentDefinition();
-    definition.setTextAgentId("ta_contract");
-    definition.setTextModelId("text-agent-test");
-    definition.setPrompt("You are a test text agent.");
-    definition.setEnabledTools("{}");
+    TextAgentDefinition definition =
+        new TextAgentDefinition(
+            null,
+            7L,
+            "ta_contract",
+            "Contract text agent",
+            "You are a test text agent.",
+            null,
+            "text-agent-test",
+            "{}",
+            null,
+            null);
 
     TextAgentModelBinding binding =
         new TextAgentModelBinding(

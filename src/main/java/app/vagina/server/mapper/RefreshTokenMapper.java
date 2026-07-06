@@ -1,6 +1,5 @@
 package app.vagina.server.mapper;
 
-import app.vagina.server.entity.RefreshToken;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -22,14 +21,14 @@ public interface RefreshTokenMapper {
           + "last_used_at, sysmeta, created_at, updated_at) VALUES (#{userId}, #{tokenHash}, #{tokenFamily}, "
           + "#{issuedAt}, #{expiresAt}, #{rotatedAt}, #{revokedAt}, #{lastUsedAt}, #{sysmeta}::jsonb, #{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
-  void insert(RefreshToken refreshToken);
+  void insert(Row row);
 
   @Select(
       "SELECT id, user_id, token_hash, token_family, issued_at, expires_at, rotated_at, revoked_at, "
           + "last_used_at, sysmeta::text as sysmeta, created_at, updated_at "
           + "FROM refresh_tokens WHERE id = #{id}")
   @Results(
-      id = "refreshTokenResultMap",
+      id = "refreshTokenRowResultMap",
       value = {
         @Result(property = "id", column = "id", id = true),
         @Result(property = "userId", column = "user_id"),
@@ -44,34 +43,34 @@ public interface RefreshTokenMapper {
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
-  Optional<RefreshToken> findById(@Param("id") Long id);
+  Optional<Row> findById(@Param("id") Long id);
 
   @Select(
       "SELECT id, user_id, token_hash, token_family, issued_at, expires_at, rotated_at, revoked_at, "
           + "last_used_at, sysmeta::text as sysmeta, created_at, updated_at "
           + "FROM refresh_tokens WHERE token_hash = #{tokenHash}")
-  @ResultMap("refreshTokenResultMap")
-  Optional<RefreshToken> findByTokenHash(@Param("tokenHash") String tokenHash);
+  @ResultMap("refreshTokenRowResultMap")
+  Optional<Row> findByTokenHash(@Param("tokenHash") String tokenHash);
 
   @Select(
       "SELECT id, user_id, token_hash, token_family, issued_at, expires_at, rotated_at, revoked_at, "
           + "last_used_at, sysmeta::text as sysmeta, created_at, updated_at "
           + "FROM refresh_tokens WHERE user_id = #{userId} ORDER BY created_at DESC")
-  @ResultMap("refreshTokenResultMap")
-  List<RefreshToken> findByUserId(@Param("userId") Long userId);
+  @ResultMap("refreshTokenRowResultMap")
+  List<Row> findByUserId(@Param("userId") Long userId);
 
   @Select(
       "SELECT id, user_id, token_hash, token_family, issued_at, expires_at, rotated_at, revoked_at, "
           + "last_used_at, sysmeta::text as sysmeta, created_at, updated_at "
           + "FROM refresh_tokens WHERE token_family = #{tokenFamily} ORDER BY created_at DESC")
-  @ResultMap("refreshTokenResultMap")
-  List<RefreshToken> findByTokenFamily(@Param("tokenFamily") String tokenFamily);
+  @ResultMap("refreshTokenRowResultMap")
+  List<Row> findByTokenFamily(@Param("tokenFamily") String tokenFamily);
 
   @Update(
       "UPDATE refresh_tokens SET user_id = #{userId}, token_hash = #{tokenHash}, token_family = #{tokenFamily}, "
           + "issued_at = #{issuedAt}, expires_at = #{expiresAt}, rotated_at = #{rotatedAt}, revoked_at = #{revokedAt}, "
           + "last_used_at = #{lastUsedAt}, sysmeta = #{sysmeta}::jsonb, updated_at = #{updatedAt} WHERE id = #{id}")
-  void update(RefreshToken refreshToken);
+  void update(Row row);
 
   @Update(
       "UPDATE refresh_tokens SET rotated_at = #{rotatedAt}, last_used_at = #{lastUsedAt}, updated_at = #{updatedAt} "
@@ -81,4 +80,44 @@ public interface RefreshTokenMapper {
       @Param("rotatedAt") LocalDateTime rotatedAt,
       @Param("lastUsedAt") LocalDateTime lastUsedAt,
       @Param("updatedAt") LocalDateTime updatedAt);
+
+  final class Row {
+    private Long id;
+    private Long userId;
+    private String tokenHash;
+    private String tokenFamily;
+    private LocalDateTime issuedAt;
+    private LocalDateTime expiresAt;
+    private LocalDateTime rotatedAt;
+    private LocalDateTime revokedAt;
+    private LocalDateTime lastUsedAt;
+    private String sysmeta;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public String getTokenHash() { return tokenHash; }
+    public void setTokenHash(String tokenHash) { this.tokenHash = tokenHash; }
+    public String getTokenFamily() { return tokenFamily; }
+    public void setTokenFamily(String tokenFamily) { this.tokenFamily = tokenFamily; }
+    public LocalDateTime getIssuedAt() { return issuedAt; }
+    public void setIssuedAt(LocalDateTime issuedAt) { this.issuedAt = issuedAt; }
+    public LocalDateTime getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
+    public LocalDateTime getRotatedAt() { return rotatedAt; }
+    public void setRotatedAt(LocalDateTime rotatedAt) { this.rotatedAt = rotatedAt; }
+    public LocalDateTime getRevokedAt() { return revokedAt; }
+    public void setRevokedAt(LocalDateTime revokedAt) { this.revokedAt = revokedAt; }
+    public LocalDateTime getLastUsedAt() { return lastUsedAt; }
+    public void setLastUsedAt(LocalDateTime lastUsedAt) { this.lastUsedAt = lastUsedAt; }
+    public String getSysmeta() { return sysmeta; }
+    public void setSysmeta(String sysmeta) { this.sysmeta = sysmeta; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+  }
 }

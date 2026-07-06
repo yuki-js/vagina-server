@@ -55,7 +55,7 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
 
   private ResponsesRequest requestBody(ProviderContext context) {
     String previousResponseId = previousResponseId(context);
-    String instructions = previousResponseId == null ? context.textAgent().getPrompt() : null;
+    String instructions = previousResponseId == null ? context.textAgent().prompt() : null;
     Object input =
         context.command().isPromptStep()
             ? promptInput(context)

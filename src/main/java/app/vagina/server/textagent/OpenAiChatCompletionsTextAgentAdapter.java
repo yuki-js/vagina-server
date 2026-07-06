@@ -61,8 +61,8 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
   }
 
   private void ensureSystemMessage(ProviderContext context, List<ChatCompletionMessage> messages) {
-    if (messages.isEmpty() && context.textAgent().getPrompt() != null) {
-      messages.add(ChatCompletionMessage.system(context.textAgent().getPrompt()));
+    if (messages.isEmpty() && context.textAgent().prompt() != null) {
+      messages.add(ChatCompletionMessage.system(context.textAgent().prompt()));
     }
   }
 

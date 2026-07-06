@@ -102,12 +102,20 @@ class TextAgentAdapterFactoryTest {
   }
 
   private ProviderContext context(String provider, QueryCommand command) {
-    TextAgentDefinition definition = new TextAgentDefinition();
-    definition.setTextAgentId("ta_test");
-    definition.setTextModelId("text-agent-test");
-    definition.setPrompt("You are a test text agent.");
+    TextAgentDefinition definition =
+        new TextAgentDefinition(
+            null,
+            null,
+            "ta_test",
+            "Test text agent",
+            "You are a test text agent.",
+            null,
+            "text-agent-test",
+            "{}",
+            null,
+            null);
     ProviderSessionState state = new ProviderSessionState("ta_test", binding(provider));
-    return new ProviderContext(definition, command, state);
+    return new ProviderContext(definition.toTextAgentProviderView(), command, state);
   }
 
   private TextAgentModelBinding binding(String provider) {

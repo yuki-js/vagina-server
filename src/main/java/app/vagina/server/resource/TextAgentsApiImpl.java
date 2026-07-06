@@ -56,7 +56,7 @@ public class TextAgentsApiImpl implements TextAgentsApi {
   public Response createTextAgent(TextAgentWriteRequest textAgentWriteRequest) {
     Long userId = authenticatedUser.get().getId();
     TextAgentDefinition created =
-        textAgentUsecase.createTextAgent(userId, toEntity(textAgentWriteRequest));
+        textAgentUsecase.createTextAgent(userId, toWriteCommand(textAgentWriteRequest));
     return Response.status(Response.Status.CREATED).entity(toGeneratedModel(created)).build();
   }
 
@@ -71,7 +71,8 @@ public class TextAgentsApiImpl implements TextAgentsApi {
   public Response updateTextAgent(String textAgentId, TextAgentWriteRequest textAgentWriteRequest) {
     Long userId = authenticatedUser.get().getId();
     TextAgentDefinition updated =
-        textAgentUsecase.updateTextAgent(userId, textAgentId, toEntity(textAgentWriteRequest));
+        textAgentUsecase.updateTextAgent(
+            userId, textAgentId, toWriteCommand(textAgentWriteRequest));
     return Response.ok(toGeneratedModel(updated)).build();
   }
 
@@ -106,16 +107,14 @@ public class TextAgentsApiImpl implements TextAgentsApi {
     return model;
   }
 
-  private TextAgentDefinition toEntity(TextAgentWriteRequest model) {
-    TextAgentDefinition definition = new TextAgentDefinition();
-    definition.setName(model.getName());
-    definition.setPrompt(model.getPrompt());
-    definition.setDescription(model.getDescription());
-    definition.setTextModelId(model.getTextModelId());
-    definition.setEnabledTools(
+  private TextAgentUsecase.WriteCommand toWriteCommand(TextAgentWriteRequest model) {
+    return new TextAgentUsecase.WriteCommand(
+        model.getName(),
+        model.getPrompt(),
+        model.getDescription(),
+        model.getTextModelId(),
         EnabledToolsJson.serialize(
             objectMapper, model.getEnabledTools(), ENABLED_TOOL_LABEL, ENABLED_TOOLS_LABEL));
-    return definition;
   }
 
   private QueryCommand toCommand(QueryTextAgentRequest request) {

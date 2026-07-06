@@ -20,115 +20,144 @@ public class SpeedDialPreset {
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 
-  public Long getId() {
-    return id;
+  public SpeedDialPreset(
+      Long id,
+      Long userId,
+      String speedDialId,
+      String name,
+      String systemPrompt,
+      String description,
+      String iconEmoji,
+      String voice,
+      String voiceAgentId,
+      String reasoningEffort,
+      boolean toolChoiceRequired,
+      String enabledTools,
+      LocalDateTime createdAt,
+      LocalDateTime updatedAt) {
+    this.id = id;
+    this.userId = userId;
+    this.speedDialId = speedDialId;
+    this.name = name;
+    this.systemPrompt = systemPrompt;
+    this.description = description;
+    this.iconEmoji = iconEmoji;
+    this.voice = voice;
+    this.voiceAgentId = voiceAgentId;
+    this.reasoningEffort = reasoningEffort;
+    this.toolChoiceRequired = toolChoiceRequired;
+    this.enabledTools = enabledTools;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 
-  public void setId(Long id) {
+  public void setGeneratedId(Long id) {
+    if (this.id != null && !this.id.equals(id)) {
+      throw new IllegalStateException("Speed dial persistence id is already assigned");
+    }
     this.id = id;
+  }
+
+  public void updateConfiguration(
+      String name,
+      String systemPrompt,
+      String description,
+      String iconEmoji,
+      String voice,
+      String voiceAgentId,
+      String reasoningEffort,
+      boolean toolChoiceRequired,
+      String enabledTools,
+      LocalDateTime updatedAt) {
+    this.name = name;
+    this.systemPrompt = systemPrompt;
+    this.description = description;
+    this.iconEmoji = iconEmoji;
+    this.voice = voice;
+    this.voiceAgentId = voiceAgentId;
+    this.reasoningEffort = reasoningEffort;
+    this.toolChoiceRequired = toolChoiceRequired;
+    this.enabledTools = enabledTools;
+    this.updatedAt = updatedAt;
+  }
+
+  public boolean hasName(String expectedName) {
+    return name != null && name.equals(expectedName);
+  }
+
+  public VoiceSessionConfig toVoiceSessionConfig() {
+    return new VoiceSessionConfig(
+        speedDialId,
+        systemPrompt,
+        voice,
+        voiceAgentId,
+        reasoningEffort,
+        toolChoiceRequired,
+        enabledTools);
+  }
+
+  public Long getId() {
+    return id;
   }
 
   public Long getUserId() {
     return userId;
   }
 
-  public void setUserId(Long userId) {
-    this.userId = userId;
-  }
-
   public String getSpeedDialId() {
     return speedDialId;
-  }
-
-  public void setSpeedDialId(String speedDialId) {
-    this.speedDialId = speedDialId;
   }
 
   public String getName() {
     return name;
   }
 
-  public void setName(String name) {
-    this.name = name;
-  }
-
   public String getSystemPrompt() {
     return systemPrompt;
-  }
-
-  public void setSystemPrompt(String systemPrompt) {
-    this.systemPrompt = systemPrompt;
   }
 
   public String getDescription() {
     return description;
   }
 
-  public void setDescription(String description) {
-    this.description = description;
-  }
-
   public String getIconEmoji() {
     return iconEmoji;
-  }
-
-  public void setIconEmoji(String iconEmoji) {
-    this.iconEmoji = iconEmoji;
   }
 
   public String getVoice() {
     return voice;
   }
 
-  public void setVoice(String voice) {
-    this.voice = voice;
-  }
-
   public String getVoiceAgentId() {
     return voiceAgentId;
-  }
-
-  public void setVoiceAgentId(String voiceAgentId) {
-    this.voiceAgentId = voiceAgentId;
   }
 
   public String getReasoningEffort() {
     return reasoningEffort;
   }
 
-  public void setReasoningEffort(String reasoningEffort) {
-    this.reasoningEffort = reasoningEffort;
-  }
-
   public boolean isToolChoiceRequired() {
     return toolChoiceRequired;
-  }
-
-  public void setToolChoiceRequired(boolean toolChoiceRequired) {
-    this.toolChoiceRequired = toolChoiceRequired;
   }
 
   public String getEnabledTools() {
     return enabledTools;
   }
 
-  public void setEnabledTools(String enabledTools) {
-    this.enabledTools = enabledTools;
-  }
-
   public LocalDateTime getCreatedAt() {
     return createdAt;
-  }
-
-  public void setCreatedAt(LocalDateTime createdAt) {
-    this.createdAt = createdAt;
   }
 
   public LocalDateTime getUpdatedAt() {
     return updatedAt;
   }
 
-  public void setUpdatedAt(LocalDateTime updatedAt) {
-    this.updatedAt = updatedAt;
-  }
+  public record VoiceSessionConfig(
+      String speedDialId,
+      String systemPrompt,
+      String voice,
+      String voiceAgentId,
+      String reasoningEffort,
+      boolean toolChoiceRequired,
+      String enabledTools) {}
 }

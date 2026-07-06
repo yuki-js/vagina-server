@@ -1,6 +1,6 @@
 package app.vagina.server.textagent;
 
-import app.vagina.server.entity.TextAgentDefinition;
+import app.vagina.server.entity.TextAgentDefinition.TextAgentProviderView;
 import app.vagina.server.support.Util;
 import java.net.URI;
 import java.time.Duration;
@@ -330,18 +330,18 @@ public final class TextAgentRuntimeModels {
   }
 
   public record ProviderContext(
-      TextAgentDefinition textAgent,
+      TextAgentProviderView textAgent,
       QueryCommand command,
       ProviderSessionState sessionState,
       List<ToolCatalogEntry> toolCatalog) {
     public ProviderContext(
-        TextAgentDefinition textAgent, QueryCommand command, ProviderSessionState sessionState) {
+        TextAgentProviderView textAgent, QueryCommand command, ProviderSessionState sessionState) {
       this(textAgent, command, sessionState, List.of());
     }
 
     public ProviderContext {
       if (textAgent == null) {
-        throw new IllegalArgumentException("Text agent definition is required");
+        throw new IllegalArgumentException("Text agent provider definition is required");
       }
       if (command == null) {
         throw new IllegalArgumentException("Text agent query command is required");

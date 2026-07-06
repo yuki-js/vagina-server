@@ -3,7 +3,6 @@ package app.vagina.server.service;
 import app.vagina.server.domain.error.AuthenticationException;
 import app.vagina.server.domain.error.ProviderNotImplementedException;
 import app.vagina.server.domain.error.ValidationException;
-import app.vagina.server.entity.AccountLifecycle;
 import app.vagina.server.entity.AuthMethod;
 import app.vagina.server.entity.AuthnProvider;
 import app.vagina.server.entity.ClientType;
@@ -42,7 +41,6 @@ public class AuthService {
   private static final Set<String> DECLARED_BUT_NOT_IMPLEMENTED_PROVIDERS =
       Set.of("google", "apple", "twitter");
 
-  // --- records ---
   public record CreatedOidcState(
       String rawState,
       String redirectUri,
@@ -54,7 +52,6 @@ public class AuthService {
 
   public record RotateResult(String rawToken, RefreshToken persistedToken) {}
 
-  // --- config ---
   @ConfigProperty(name = "vagina.auth.access-token.lifespan")
   Long accessTokenLifespan;
 
@@ -76,17 +73,12 @@ public class AuthService {
   @ConfigProperty(name = "smallrye.jwt.new-token.issuer")
   String jwtIssuer;
 
-  // --- injects ---
   @Inject Instance<OidcProviderBase> oidcProviders;
   @Inject OAuthLoginAttemptMapper oauthLoginAttemptMapper;
   @Inject RefreshTokenMapper refreshTokenMapper;
   @Inject AuthnProviderMapper authnProviderMapper;
   @Inject UserService userService;
   @Inject JWTParser jwtParser;
-
-  // ========================
-  // OIDC Provider delegation
-  // ========================
 
   public OidcProviderBase resolveProvider(String providerKey) {
     if (providerKey == null || providerKey.isBlank()) {
@@ -122,10 +114,6 @@ public class AuthService {
     return resolveProvider(providerKey).fetchUserInfo(accessToken);
   }
 
-  // ========================
-  // OIDC State
-  // ========================
-
   @Transactional
   public CreatedOidcState createState(
       String providerKey, ClientType clientType, String codeChallenge, String codeChallengeMethod) {
@@ -135,20 +123,24 @@ public class AuthService {
     String normalizedCodeChallenge = validateCodeChallenge(codeChallenge);
     String normalizedCodeChallengeMethod = validateCodeChallengeMethod(codeChallengeMethod);
 
-    OAuthLoginAttempt attempt = new OAuthLoginAttempt();
-    attempt.setStateHash(Util.sha256Hex(rawState));
-    attempt.setAuthMethod(AuthMethod.OIDC);
-    attempt.setProviderKey(providerKey);
-    attempt.setClientType(clientType);
-    attempt.setRedirectUri(redirectUri);
-    attempt.setCodeChallenge(normalizedCodeChallenge);
-    attempt.setCodeChallengeMethod(normalizedCodeChallengeMethod);
-    attempt.setExpiresAt(now.plusSeconds(stateLifespan));
-    attempt.setConsumedAt(null);
-    attempt.setSysmeta(null);
-    attempt.setCreatedAt(now);
-    attempt.setUpdatedAt(now);
-    oauthLoginAttemptMapper.insert(attempt);
+    OAuthLoginAttempt attempt =
+        new OAuthLoginAttempt(
+            null,
+            Util.sha256Hex(rawState),
+            AuthMethod.OIDC,
+            providerKey,
+            clientType,
+            redirectUri,
+            normalizedCodeChallenge,
+            normalizedCodeChallengeMethod,
+            now.plusSeconds(stateLifespan),
+            null,
+            null,
+            now,
+            now);
+    OAuthLoginAttemptMapper.Row row = toOAuthLoginAttemptRow(attempt);
+    oauthLoginAttemptMapper.insert(row);
+    attempt.setGeneratedId(row.getId());
 
     return new CreatedOidcState(
         rawState,
@@ -163,6 +155,7 @@ public class AuthService {
     OAuthLoginAttempt attempt =
         oauthLoginAttemptMapper
             .findByStateHash(Util.sha256Hex(rawState))
+            .map(this::toOAuthLoginAttemptDomain)
             .orElseThrow(() -> new AuthenticationException("Unknown OIDC state"));
 
     LocalDateTime now = LocalDateTime.now();
@@ -170,10 +163,10 @@ public class AuthService {
     if (!providerKey.equals(attempt.getProviderKey())) {
       throw new AuthenticationException("OIDC provider mismatch");
     }
-    if (attempt.getConsumedAt() != null) {
+    if (attempt.isConsumed()) {
       throw new AuthenticationException("OIDC state already consumed");
     }
-    if (attempt.getExpiresAt() == null || !attempt.getExpiresAt().isAfter(now)) {
+    if (attempt.isExpiredAt(now)) {
       throw new AuthenticationException("OIDC state expired");
     }
     String normalizedCodeVerifier = validateCodeVerifier(codeVerifier);
@@ -190,8 +183,7 @@ public class AuthService {
       throw new AuthenticationException("OIDC state already consumed");
     }
 
-    attempt.setConsumedAt(now);
-    attempt.setUpdatedAt(now);
+    attempt.markConsumed(now);
     return attempt;
   }
 
@@ -220,12 +212,11 @@ public class AuthService {
     }
   }
 
-  // ========================
-  // JWT
-  // ========================
-
   public String generateAccessToken(User user) {
-    List<AuthnProvider> authnProviders = authnProviderMapper.findByUserId(user.getId());
+    List<AuthnProvider> authnProviders =
+        authnProviderMapper.findByUserId(user.getId()).stream()
+            .map(this::toAuthnProviderDomain)
+            .toList();
     if (authnProviders.isEmpty()) {
       throw new IllegalStateException("User has no authentication providers");
     }
@@ -248,29 +239,29 @@ public class AuthService {
         .sign();
   }
 
-  // ========================
-  // Refresh Token
-  // ========================
-
   @Transactional
   public IssuedRefreshToken issueRefreshToken(Long userId) {
     String rawToken = Util.randomHexToken();
     String tokenFamily = UUID.randomUUID().toString();
     LocalDateTime now = LocalDateTime.now();
 
-    RefreshToken refreshToken = new RefreshToken();
-    refreshToken.setUserId(userId);
-    refreshToken.setTokenHash(Util.sha256Hex(rawToken));
-    refreshToken.setTokenFamily(tokenFamily);
-    refreshToken.setIssuedAt(now);
-    refreshToken.setExpiresAt(now.plusSeconds(refreshTokenLifespan));
-    refreshToken.setRotatedAt(null);
-    refreshToken.setRevokedAt(null);
-    refreshToken.setLastUsedAt(null);
-    refreshToken.setSysmeta(null);
-    refreshToken.setCreatedAt(now);
-    refreshToken.setUpdatedAt(now);
-    refreshTokenMapper.insert(refreshToken);
+    RefreshToken refreshToken =
+        new RefreshToken(
+            null,
+            userId,
+            Util.sha256Hex(rawToken),
+            tokenFamily,
+            now,
+            now.plusSeconds(refreshTokenLifespan),
+            null,
+            null,
+            null,
+            null,
+            now,
+            now);
+    RefreshTokenMapper.Row row = toRefreshTokenRow(refreshToken);
+    refreshTokenMapper.insert(row);
+    refreshToken.setGeneratedId(row.getId());
 
     return new IssuedRefreshToken(rawToken, refreshToken);
   }
@@ -278,7 +269,9 @@ public class AuthService {
   @Transactional
   public Optional<RotateResult> rotateRefreshToken(String rawToken) {
     Optional<RefreshToken> currentOpt =
-        refreshTokenMapper.findByTokenHash(Util.sha256Hex(rawToken));
+        refreshTokenMapper
+            .findByTokenHash(Util.sha256Hex(rawToken))
+            .map(this::toRefreshTokenDomain);
     if (currentOpt.isEmpty()) {
       return Optional.empty();
     }
@@ -286,16 +279,16 @@ public class AuthService {
     RefreshToken current = currentOpt.get();
     LocalDateTime now = LocalDateTime.now();
 
-    if (current.getRevokedAt() != null) {
+    if (current.isRevoked()) {
       revokeTokenFamily(current.getTokenFamily(), now, "rotated_token_reuse_detected");
       return Optional.empty();
     }
 
-    if (current.getExpiresAt() == null || !current.getExpiresAt().isAfter(now)) {
+    if (current.isExpiredAt(now)) {
       return Optional.empty();
     }
 
-    if (current.getRotatedAt() != null) {
+    if (current.isRotated()) {
       revokeTokenFamily(current.getTokenFamily(), now, "rotated_token_reuse_detected");
       return Optional.empty();
     }
@@ -305,21 +298,15 @@ public class AuthService {
       revokeTokenFamily(current.getTokenFamily(), now, "rotated_token_reuse_detected");
       return Optional.empty();
     }
+    current.markRotated(now);
 
     String newRawToken = Util.randomHexToken();
-    RefreshToken replacement = new RefreshToken();
-    replacement.setUserId(current.getUserId());
-    replacement.setTokenHash(Util.sha256Hex(newRawToken));
-    replacement.setTokenFamily(current.getTokenFamily());
-    replacement.setIssuedAt(now);
-    replacement.setExpiresAt(now.plusSeconds(refreshTokenLifespan));
-    replacement.setRotatedAt(null);
-    replacement.setRevokedAt(null);
-    replacement.setLastUsedAt(null);
-    replacement.setSysmeta(current.getSysmeta());
-    replacement.setCreatedAt(now);
-    replacement.setUpdatedAt(now);
-    refreshTokenMapper.insert(replacement);
+    RefreshToken replacement =
+        current.createReplacement(
+            Util.sha256Hex(newRawToken), now.plusSeconds(refreshTokenLifespan), now);
+    RefreshTokenMapper.Row replacementRow = toRefreshTokenRow(replacement);
+    refreshTokenMapper.insert(replacementRow);
+    replacement.setGeneratedId(replacementRow.getId());
 
     return Optional.of(new RotateResult(newRawToken, replacement));
   }
@@ -327,38 +314,18 @@ public class AuthService {
   @Transactional
   public void revokeRefreshToken(String rawToken) {
     Optional<RefreshToken> refreshTokenOpt =
-        refreshTokenMapper.findByTokenHash(Util.sha256Hex(rawToken));
+        refreshTokenMapper
+            .findByTokenHash(Util.sha256Hex(rawToken))
+            .map(this::toRefreshTokenDomain);
     if (refreshTokenOpt.isEmpty()) {
       return;
     }
 
     RefreshToken refreshToken = refreshTokenOpt.get();
-    LocalDateTime now = LocalDateTime.now();
-    refreshToken.setRevokedAt(now);
-    refreshToken.setUpdatedAt(now);
-    refreshTokenMapper.update(refreshToken);
+    refreshToken.revoke(LocalDateTime.now());
+    refreshTokenMapper.update(toRefreshTokenRow(refreshToken));
   }
 
-  // ========================
-  // Authentication
-  // ========================
-
-  /**
-   * Authenticate a raw JWT string carried in-band (for example a VHRP/1 {@code session.open}
-   * token).
-   *
-   * <p>REST requests are authenticated from the {@code Authorization} header, which MP-JWT parses
-   * for us; an in-band token arrives as a raw string with no header. This {@link String} overload
-   * does that parsing itself and then delegates to {@link #authenticateFromJwt(JsonWebToken)} to
-   * resolve the user, keeping both entry points behaviourally identical.
-   *
-   * <p>Consistent with the {@link JsonWebToken} overload, this never throws: a missing, malformed,
-   * or unresolvable token yields {@link Optional#empty()}. Callers that need to treat that as a
-   * failure decide so themselves (for example via {@code orElseThrow}).
-   *
-   * @param rawToken the raw JWT string
-   * @return the authenticated user, or empty if the token is missing, invalid, or unresolvable
-   */
   public Optional<User> authenticateFromJwt(String rawToken) {
     if (rawToken == null || rawToken.isBlank()) {
       return Optional.empty();
@@ -395,7 +362,7 @@ public class AuthService {
     }
 
     User user = userOpt.get();
-    if (user.getAccountLifecycle() != AccountLifecycle.ACTIVE) {
+    if (!user.isActive()) {
       return Optional.empty();
     }
 
@@ -406,10 +373,6 @@ public class AuthService {
     return authHeader != null && authHeader.startsWith("Bearer ");
   }
 
-  // ========================
-  // Private helpers
-  // ========================
-
   private String requiredRedirectUri(String redirectUri, String clientType) {
     if (redirectUri == null || redirectUri.isBlank()) {
       throw new IllegalStateException(
@@ -419,14 +382,13 @@ public class AuthService {
   }
 
   private void revokeTokenFamily(String tokenFamily, LocalDateTime now, String reason) {
-    List<RefreshToken> familyTokens = refreshTokenMapper.findByTokenFamily(tokenFamily);
+    List<RefreshToken> familyTokens =
+        refreshTokenMapper.findByTokenFamily(tokenFamily).stream()
+            .map(this::toRefreshTokenDomain)
+            .toList();
     for (RefreshToken familyToken : familyTokens) {
-      familyToken.setRevokedAt(now);
-      familyToken.setUpdatedAt(now);
-      if (familyToken.getSysmeta() == null || familyToken.getSysmeta().isBlank()) {
-        familyToken.setSysmeta("{\"reason\":\"" + reason + "\"}");
-      }
-      refreshTokenMapper.update(familyToken);
+      familyToken.revokeWithReason(now, reason);
+      refreshTokenMapper.update(toRefreshTokenRow(familyToken));
     }
   }
 
@@ -461,5 +423,92 @@ public class AuthService {
       throw new AuthenticationException("codeVerifier is required");
     }
     return normalized;
+  }
+
+  private AuthnProvider toAuthnProviderDomain(AuthnProviderMapper.Row row) {
+    return new AuthnProvider(
+        row.getId(),
+        row.getUserId(),
+        row.getAuthMethod(),
+        row.getProviderKey(),
+        row.getAuthIdentifier(),
+        row.getExternalSubject(),
+        row.getProviderLogin(),
+        row.getDisplayName(),
+        row.getAvatarUrl(),
+        row.getEmail(),
+        row.getEmailVerified(),
+        row.getUsermeta(),
+        row.getSysmeta(),
+        row.getCreatedAt(),
+        row.getUpdatedAt());
+  }
+
+  private RefreshToken toRefreshTokenDomain(RefreshTokenMapper.Row row) {
+    return new RefreshToken(
+        row.getId(),
+        row.getUserId(),
+        row.getTokenHash(),
+        row.getTokenFamily(),
+        row.getIssuedAt(),
+        row.getExpiresAt(),
+        row.getRotatedAt(),
+        row.getRevokedAt(),
+        row.getLastUsedAt(),
+        row.getSysmeta(),
+        row.getCreatedAt(),
+        row.getUpdatedAt());
+  }
+
+  private RefreshTokenMapper.Row toRefreshTokenRow(RefreshToken refreshToken) {
+    RefreshTokenMapper.Row row = new RefreshTokenMapper.Row();
+    row.setId(refreshToken.getId());
+    row.setUserId(refreshToken.getUserId());
+    row.setTokenHash(refreshToken.getTokenHash());
+    row.setTokenFamily(refreshToken.getTokenFamily());
+    row.setIssuedAt(refreshToken.getIssuedAt());
+    row.setExpiresAt(refreshToken.getExpiresAt());
+    row.setRotatedAt(refreshToken.getRotatedAt());
+    row.setRevokedAt(refreshToken.getRevokedAt());
+    row.setLastUsedAt(refreshToken.getLastUsedAt());
+    row.setSysmeta(refreshToken.getSysmeta());
+    row.setCreatedAt(refreshToken.getCreatedAt());
+    row.setUpdatedAt(refreshToken.getUpdatedAt());
+    return row;
+  }
+
+  private OAuthLoginAttempt toOAuthLoginAttemptDomain(OAuthLoginAttemptMapper.Row row) {
+    return new OAuthLoginAttempt(
+        row.getId(),
+        row.getStateHash(),
+        row.getAuthMethod(),
+        row.getProviderKey(),
+        row.getClientType(),
+        row.getRedirectUri(),
+        row.getCodeChallenge(),
+        row.getCodeChallengeMethod(),
+        row.getExpiresAt(),
+        row.getConsumedAt(),
+        row.getSysmeta(),
+        row.getCreatedAt(),
+        row.getUpdatedAt());
+  }
+
+  private OAuthLoginAttemptMapper.Row toOAuthLoginAttemptRow(OAuthLoginAttempt attempt) {
+    OAuthLoginAttemptMapper.Row row = new OAuthLoginAttemptMapper.Row();
+    row.setId(attempt.getId());
+    row.setStateHash(attempt.getStateHash());
+    row.setAuthMethod(attempt.getAuthMethod());
+    row.setProviderKey(attempt.getProviderKey());
+    row.setClientType(attempt.getClientType());
+    row.setRedirectUri(attempt.getRedirectUri());
+    row.setCodeChallenge(attempt.getCodeChallenge());
+    row.setCodeChallengeMethod(attempt.getCodeChallengeMethod());
+    row.setExpiresAt(attempt.getExpiresAt());
+    row.setConsumedAt(attempt.getConsumedAt());
+    row.setSysmeta(attempt.getSysmeta());
+    row.setCreatedAt(attempt.getCreatedAt());
+    row.setUpdatedAt(attempt.getUpdatedAt());
+    return row;
   }
 }

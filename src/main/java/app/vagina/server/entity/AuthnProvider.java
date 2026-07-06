@@ -21,127 +21,124 @@ public class AuthnProvider {
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 
-  public Long getId() {
-    return id;
+  public AuthnProvider(
+      Long id,
+      Long userId,
+      AuthMethod authMethod,
+      String providerKey,
+      String authIdentifier,
+      String externalSubject,
+      String providerLogin,
+      String displayName,
+      String avatarUrl,
+      String email,
+      Boolean emailVerified,
+      String usermeta,
+      String sysmeta,
+      LocalDateTime createdAt,
+      LocalDateTime updatedAt) {
+    this.id = id;
+    this.userId = userId;
+    this.authMethod = authMethod;
+    this.providerKey = providerKey;
+    this.authIdentifier = authIdentifier;
+    this.externalSubject = externalSubject;
+    this.providerLogin = providerLogin;
+    this.displayName = displayName;
+    this.avatarUrl = avatarUrl;
+    this.email = email;
+    this.emailVerified = emailVerified;
+    this.usermeta = usermeta;
+    this.sysmeta = sysmeta;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 
-  public void setId(Long id) {
+  public void setGeneratedId(Long id) {
+    if (this.id != null && !this.id.equals(id)) {
+      throw new IllegalStateException("Auth provider persistence id is already assigned");
+    }
     this.id = id;
+  }
+
+  public void syncProviderProfile(
+      String providerLogin,
+      String displayName,
+      String avatarUrl,
+      String email,
+      Boolean emailVerified,
+      String rawProfileJson,
+      LocalDateTime updatedAt) {
+    this.providerLogin = providerLogin;
+    this.displayName = displayName;
+    this.avatarUrl = avatarUrl;
+    this.email = email;
+    this.emailVerified = emailVerified;
+    this.sysmeta = rawProfileJson;
+    this.updatedAt = updatedAt;
+  }
+
+  public String getEffectiveSubject() {
+    return externalSubject;
+  }
+
+  public Long getId() {
+    return id;
   }
 
   public Long getUserId() {
     return userId;
   }
 
-  public void setUserId(Long userId) {
-    this.userId = userId;
-  }
-
   public AuthMethod getAuthMethod() {
     return authMethod;
-  }
-
-  public void setAuthMethod(AuthMethod authMethod) {
-    this.authMethod = authMethod;
   }
 
   public String getProviderKey() {
     return providerKey;
   }
 
-  public void setProviderKey(String providerKey) {
-    this.providerKey = providerKey;
-  }
-
   public String getAuthIdentifier() {
     return authIdentifier;
-  }
-
-  public void setAuthIdentifier(String authIdentifier) {
-    this.authIdentifier = authIdentifier;
   }
 
   public String getExternalSubject() {
     return externalSubject;
   }
 
-  public void setExternalSubject(String externalSubject) {
-    this.externalSubject = externalSubject;
-  }
-
   public String getProviderLogin() {
     return providerLogin;
-  }
-
-  public void setProviderLogin(String providerLogin) {
-    this.providerLogin = providerLogin;
   }
 
   public String getDisplayName() {
     return displayName;
   }
 
-  public void setDisplayName(String displayName) {
-    this.displayName = displayName;
-  }
-
   public String getAvatarUrl() {
     return avatarUrl;
-  }
-
-  public void setAvatarUrl(String avatarUrl) {
-    this.avatarUrl = avatarUrl;
   }
 
   public String getEmail() {
     return email;
   }
 
-  public void setEmail(String email) {
-    this.email = email;
-  }
-
   public Boolean getEmailVerified() {
     return emailVerified;
-  }
-
-  public void setEmailVerified(Boolean emailVerified) {
-    this.emailVerified = emailVerified;
   }
 
   public String getUsermeta() {
     return usermeta;
   }
 
-  public void setUsermeta(String usermeta) {
-    this.usermeta = usermeta;
-  }
-
   public String getSysmeta() {
     return sysmeta;
-  }
-
-  public void setSysmeta(String sysmeta) {
-    this.sysmeta = sysmeta;
   }
 
   public LocalDateTime getCreatedAt() {
     return createdAt;
   }
 
-  public void setCreatedAt(LocalDateTime createdAt) {
-    this.createdAt = createdAt;
-  }
-
   public LocalDateTime getUpdatedAt() {
     return updatedAt;
-  }
-
-  public void setUpdatedAt(LocalDateTime updatedAt) {
-    this.updatedAt = updatedAt;
-  }
-
-  public String getEffectiveSubject() {
-    return externalSubject;
   }
 }

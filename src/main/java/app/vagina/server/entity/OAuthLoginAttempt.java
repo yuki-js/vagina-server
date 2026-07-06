@@ -19,107 +19,104 @@ public class OAuthLoginAttempt {
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 
-  public Long getId() {
-    return id;
+  public OAuthLoginAttempt(
+      Long id,
+      String stateHash,
+      AuthMethod authMethod,
+      String providerKey,
+      ClientType clientType,
+      String redirectUri,
+      String codeChallenge,
+      String codeChallengeMethod,
+      LocalDateTime expiresAt,
+      LocalDateTime consumedAt,
+      String sysmeta,
+      LocalDateTime createdAt,
+      LocalDateTime updatedAt) {
+    this.id = id;
+    this.stateHash = stateHash;
+    this.authMethod = authMethod;
+    this.providerKey = providerKey;
+    this.clientType = clientType;
+    this.redirectUri = redirectUri;
+    this.codeChallenge = codeChallenge;
+    this.codeChallengeMethod = codeChallengeMethod;
+    this.expiresAt = expiresAt;
+    this.consumedAt = consumedAt;
+    this.sysmeta = sysmeta;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 
-  public void setId(Long id) {
+  public void setGeneratedId(Long id) {
+    if (this.id != null && !this.id.equals(id)) {
+      throw new IllegalStateException("OAuth login attempt persistence id is already assigned");
+    }
     this.id = id;
+  }
+
+  public boolean isConsumed() {
+    return consumedAt != null;
+  }
+
+  public boolean isExpiredAt(LocalDateTime now) {
+    return expiresAt == null || !expiresAt.isAfter(now);
+  }
+
+  public void markConsumed(LocalDateTime consumedAt) {
+    this.consumedAt = consumedAt;
+    this.updatedAt = consumedAt;
+  }
+
+  public Long getId() {
+    return id;
   }
 
   public String getStateHash() {
     return stateHash;
   }
 
-  public void setStateHash(String stateHash) {
-    this.stateHash = stateHash;
-  }
-
   public AuthMethod getAuthMethod() {
     return authMethod;
-  }
-
-  public void setAuthMethod(AuthMethod authMethod) {
-    this.authMethod = authMethod;
   }
 
   public String getProviderKey() {
     return providerKey;
   }
 
-  public void setProviderKey(String providerKey) {
-    this.providerKey = providerKey;
-  }
-
   public ClientType getClientType() {
     return clientType;
-  }
-
-  public void setClientType(ClientType clientType) {
-    this.clientType = clientType;
   }
 
   public String getRedirectUri() {
     return redirectUri;
   }
 
-  public void setRedirectUri(String redirectUri) {
-    this.redirectUri = redirectUri;
-  }
-
   public String getCodeChallenge() {
     return codeChallenge;
-  }
-
-  public void setCodeChallenge(String codeChallenge) {
-    this.codeChallenge = codeChallenge;
   }
 
   public String getCodeChallengeMethod() {
     return codeChallengeMethod;
   }
 
-  public void setCodeChallengeMethod(String codeChallengeMethod) {
-    this.codeChallengeMethod = codeChallengeMethod;
-  }
-
   public LocalDateTime getExpiresAt() {
     return expiresAt;
-  }
-
-  public void setExpiresAt(LocalDateTime expiresAt) {
-    this.expiresAt = expiresAt;
   }
 
   public LocalDateTime getConsumedAt() {
     return consumedAt;
   }
 
-  public void setConsumedAt(LocalDateTime consumedAt) {
-    this.consumedAt = consumedAt;
-  }
-
   public String getSysmeta() {
     return sysmeta;
-  }
-
-  public void setSysmeta(String sysmeta) {
-    this.sysmeta = sysmeta;
   }
 
   public LocalDateTime getCreatedAt() {
     return createdAt;
   }
 
-  public void setCreatedAt(LocalDateTime createdAt) {
-    this.createdAt = createdAt;
-  }
-
   public LocalDateTime getUpdatedAt() {
     return updatedAt;
-  }
-
-  public void setUpdatedAt(LocalDateTime updatedAt) {
-    this.updatedAt = updatedAt;
   }
 }

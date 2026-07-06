@@ -16,83 +16,95 @@ public class TextAgentDefinition {
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 
-  public Long getId() {
-    return id;
+  public TextAgentDefinition(
+      Long id,
+      Long userId,
+      String textAgentId,
+      String name,
+      String prompt,
+      String description,
+      String textModelId,
+      String enabledTools,
+      LocalDateTime createdAt,
+      LocalDateTime updatedAt) {
+    this.id = id;
+    this.userId = userId;
+    this.textAgentId = textAgentId;
+    this.name = name;
+    this.prompt = prompt;
+    this.description = description;
+    this.textModelId = textModelId;
+    this.enabledTools = enabledTools;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 
-  public void setId(Long id) {
+  public void setGeneratedId(Long id) {
+    if (this.id != null && !this.id.equals(id)) {
+      throw new IllegalStateException("Text agent persistence id is already assigned");
+    }
     this.id = id;
+  }
+
+  public void updateDefinition(
+      String name,
+      String prompt,
+      String description,
+      String textModelId,
+      String enabledTools,
+      LocalDateTime updatedAt) {
+    this.name = name;
+    this.prompt = prompt;
+    this.description = description;
+    this.textModelId = textModelId;
+    this.enabledTools = enabledTools;
+    this.updatedAt = updatedAt;
+  }
+
+  public TextAgentProviderView toTextAgentProviderView() {
+    return new TextAgentProviderView(textAgentId, name, prompt, description, textModelId);
+  }
+
+  public Long getId() {
+    return id;
   }
 
   public Long getUserId() {
     return userId;
   }
 
-  public void setUserId(Long userId) {
-    this.userId = userId;
-  }
-
   public String getTextAgentId() {
     return textAgentId;
-  }
-
-  public void setTextAgentId(String textAgentId) {
-    this.textAgentId = textAgentId;
   }
 
   public String getName() {
     return name;
   }
 
-  public void setName(String name) {
-    this.name = name;
-  }
-
   public String getPrompt() {
     return prompt;
-  }
-
-  public void setPrompt(String prompt) {
-    this.prompt = prompt;
   }
 
   public String getDescription() {
     return description;
   }
 
-  public void setDescription(String description) {
-    this.description = description;
-  }
-
   public String getTextModelId() {
     return textModelId;
-  }
-
-  public void setTextModelId(String textModelId) {
-    this.textModelId = textModelId;
   }
 
   public String getEnabledTools() {
     return enabledTools;
   }
 
-  public void setEnabledTools(String enabledTools) {
-    this.enabledTools = enabledTools;
-  }
-
   public LocalDateTime getCreatedAt() {
     return createdAt;
-  }
-
-  public void setCreatedAt(LocalDateTime createdAt) {
-    this.createdAt = createdAt;
   }
 
   public LocalDateTime getUpdatedAt() {
     return updatedAt;
   }
 
-  public void setUpdatedAt(LocalDateTime updatedAt) {
-    this.updatedAt = updatedAt;
-  }
+  public record TextAgentProviderView(
+      String textAgentId, String name, String prompt, String description, String textModelId) {}
 }

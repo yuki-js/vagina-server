@@ -87,26 +87,24 @@ public class CallSessionService {
   }
 
   private CallSession toDomainWithThread(Row row) {
-    CallSession callSession = toDomainWithoutThread(row);
-    callSession.setThread(readThread(row.getThreadBlobKey()));
-    return callSession;
+    return toDomainWithoutThread(row).attachThread(readThread(row.getThreadBlobKey()));
   }
 
   private CallSession toDomainWithoutThread(Row row) {
-    CallSession callSession = new CallSession();
-    callSession.setId(row.getId());
-    callSession.setUserId(row.getUserId());
-    callSession.setCallSessionId(row.getCallSessionId());
-    callSession.setVhrpSessionId(row.getVhrpSessionId());
-    callSession.setVhrpThreadId(row.getVhrpThreadId());
-    callSession.setSpeedDialId(row.getSpeedDialId());
-    callSession.setVoiceAgentId(row.getVoiceAgentId());
-    callSession.setStartedAt(row.getStartedAt());
-    callSession.setEndedAt(row.getEndedAt());
-    callSession.setDeletedAt(row.getDeletedAt());
-    callSession.setCreatedAt(row.getCreatedAt());
-    callSession.setUpdatedAt(row.getUpdatedAt());
-    return callSession;
+    return new CallSession(
+        row.getId(),
+        row.getUserId(),
+        row.getCallSessionId(),
+        row.getVhrpSessionId(),
+        row.getVhrpThreadId(),
+        row.getSpeedDialId(),
+        row.getVoiceAgentId(),
+        row.getStartedAt(),
+        row.getEndedAt(),
+        null,
+        row.getDeletedAt(),
+        row.getCreatedAt(),
+        row.getUpdatedAt());
   }
 
   private SessionThreadData readThread(String threadBlobKey) {

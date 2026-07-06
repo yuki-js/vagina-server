@@ -20,107 +20,93 @@ public class CallSession {
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 
-  public Long getId() {
-    return id;
+  public CallSession(
+      Long id,
+      Long userId,
+      UUID callSessionId,
+      String vhrpSessionId,
+      String vhrpThreadId,
+      String speedDialId,
+      String voiceAgentId,
+      LocalDateTime startedAt,
+      LocalDateTime endedAt,
+      SessionThreadData thread,
+      LocalDateTime deletedAt,
+      LocalDateTime createdAt,
+      LocalDateTime updatedAt) {
+    this.id = id;
+    this.userId = userId;
+    this.callSessionId = callSessionId;
+    this.vhrpSessionId = vhrpSessionId;
+    this.vhrpThreadId = vhrpThreadId;
+    this.speedDialId = speedDialId;
+    this.voiceAgentId = voiceAgentId;
+    this.startedAt = startedAt;
+    this.endedAt = endedAt;
+    this.thread = thread;
+    this.deletedAt = deletedAt;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 
-  public void setId(Long id) {
-    this.id = id;
+  public CallSession attachThread(SessionThreadData thread) {
+    this.thread = thread;
+    return this;
+  }
+
+  public boolean isVisibleInHistory() {
+    return deletedAt == null;
+  }
+
+  public Long getId() {
+    return id;
   }
 
   public Long getUserId() {
     return userId;
   }
 
-  public void setUserId(Long userId) {
-    this.userId = userId;
-  }
-
   public UUID getCallSessionId() {
     return callSessionId;
-  }
-
-  public void setCallSessionId(UUID callSessionId) {
-    this.callSessionId = callSessionId;
   }
 
   public String getVhrpSessionId() {
     return vhrpSessionId;
   }
 
-  public void setVhrpSessionId(String vhrpSessionId) {
-    this.vhrpSessionId = vhrpSessionId;
-  }
-
   public String getVhrpThreadId() {
     return vhrpThreadId;
-  }
-
-  public void setVhrpThreadId(String vhrpThreadId) {
-    this.vhrpThreadId = vhrpThreadId;
   }
 
   public String getSpeedDialId() {
     return speedDialId;
   }
 
-  public void setSpeedDialId(String speedDialId) {
-    this.speedDialId = speedDialId;
-  }
-
   public String getVoiceAgentId() {
     return voiceAgentId;
-  }
-
-  public void setVoiceAgentId(String voiceAgentId) {
-    this.voiceAgentId = voiceAgentId;
   }
 
   public LocalDateTime getStartedAt() {
     return startedAt;
   }
 
-  public void setStartedAt(LocalDateTime startedAt) {
-    this.startedAt = startedAt;
-  }
-
   public LocalDateTime getEndedAt() {
     return endedAt;
-  }
-
-  public void setEndedAt(LocalDateTime endedAt) {
-    this.endedAt = endedAt;
   }
 
   public SessionThreadData getThread() {
     return thread;
   }
 
-  public void setThread(SessionThreadData thread) {
-    this.thread = thread;
-  }
-
   public LocalDateTime getDeletedAt() {
     return deletedAt;
-  }
-
-  public void setDeletedAt(LocalDateTime deletedAt) {
-    this.deletedAt = deletedAt;
   }
 
   public LocalDateTime getCreatedAt() {
     return createdAt;
   }
 
-  public void setCreatedAt(LocalDateTime createdAt) {
-    this.createdAt = createdAt;
-  }
-
   public LocalDateTime getUpdatedAt() {
     return updatedAt;
-  }
-
-  public void setUpdatedAt(LocalDateTime updatedAt) {
-    this.updatedAt = updatedAt;
   }
 }

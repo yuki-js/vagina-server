@@ -31,25 +31,24 @@ public class SpeedDialUsecase {
   }
 
   @Transactional
-  public SpeedDialPreset createSpeedDial(Long userId, SpeedDialPreset candidate) {
-    voiceAgentService.validateKnownModelId(candidate.getVoiceAgentId());
-    return speedDialService.create(userId, candidate);
+  public SpeedDialPreset createSpeedDial(Long userId, CreateCommand command) {
+    voiceAgentService.validateKnownModelId(command.voiceAgentId());
+    return speedDialService.create(userId, command.toServiceCommand());
   }
 
   @Transactional
-  public SpeedDialPreset updateSpeedDial(
-      Long userId, String speedDialId, SpeedDialPreset candidate) {
-    voiceAgentService.validateKnownModelId(candidate.getVoiceAgentId());
+  public SpeedDialPreset updateSpeedDial(Long userId, String speedDialId, UpdateCommand command) {
+    voiceAgentService.validateKnownModelId(command.voiceAgentId());
 
     if (SpeedDialService.DEFAULT_SPEED_DIAL_ID.equals(speedDialId)) {
       speedDialService.ensureDefaultExists(userId);
-      if (!SpeedDialService.DEFAULT_SPEED_DIAL_NAME.equals(candidate.getName())) {
+      if (!SpeedDialService.DEFAULT_SPEED_DIAL_NAME.equals(command.name())) {
         throw new ConflictException("Default speed dial cannot be renamed");
       }
     }
 
     return speedDialService
-        .update(userId, speedDialId, candidate)
+        .update(userId, speedDialId, command.toServiceCommand())
         .orElseThrow(() -> new NotFoundException("Speed dial not found"));
   }
 
@@ -62,6 +61,54 @@ public class SpeedDialUsecase {
     boolean deleted = speedDialService.delete(userId, speedDialId);
     if (!deleted) {
       throw new NotFoundException("Speed dial not found");
+    }
+  }
+
+  public record CreateCommand(
+      String name,
+      String systemPrompt,
+      String description,
+      String iconEmoji,
+      String voice,
+      String voiceAgentId,
+      String reasoningEffort,
+      boolean toolChoiceRequired,
+      String enabledTools) {
+    SpeedDialService.CreateCommand toServiceCommand() {
+      return new SpeedDialService.CreateCommand(
+          name,
+          systemPrompt,
+          description,
+          iconEmoji,
+          voice,
+          voiceAgentId,
+          reasoningEffort,
+          toolChoiceRequired,
+          enabledTools);
+    }
+  }
+
+  public record UpdateCommand(
+      String name,
+      String systemPrompt,
+      String description,
+      String iconEmoji,
+      String voice,
+      String voiceAgentId,
+      String reasoningEffort,
+      boolean toolChoiceRequired,
+      String enabledTools) {
+    SpeedDialService.UpdateCommand toServiceCommand() {
+      return new SpeedDialService.UpdateCommand(
+          name,
+          systemPrompt,
+          description,
+          iconEmoji,
+          voice,
+          voiceAgentId,
+          reasoningEffort,
+          toolChoiceRequired,
+          enabledTools);
     }
   }
 }

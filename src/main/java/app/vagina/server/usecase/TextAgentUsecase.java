@@ -48,17 +48,17 @@ public class TextAgentUsecase {
   }
 
   @Transactional
-  public TextAgentDefinition createTextAgent(Long userId, TextAgentDefinition candidate) {
-    textAgentModelRegistryService.validateKnownModelId(candidate.getTextModelId());
-    return textAgentService.create(userId, candidate);
+  public TextAgentDefinition createTextAgent(Long userId, WriteCommand command) {
+    textAgentModelRegistryService.validateKnownModelId(command.textModelId());
+    return textAgentService.create(userId, command.toCreateServiceCommand());
   }
 
   @Transactional
   public TextAgentDefinition updateTextAgent(
-      Long userId, String textAgentId, TextAgentDefinition candidate) {
-    textAgentModelRegistryService.validateKnownModelId(candidate.getTextModelId());
+      Long userId, String textAgentId, WriteCommand command) {
+    textAgentModelRegistryService.validateKnownModelId(command.textModelId());
     return textAgentService
-        .update(userId, textAgentId, candidate)
+        .update(userId, textAgentId, command.toUpdateServiceCommand())
         .orElseThrow(() -> new NotFoundException("Text agent not found"));
   }
 
@@ -76,7 +76,10 @@ public class TextAgentUsecase {
     TextAgentAdapter adapter = textAgentAdapterFactory.create(sessionState.binding());
     ProviderContext context =
         new ProviderContext(
-            textAgent, command, sessionState, allowedToolCatalog(textAgent, command));
+            textAgent.toTextAgentProviderView(),
+            command,
+            sessionState,
+            allowedToolCatalog(textAgent, command));
     QueryResult result = adapter.execute(context);
     adapter.applyResultToSessionState(context, result);
     return result;
@@ -162,18 +165,6 @@ public class TextAgentUsecase {
       return List.of();
     }
 
-    // Product intent: Text Agent and Voice Agent / Speed Dial tool allow-lists are intentionally
-    // independent. TA tool schemas are supplied by the client because ToolRunner executes tools on
-    // the client. Do not derive this provider catalog from
-    // VhrpSession.textAgentToolCatalogSnapshot(),
-    // VA tools.set, or the Voice Agent's Speed Dial exposed tools. A Voice Agent may delegate to a
-    // smarter Text Agent that can use tools unavailable to the VA; preserving that independence is
-    // a
-    // key product capability. end_call is a Voice Agent authority tool: child Text Agents must not
-    // be
-    // delegated authority to terminate their parent voice call even when sparse enabledTools
-    // defaults
-    // or explicit true apply.
     return command.toolCatalog().stream()
         .filter(tool -> !QUERY_TEXT_AGENT_TOOL_NAME.equals(tool.name()))
         .filter(tool -> !END_CALL_TOOL_NAME.equals(tool.name()))
@@ -186,6 +177,19 @@ public class TextAgentUsecase {
     boolean deleted = textAgentService.delete(userId, textAgentId);
     if (!deleted) {
       throw new NotFoundException("Text agent not found");
+    }
+  }
+
+  public record WriteCommand(
+      String name, String prompt, String description, String textModelId, String enabledTools) {
+    TextAgentService.CreateCommand toCreateServiceCommand() {
+      return new TextAgentService.CreateCommand(
+          name, prompt, description, textModelId, enabledTools);
+    }
+
+    TextAgentService.UpdateCommand toUpdateServiceCommand() {
+      return new TextAgentService.UpdateCommand(
+          name, prompt, description, textModelId, enabledTools);
     }
   }
 }

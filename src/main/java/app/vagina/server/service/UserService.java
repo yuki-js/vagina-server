@@ -24,8 +24,9 @@ public class UserService {
   @Transactional
   public User getOrCreateOidcUser(String providerKey, OidcUserInfo oidcUserInfo) {
     Optional<AuthnProvider> existingProvider =
-        authnProviderMapper.findByProviderKeyAndExternalSubject(
-            providerKey, oidcUserInfo.subject());
+        authnProviderMapper
+            .findByProviderKeyAndExternalSubject(providerKey, oidcUserInfo.subject())
+            .map(this::toAuthnProviderDomain);
 
     LocalDateTime now = LocalDateTime.now();
     if (existingProvider.isPresent()) {
@@ -35,22 +36,26 @@ public class UserService {
     User user = createUser(now);
 
     try {
-      AuthnProvider authnProvider = new AuthnProvider();
-      authnProvider.setUserId(user.getId());
-      authnProvider.setAuthMethod(AuthMethod.OIDC);
-      authnProvider.setProviderKey(providerKey);
-      authnProvider.setAuthIdentifier(UUID.randomUUID().toString());
-      authnProvider.setExternalSubject(oidcUserInfo.subject());
-      authnProvider.setProviderLogin(oidcUserInfo.providerLogin());
-      authnProvider.setDisplayName(oidcUserInfo.displayName());
-      authnProvider.setAvatarUrl(oidcUserInfo.avatarUrl());
-      authnProvider.setEmail(oidcUserInfo.email());
-      authnProvider.setEmailVerified(oidcUserInfo.emailVerified());
-      authnProvider.setUsermeta(null);
-      authnProvider.setSysmeta(oidcUserInfo.rawProfileJson());
-      authnProvider.setCreatedAt(now);
-      authnProvider.setUpdatedAt(now);
-      authnProviderMapper.insert(authnProvider);
+      AuthnProvider authnProvider =
+          new AuthnProvider(
+              null,
+              user.getId(),
+              AuthMethod.OIDC,
+              providerKey,
+              UUID.randomUUID().toString(),
+              oidcUserInfo.subject(),
+              oidcUserInfo.providerLogin(),
+              oidcUserInfo.displayName(),
+              oidcUserInfo.avatarUrl(),
+              oidcUserInfo.email(),
+              oidcUserInfo.emailVerified(),
+              null,
+              oidcUserInfo.rawProfileJson(),
+              now,
+              now);
+      AuthnProviderMapper.Row authnProviderRow = toAuthnProviderRow(authnProvider);
+      authnProviderMapper.insert(authnProviderRow);
+      authnProvider.setGeneratedId(authnProviderRow.getId());
       return user;
     } catch (RuntimeException e) {
       if (!isUniqueConstraintViolation(e)) {
@@ -61,41 +66,102 @@ public class UserService {
       AuthnProvider winner =
           authnProviderMapper
               .findByProviderKeyAndExternalSubject(providerKey, oidcUserInfo.subject())
+              .map(this::toAuthnProviderDomain)
               .orElseThrow(() -> e);
       return updateExistingProviderAndReturnUser(winner, oidcUserInfo, now);
     }
   }
 
   public Optional<User> findById(Long id) {
-    return userMapper.findById(id);
+    return userMapper.findById(id).map(this::toUserDomain);
   }
 
   public Optional<AuthnProvider> findPrimaryAuthnProvider(Long userId) {
-    return authnProviderMapper.findByUserId(userId).stream().findFirst();
+    return authnProviderMapper.findByUserId(userId).stream()
+        .findFirst()
+        .map(this::toAuthnProviderDomain);
   }
 
   private User createUser(LocalDateTime now) {
-    User user = new User();
-    user.setAccountLifecycle(AccountLifecycle.ACTIVE);
-    user.setUsermeta(null);
-    user.setSysmeta(null);
-    user.setCreatedAt(now);
-    user.setUpdatedAt(now);
-    userMapper.insert(user);
+    User user = new User(null, AccountLifecycle.ACTIVE, null, null, now, now);
+    UserMapper.Row row = toUserRow(user);
+    userMapper.insert(row);
+    user.setGeneratedId(row.getId());
     return user;
   }
 
   private User updateExistingProviderAndReturnUser(
       AuthnProvider authnProvider, OidcUserInfo oidcUserInfo, LocalDateTime now) {
-    authnProvider.setProviderLogin(oidcUserInfo.providerLogin());
-    authnProvider.setDisplayName(oidcUserInfo.displayName());
-    authnProvider.setAvatarUrl(oidcUserInfo.avatarUrl());
-    authnProvider.setEmail(oidcUserInfo.email());
-    authnProvider.setEmailVerified(oidcUserInfo.emailVerified());
-    authnProvider.setSysmeta(oidcUserInfo.rawProfileJson());
-    authnProvider.setUpdatedAt(now);
-    authnProviderMapper.update(authnProvider);
-    return userMapper.findById(authnProvider.getUserId()).orElseThrow();
+    authnProvider.syncProviderProfile(
+        oidcUserInfo.providerLogin(),
+        oidcUserInfo.displayName(),
+        oidcUserInfo.avatarUrl(),
+        oidcUserInfo.email(),
+        oidcUserInfo.emailVerified(),
+        oidcUserInfo.rawProfileJson(),
+        now);
+    authnProviderMapper.update(toAuthnProviderRow(authnProvider));
+    return userMapper.findById(authnProvider.getUserId()).map(this::toUserDomain).orElseThrow();
+  }
+
+  private User toUserDomain(UserMapper.Row row) {
+    return new User(
+        row.getId(),
+        row.getAccountLifecycle(),
+        row.getUsermeta(),
+        row.getSysmeta(),
+        row.getCreatedAt(),
+        row.getUpdatedAt());
+  }
+
+  private UserMapper.Row toUserRow(User user) {
+    UserMapper.Row row = new UserMapper.Row();
+    row.setId(user.getId());
+    row.setAccountLifecycle(user.getAccountLifecycle());
+    row.setUsermeta(user.getUsermeta());
+    row.setSysmeta(user.getSysmeta());
+    row.setCreatedAt(user.getCreatedAt());
+    row.setUpdatedAt(user.getUpdatedAt());
+    return row;
+  }
+
+  private AuthnProvider toAuthnProviderDomain(AuthnProviderMapper.Row row) {
+    return new AuthnProvider(
+        row.getId(),
+        row.getUserId(),
+        row.getAuthMethod(),
+        row.getProviderKey(),
+        row.getAuthIdentifier(),
+        row.getExternalSubject(),
+        row.getProviderLogin(),
+        row.getDisplayName(),
+        row.getAvatarUrl(),
+        row.getEmail(),
+        row.getEmailVerified(),
+        row.getUsermeta(),
+        row.getSysmeta(),
+        row.getCreatedAt(),
+        row.getUpdatedAt());
+  }
+
+  private AuthnProviderMapper.Row toAuthnProviderRow(AuthnProvider authnProvider) {
+    AuthnProviderMapper.Row row = new AuthnProviderMapper.Row();
+    row.setId(authnProvider.getId());
+    row.setUserId(authnProvider.getUserId());
+    row.setAuthMethod(authnProvider.getAuthMethod());
+    row.setProviderKey(authnProvider.getProviderKey());
+    row.setAuthIdentifier(authnProvider.getAuthIdentifier());
+    row.setExternalSubject(authnProvider.getExternalSubject());
+    row.setProviderLogin(authnProvider.getProviderLogin());
+    row.setDisplayName(authnProvider.getDisplayName());
+    row.setAvatarUrl(authnProvider.getAvatarUrl());
+    row.setEmail(authnProvider.getEmail());
+    row.setEmailVerified(authnProvider.getEmailVerified());
+    row.setUsermeta(authnProvider.getUsermeta());
+    row.setSysmeta(authnProvider.getSysmeta());
+    row.setCreatedAt(authnProvider.getCreatedAt());
+    row.setUpdatedAt(authnProvider.getUpdatedAt());
+    return row;
   }
 
   private boolean isUniqueConstraintViolation(Throwable throwable) {

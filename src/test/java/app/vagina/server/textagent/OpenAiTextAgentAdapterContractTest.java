@@ -493,13 +493,10 @@ class OpenAiTextAgentAdapterContractTest {
     ProviderSessionState state =
         new ProviderSessionState(
             "ta_contract", binding(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS));
-    TextAgentDefinition definition = new TextAgentDefinition();
-    definition.setTextAgentId("ta_contract");
-    definition.setTextModelId("text-agent-test");
-    definition.setPrompt("You are a terse test assistant.");
+    TextAgentDefinition definition = testTextAgentDefinition();
     ProviderContext context =
         new ProviderContext(
-            definition,
+            definition.toTextAgentProviderView(),
             new QueryCommand(
                 "s_voice",
                 "req_prompt",
@@ -669,13 +666,10 @@ class OpenAiTextAgentAdapterContractTest {
     ProviderSessionState state =
         new ProviderSessionState(
             "ta_contract", binding(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES));
-    TextAgentDefinition definition = new TextAgentDefinition();
-    definition.setTextAgentId("ta_contract");
-    definition.setTextModelId("text-agent-test");
-    definition.setPrompt("You are a terse test assistant.");
+    TextAgentDefinition definition = testTextAgentDefinition();
     ProviderContext context =
         new ProviderContext(
-            definition,
+            definition.toTextAgentProviderView(),
             new QueryCommand(
                 "s_voice",
                 "req_prompt",
@@ -791,12 +785,9 @@ class OpenAiTextAgentAdapterContractTest {
       String prompt,
       ProviderSessionState state,
       List<ToolCatalogEntry> toolCatalog) {
-    TextAgentDefinition definition = new TextAgentDefinition();
-    definition.setTextAgentId("ta_contract");
-    definition.setTextModelId("text-agent-test");
-    definition.setPrompt("You are a terse test assistant.");
+    TextAgentDefinition definition = testTextAgentDefinition();
     return new ProviderContext(
-        definition,
+        definition.toTextAgentProviderView(),
         new QueryCommand("s_voice", "req_prompt", prompt, List.of(), null, List.of()),
         state,
         toolCatalog);
@@ -818,10 +809,7 @@ class OpenAiTextAgentAdapterContractTest {
       String output,
       boolean isError,
       List<ToolCatalogEntry> toolCatalog) {
-    TextAgentDefinition definition = new TextAgentDefinition();
-    definition.setTextAgentId("ta_contract");
-    definition.setTextModelId("text-agent-test");
-    definition.setPrompt("You are a terse test assistant.");
+    TextAgentDefinition definition = testTextAgentDefinition();
     ToolResultSubmission toolResult = new ToolResultSubmission(toolCallId, output, isError);
     if (state.acceptedToolResults().stream()
         .noneMatch(accepted -> accepted.toolCallId().equals(toolCallId))) {
@@ -832,7 +820,7 @@ class OpenAiTextAgentAdapterContractTest {
       state.acceptPendingToolResult(toolResult);
     }
     return new ProviderContext(
-        definition,
+        definition.toTextAgentProviderView(),
         new QueryCommand("s_voice", "req_tool", null, List.of(), toolResult, List.of()),
         state,
         toolCatalog);
@@ -850,6 +838,20 @@ class OpenAiTextAgentAdapterContractTest {
                 Map.of("path", Map.of("type", "string")),
                 "required",
                 List.of("path"))));
+  }
+
+  private TextAgentDefinition testTextAgentDefinition() {
+    return new TextAgentDefinition(
+        null,
+        7L,
+        "ta_contract",
+        "Contract text agent",
+        "You are a terse test assistant.",
+        null,
+        "text-agent-test",
+        "{}",
+        null,
+        null);
   }
 
   private TextAgentModelBinding binding(String providerKey) {

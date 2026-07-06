@@ -2,7 +2,6 @@ package app.vagina.server.mapper;
 
 import app.vagina.server.entity.AuthMethod;
 import app.vagina.server.entity.ClientType;
-import app.vagina.server.entity.OAuthLoginAttempt;
 import app.vagina.server.mapper.type.AuthMethodTypeHandler;
 import app.vagina.server.mapper.type.ClientTypeHandler;
 import java.time.LocalDateTime;
@@ -26,14 +25,14 @@ public interface OAuthLoginAttemptMapper {
           + "#{clientType, typeHandler=app.vagina.server.mapper.type.ClientTypeHandler}, #{redirectUri}, #{codeChallenge}, "
           + "#{codeChallengeMethod}, #{expiresAt}, #{consumedAt}, #{sysmeta}::jsonb, #{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
-  void insert(OAuthLoginAttempt oauthLoginAttempt);
+  void insert(Row row);
 
   @Select(
       "SELECT id, state_hash, auth_method, provider_key, client_type, redirect_uri, code_challenge, code_challenge_method, "
           + "expires_at, consumed_at, sysmeta::text as sysmeta, created_at, updated_at "
           + "FROM oauth_login_attempts WHERE state_hash = #{stateHash}")
   @Results(
-      id = "oauthLoginAttemptResultMap",
+      id = "oauthLoginAttemptRowResultMap",
       value = {
         @Result(property = "id", column = "id", id = true),
         @Result(property = "stateHash", column = "state_hash"),
@@ -57,7 +56,7 @@ public interface OAuthLoginAttemptMapper {
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
-  Optional<OAuthLoginAttempt> findByStateHash(@Param("stateHash") String stateHash);
+  Optional<Row> findByStateHash(@Param("stateHash") String stateHash);
 
   @Update(
       "UPDATE oauth_login_attempts SET auth_method = "
@@ -65,7 +64,7 @@ public interface OAuthLoginAttemptMapper {
           + "client_type = #{clientType, typeHandler=app.vagina.server.mapper.type.ClientTypeHandler}, redirect_uri = #{redirectUri}, "
           + "code_challenge = #{codeChallenge}, code_challenge_method = #{codeChallengeMethod}, expires_at = #{expiresAt}, "
           + "consumed_at = #{consumedAt}, sysmeta = #{sysmeta}::jsonb, updated_at = #{updatedAt} WHERE id = #{id}")
-  void update(OAuthLoginAttempt oauthLoginAttempt);
+  void update(Row row);
 
   @Update(
       "UPDATE oauth_login_attempts SET consumed_at = #{consumedAt}, updated_at = #{updatedAt} "
@@ -74,4 +73,47 @@ public interface OAuthLoginAttemptMapper {
       @Param("id") Long id,
       @Param("consumedAt") LocalDateTime consumedAt,
       @Param("updatedAt") LocalDateTime updatedAt);
+
+  final class Row {
+    private Long id;
+    private String stateHash;
+    private AuthMethod authMethod;
+    private String providerKey;
+    private ClientType clientType;
+    private String redirectUri;
+    private String codeChallenge;
+    private String codeChallengeMethod;
+    private LocalDateTime expiresAt;
+    private LocalDateTime consumedAt;
+    private String sysmeta;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getStateHash() { return stateHash; }
+    public void setStateHash(String stateHash) { this.stateHash = stateHash; }
+    public AuthMethod getAuthMethod() { return authMethod; }
+    public void setAuthMethod(AuthMethod authMethod) { this.authMethod = authMethod; }
+    public String getProviderKey() { return providerKey; }
+    public void setProviderKey(String providerKey) { this.providerKey = providerKey; }
+    public ClientType getClientType() { return clientType; }
+    public void setClientType(ClientType clientType) { this.clientType = clientType; }
+    public String getRedirectUri() { return redirectUri; }
+    public void setRedirectUri(String redirectUri) { this.redirectUri = redirectUri; }
+    public String getCodeChallenge() { return codeChallenge; }
+    public void setCodeChallenge(String codeChallenge) { this.codeChallenge = codeChallenge; }
+    public String getCodeChallengeMethod() { return codeChallengeMethod; }
+    public void setCodeChallengeMethod(String codeChallengeMethod) { this.codeChallengeMethod = codeChallengeMethod; }
+    public LocalDateTime getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
+    public LocalDateTime getConsumedAt() { return consumedAt; }
+    public void setConsumedAt(LocalDateTime consumedAt) { this.consumedAt = consumedAt; }
+    public String getSysmeta() { return sysmeta; }
+    public void setSysmeta(String sysmeta) { this.sysmeta = sysmeta; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+  }
 }

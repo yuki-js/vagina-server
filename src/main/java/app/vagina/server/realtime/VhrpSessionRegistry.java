@@ -122,8 +122,9 @@ public class VhrpSessionRegistry {
 
   private Uni<VhrpSession> createWithSpeedDial(
       VhrpMessage.SessionOpen open, User user, SpeedDialPreset speedDial) {
+    SpeedDialPreset.VoiceSessionConfig runtimeConfig = speedDial.toVoiceSessionConfig();
     RealtimeAdapter adapter;
-    String voiceAgentId = speedDial.getVoiceAgentId();
+    String voiceAgentId = runtimeConfig.voiceAgentId();
     try {
       adapter = adapterFactory.create(voiceAgentId);
     } catch (RealtimeAdapterFactory.UnknownModelException e) {
@@ -134,7 +135,7 @@ public class VhrpSessionRegistry {
     String sessionId = newSessionId();
     String threadId = newThreadId();
     LocalDateTime startedAt = LocalDateTime.now();
-    Set<String> allowedToolNames = parseAllowedToolNames(speedDial.getEnabledTools());
+    Set<String> allowedToolNames = parseAllowedToolNames(runtimeConfig.enabledTools());
     VhrpSession session =
         new VhrpSession(
             sessionId,
@@ -143,19 +144,19 @@ public class VhrpSessionRegistry {
             adapter,
             user.getId(),
             startedAt,
-            speedDial.getSpeedDialId(),
+            runtimeConfig.speedDialId(),
             voiceAgentId,
             allowedToolNames);
     return adapter
         .setAudioTurnMode(RealtimeAdapterModels.AudioTurnMode.fromWire(open.audioTurnMode()))
-        .chain(() -> applyServerOwnedExtensions(adapter, speedDial))
-        .chain(() -> adapter.connect(speedDial.getVoice(), speedDial.getSystemPrompt()))
+        .chain(() -> applyServerOwnedExtensions(adapter, runtimeConfig))
+        .chain(() -> adapter.connect(runtimeConfig.voice(), runtimeConfig.systemPrompt()))
         .invoke(
             () -> {
               sessions.put(sessionId, new Entry(session, user.getId().toString()));
               Log.debugf(
                   "VHRP session %s created for user %s on speed dial %s / voice agent %s",
-                  sessionId, user.getId(), speedDial.getSpeedDialId(), voiceAgentId);
+                  sessionId, user.getId(), runtimeConfig.speedDialId(), voiceAgentId);
             })
         .replaceWith(session)
         .onFailure()
@@ -258,18 +259,19 @@ public class VhrpSessionRegistry {
         .with(ignored -> {}, t -> Log.warnf(t, "VHRP %s terminal close", sessionId));
   }
 
-  private Uni<Void> applyServerOwnedExtensions(RealtimeAdapter adapter, SpeedDialPreset speedDial) {
+  private Uni<Void> applyServerOwnedExtensions(
+      RealtimeAdapter adapter, SpeedDialPreset.VoiceSessionConfig speedDial) {
     Uni<Void> chain = Uni.createFrom().voidItem();
-    if (speedDial.getReasoningEffort() != null
-        && !speedDial.getReasoningEffort().isBlank()
-        && !"off".equals(speedDial.getReasoningEffort())) {
+    if (speedDial.reasoningEffort() != null
+        && !speedDial.reasoningEffort().isBlank()
+        && !"off".equals(speedDial.reasoningEffort())) {
       chain =
           chain.chain(
               () ->
                   adapter
                       .applyProviderExtension(
                           "session.reasoning_effort_selection",
-                          Map.of("selection", speedDial.getReasoningEffort()))
+                          Map.of("selection", speedDial.reasoningEffort()))
                       .replaceWithVoid());
     }
     chain =
@@ -278,7 +280,7 @@ public class VhrpSessionRegistry {
                 adapter
                     .applyProviderExtension(
                         "session.tool_choice_required",
-                        Map.of("required", speedDial.isToolChoiceRequired()))
+                        Map.of("required", speedDial.toolChoiceRequired()))
                     .replaceWithVoid());
     return chain;
   }

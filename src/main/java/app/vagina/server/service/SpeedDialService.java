@@ -2,6 +2,7 @@ package app.vagina.server.service;
 
 import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.mapper.SpeedDialMapper;
+import app.vagina.server.mapper.SpeedDialMapper.Row;
 import app.vagina.server.support.Util;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -24,11 +25,11 @@ public class SpeedDialService {
   @Inject VoiceAgentService voiceAgentService;
 
   public List<SpeedDialPreset> findByUserId(Long userId) {
-    return speedDialMapper.findByUserId(userId);
+    return speedDialMapper.findByUserId(userId).stream().map(this::toDomain).toList();
   }
 
   public Optional<SpeedDialPreset> findByUserIdAndSpeedDialId(Long userId, String speedDialId) {
-    return speedDialMapper.findByUserIdAndSpeedDialId(userId, speedDialId);
+    return speedDialMapper.findByUserIdAndSpeedDialId(userId, speedDialId).map(this::toDomain);
   }
 
   @Transactional
@@ -39,55 +40,73 @@ public class SpeedDialService {
     }
 
     LocalDateTime now = LocalDateTime.now();
-    SpeedDialPreset preset = new SpeedDialPreset();
-    preset.setUserId(userId);
-    preset.setSpeedDialId(DEFAULT_SPEED_DIAL_ID);
-    preset.setName(DEFAULT_SPEED_DIAL_NAME);
-    preset.setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
-    preset.setDescription(DEFAULT_DESCRIPTION);
-    preset.setIconEmoji(null);
-    preset.setVoice(DEFAULT_VOICE);
-    preset.setVoiceAgentId(voiceAgentService.defaultModelId());
-    preset.setReasoningEffort("off");
-    preset.setToolChoiceRequired(false);
-    preset.setEnabledTools(DEFAULT_ENABLED_TOOLS);
-    preset.setCreatedAt(now);
-    preset.setUpdatedAt(now);
-    speedDialMapper.insert(preset);
+    SpeedDialPreset preset =
+        new SpeedDialPreset(
+            null,
+            userId,
+            DEFAULT_SPEED_DIAL_ID,
+            DEFAULT_SPEED_DIAL_NAME,
+            DEFAULT_SYSTEM_PROMPT,
+            DEFAULT_DESCRIPTION,
+            null,
+            DEFAULT_VOICE,
+            voiceAgentService.defaultModelId(),
+            "off",
+            false,
+            DEFAULT_ENABLED_TOOLS,
+            now,
+            now);
+    Row row = toRow(preset);
+    speedDialMapper.insert(row);
+    preset.setGeneratedId(row.getId());
     return preset;
   }
 
   @Transactional
-  public SpeedDialPreset create(Long userId, SpeedDialPreset candidate) {
+  public SpeedDialPreset create(Long userId, CreateCommand command) {
     LocalDateTime now = LocalDateTime.now();
-    candidate.setUserId(userId);
-    candidate.setSpeedDialId(generateSpeedDialId());
-    candidate.setCreatedAt(now);
-    candidate.setUpdatedAt(now);
-    speedDialMapper.insert(candidate);
-    return candidate;
+    SpeedDialPreset preset =
+        new SpeedDialPreset(
+            null,
+            userId,
+            generateSpeedDialId(),
+            command.name(),
+            command.systemPrompt(),
+            command.description(),
+            command.iconEmoji(),
+            command.voice(),
+            command.voiceAgentId(),
+            command.reasoningEffort(),
+            command.toolChoiceRequired(),
+            command.enabledTools(),
+            now,
+            now);
+    Row row = toRow(preset);
+    speedDialMapper.insert(row);
+    preset.setGeneratedId(row.getId());
+    return preset;
   }
 
   @Transactional
-  public Optional<SpeedDialPreset> update(
-      Long userId, String speedDialId, SpeedDialPreset candidate) {
+  public Optional<SpeedDialPreset> update(Long userId, String speedDialId, UpdateCommand command) {
     Optional<SpeedDialPreset> existing = findByUserIdAndSpeedDialId(userId, speedDialId);
     if (existing.isEmpty()) {
       return Optional.empty();
     }
 
     SpeedDialPreset persisted = existing.get();
-    persisted.setName(candidate.getName());
-    persisted.setSystemPrompt(candidate.getSystemPrompt());
-    persisted.setDescription(candidate.getDescription());
-    persisted.setIconEmoji(candidate.getIconEmoji());
-    persisted.setVoice(candidate.getVoice());
-    persisted.setVoiceAgentId(candidate.getVoiceAgentId());
-    persisted.setReasoningEffort(candidate.getReasoningEffort());
-    persisted.setToolChoiceRequired(candidate.isToolChoiceRequired());
-    persisted.setEnabledTools(candidate.getEnabledTools());
-    persisted.setUpdatedAt(LocalDateTime.now());
-    speedDialMapper.update(persisted);
+    persisted.updateConfiguration(
+        command.name(),
+        command.systemPrompt(),
+        command.description(),
+        command.iconEmoji(),
+        command.voice(),
+        command.voiceAgentId(),
+        command.reasoningEffort(),
+        command.toolChoiceRequired(),
+        command.enabledTools(),
+        LocalDateTime.now());
+    speedDialMapper.update(toRow(persisted));
     return Optional.of(persisted);
   }
 
@@ -96,7 +115,66 @@ public class SpeedDialService {
     return speedDialMapper.deleteByUserIdAndSpeedDialId(userId, speedDialId) > 0;
   }
 
+  private SpeedDialPreset toDomain(Row row) {
+    return new SpeedDialPreset(
+        row.getId(),
+        row.getUserId(),
+        row.getSpeedDialId(),
+        row.getName(),
+        row.getSystemPrompt(),
+        row.getDescription(),
+        row.getIconEmoji(),
+        row.getVoice(),
+        row.getVoiceAgentId(),
+        row.getReasoningEffort(),
+        row.isToolChoiceRequired(),
+        row.getEnabledTools(),
+        row.getCreatedAt(),
+        row.getUpdatedAt());
+  }
+
+  private Row toRow(SpeedDialPreset preset) {
+    Row row = new Row();
+    row.setId(preset.getId());
+    row.setUserId(preset.getUserId());
+    row.setSpeedDialId(preset.getSpeedDialId());
+    row.setName(preset.getName());
+    row.setSystemPrompt(preset.getSystemPrompt());
+    row.setDescription(preset.getDescription());
+    row.setIconEmoji(preset.getIconEmoji());
+    row.setVoice(preset.getVoice());
+    row.setVoiceAgentId(preset.getVoiceAgentId());
+    row.setReasoningEffort(preset.getReasoningEffort());
+    row.setToolChoiceRequired(preset.isToolChoiceRequired());
+    row.setEnabledTools(preset.getEnabledTools());
+    row.setCreatedAt(preset.getCreatedAt());
+    row.setUpdatedAt(preset.getUpdatedAt());
+    return row;
+  }
+
   private String generateSpeedDialId() {
     return Util.randomPublicId(SPEED_DIAL_ID_PREFIX);
   }
+
+  public record CreateCommand(
+      String name,
+      String systemPrompt,
+      String description,
+      String iconEmoji,
+      String voice,
+      String voiceAgentId,
+      String reasoningEffort,
+      boolean toolChoiceRequired,
+      String enabledTools) {}
+
+  public record UpdateCommand(
+      String name,
+      String systemPrompt,
+      String description,
+      String iconEmoji,
+      String voice,
+      String voiceAgentId,
+      String reasoningEffort,
+      boolean toolChoiceRequired,
+      String enabledTools) {}
 }

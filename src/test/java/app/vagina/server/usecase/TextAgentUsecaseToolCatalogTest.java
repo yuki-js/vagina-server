@@ -140,11 +140,18 @@ class TextAgentUsecaseToolCatalogTest {
   }
 
   private Fixture fixture(String enabledToolsJson, List<String> voiceAgentToolNames) {
-    TextAgentDefinition definition = new TextAgentDefinition();
-    definition.setTextAgentId("ta_contract");
-    definition.setTextModelId("text-agent-test");
-    definition.setPrompt("You are a test text agent.");
-    definition.setEnabledTools(enabledToolsJson);
+    TextAgentDefinition definition =
+        new TextAgentDefinition(
+            null,
+            7L,
+            "ta_contract",
+            "Contract text agent",
+            "You are a test text agent.",
+            null,
+            "text-agent-test",
+            enabledToolsJson,
+            null,
+            null);
 
     TextAgentModelBinding binding =
         new TextAgentModelBinding(
