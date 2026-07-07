@@ -188,13 +188,6 @@ class TextAgentUsecaseToolCatalogTest {
     when(adapter.execute(contextCaptor.capture())).thenReturn(QueryResult.completed("ok"));
 
     TextAgentAdapterFactory adapterFactory = mock(TextAgentAdapterFactory.class);
-    when(adapterFactory.binding(
-            "text-agent-test",
-            TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
-            Optional.of("https://provider.test/v1"),
-            Optional.of("test-key"),
-            Optional.of("gpt-test")))
-        .thenReturn(binding);
     when(adapterFactory.create(any(TextAgentModelBinding.class))).thenReturn(adapter);
 
     TextAgentUsecase usecase = new TextAgentUsecase();

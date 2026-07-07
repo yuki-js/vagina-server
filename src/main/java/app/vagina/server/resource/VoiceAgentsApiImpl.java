@@ -2,9 +2,9 @@ package app.vagina.server.resource;
 
 import app.vagina.server.generated.api.VoiceAgentsApi;
 import app.vagina.server.generated.model.VoiceAgent;
-import app.vagina.server.service.VoiceAgentService.ModelCatalogItem;
 import app.vagina.server.support.Authenticated;
 import app.vagina.server.usecase.VoiceAgentUsecase;
+import app.vagina.server.usecase.VoiceAgentUsecase.VoiceAgentView;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Path;
@@ -25,7 +25,7 @@ public class VoiceAgentsApiImpl implements VoiceAgentsApi {
     return Response.ok(voiceAgents).build();
   }
 
-  private VoiceAgent toGeneratedModel(ModelCatalogItem view) {
+  private VoiceAgent toGeneratedModel(VoiceAgentView view) {
     VoiceAgent voiceAgent = new VoiceAgent();
     voiceAgent.setId(view.id());
     voiceAgent.setDisplayName(view.displayName());

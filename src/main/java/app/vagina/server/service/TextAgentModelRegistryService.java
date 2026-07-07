@@ -2,7 +2,6 @@ package app.vagina.server.service;
 
 import app.vagina.server.config.TextAgentModelsConfig;
 import app.vagina.server.domain.error.ValidationException;
-import app.vagina.server.service.VoiceAgentService.ModelCatalogItem;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -23,12 +22,12 @@ public class TextAgentModelRegistryService {
     }
   }
 
-  public List<ModelCatalogItem> listTextAgentModels() {
+  public List<TextAgentModelCatalogItem> listTextAgentModels() {
     return modelsConfig.models().entrySet().stream()
         .sorted(Comparator.comparing(entry -> entry.getKey()))
         .map(
             entry ->
-                new ModelCatalogItem(
+                new TextAgentModelCatalogItem(
                     entry.getKey(),
                     entry.getValue().displayName().orElse(entry.getKey()),
                     entry.getKey().equals(defaultModelId())))
@@ -60,6 +59,8 @@ public class TextAgentModelRegistryService {
     return new TextAgentModelConfigView(
         modelId, model.provider(), model.baseUrl(), model.apiKey(), model.model());
   }
+
+  public record TextAgentModelCatalogItem(String id, String displayName, boolean isDefault) {}
 
   public record TextAgentModelConfigView(
       String id,

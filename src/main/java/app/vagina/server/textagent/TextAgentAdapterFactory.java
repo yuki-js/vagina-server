@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.List;
-import java.util.Optional;
 
 @ApplicationScoped
 public class TextAgentAdapterFactory {
@@ -42,15 +41,6 @@ public class TextAgentAdapterFactory {
 
   public ProviderStateMode stateMode(String provider) {
     return create(provider).stateMode();
-  }
-
-  public TextAgentModelBinding binding(
-      String textModelId,
-      String provider,
-      Optional<String> baseUrl,
-      Optional<String> apiKey,
-      Optional<String> model) {
-    return new TextAgentModelBinding(textModelId, provider, baseUrl, apiKey, model);
   }
 
   private TextAgentAdapter buildOpenAiChatCompletionsAdapter() {

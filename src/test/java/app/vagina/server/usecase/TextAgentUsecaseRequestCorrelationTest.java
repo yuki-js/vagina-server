@@ -279,13 +279,6 @@ class TextAgentUsecaseRequestCorrelationTest {
     when(sessionRegistry.getOwnedActiveSession("s_voice", 7L)).thenReturn(session);
 
     TextAgentAdapterFactory adapterFactory = mock(TextAgentAdapterFactory.class);
-    when(adapterFactory.binding(
-            "text-agent-test",
-            TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
-            Optional.of("https://provider.test/v1"),
-            Optional.of("test-key"),
-            Optional.of("gpt-test")))
-        .thenReturn(binding);
     when(adapterFactory.create(binding)).thenReturn(adapter);
 
     TextAgentUsecase usecase = new TextAgentUsecase();

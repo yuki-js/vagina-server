@@ -2,9 +2,9 @@ package app.vagina.server.resource;
 
 import app.vagina.server.generated.api.TextAgentModelsApi;
 import app.vagina.server.generated.model.ListTextAgentModels200ResponseInner;
-import app.vagina.server.service.VoiceAgentService.ModelCatalogItem;
 import app.vagina.server.support.Authenticated;
 import app.vagina.server.usecase.TextAgentModelRegistryUsecase;
+import app.vagina.server.usecase.TextAgentModelRegistryUsecase.TextAgentModelView;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Path;
@@ -27,7 +27,7 @@ public class TextAgentModelsApiImpl implements TextAgentModelsApi {
     return Response.ok(models).build();
   }
 
-  private ListTextAgentModels200ResponseInner toGeneratedModel(ModelCatalogItem view) {
+  private ListTextAgentModels200ResponseInner toGeneratedModel(TextAgentModelView view) {
     ListTextAgentModels200ResponseInner model = new ListTextAgentModels200ResponseInner();
     model.setId(view.id());
     model.setDisplayName(view.displayName());

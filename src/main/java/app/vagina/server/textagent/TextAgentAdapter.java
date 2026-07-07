@@ -14,10 +14,6 @@ public interface TextAgentAdapter {
 
   QueryResult execute(ProviderContext context);
 
-  default boolean supports(String provider) {
-    return providerKey().equals(provider);
-  }
-
   default void applyResultToSessionState(ProviderContext context, QueryResult result) {
     switch (result.status()) {
       case COMPLETED, FAILED -> context.sessionState().clearRequestState();
@@ -39,12 +35,5 @@ public interface TextAgentAdapter {
 
   default QueryResult failedProviderConfiguration(String message) {
     return QueryResult.failed("provider_configuration_error", message);
-  }
-
-  default QueryResult notImplementedYet(String detail) {
-    String provider = providerKey();
-    String suffix = detail == null || detail.isBlank() ? "" : ": " + detail;
-    return QueryResult.failed(
-        "provider_not_implemented", provider + " text agent adapter is not implemented" + suffix);
   }
 }

@@ -88,7 +88,7 @@ public class TextAgentUsecase {
   private TextAgentModelBinding initialBinding(TextAgentDefinition textAgent) {
     TextAgentModelRegistryService.TextAgentModelConfigView modelConfig =
         textAgentModelRegistryService.getModelConfig(textAgent.getTextModelId());
-    return textAgentAdapterFactory.binding(
+    return new TextAgentModelBinding(
         modelConfig.id(),
         modelConfig.provider(),
         modelConfig.baseUrl(),

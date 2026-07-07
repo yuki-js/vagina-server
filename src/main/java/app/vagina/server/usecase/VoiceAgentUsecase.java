@@ -11,7 +11,13 @@ public class VoiceAgentUsecase {
 
   @Inject VoiceAgentService voiceAgentService;
 
-  public List<ModelCatalogItem> listVoiceAgents() {
-    return voiceAgentService.listVoiceAgents();
+  public List<VoiceAgentView> listVoiceAgents() {
+    return voiceAgentService.listVoiceAgents().stream().map(this::toView).toList();
   }
+
+  private VoiceAgentView toView(ModelCatalogItem item) {
+    return new VoiceAgentView(item.id(), item.displayName(), item.isDefault());
+  }
+
+  public record VoiceAgentView(String id, String displayName, boolean isDefault) {}
 }
