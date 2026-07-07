@@ -7,6 +7,7 @@ import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.entity.User;
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.service.AuthService;
+import app.vagina.server.support.Constants;
 import app.vagina.server.support.EnabledToolsJson;
 import app.vagina.server.support.EnabledToolsJson.ParseResult;
 import app.vagina.server.usecase.CallSessionUsecase;
@@ -49,8 +50,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @ApplicationScoped
 public class VhrpSessionRegistry {
-
-  private static final Duration DEFAULT_RESUME_RETENTION = Duration.ofSeconds(15);
 
   /** Live and retained sessions keyed by stable sessionId. Concurrent: connections span threads. */
   private final ConcurrentHashMap<String, Entry> sessions = new ConcurrentHashMap<>();
@@ -324,7 +323,9 @@ public class VhrpSessionRegistry {
   }
 
   private Duration resumeRetention() {
-    return realtimeConfig != null ? realtimeConfig.resumeRetention() : DEFAULT_RESUME_RETENTION;
+    return realtimeConfig != null
+        ? realtimeConfig.resumeRetention()
+        : Constants.VHRP_RESUME_RETENTION;
   }
 
   private Uni<VhrpSession> resumeNotAvailable(String sessionId) {

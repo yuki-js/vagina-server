@@ -1,6 +1,7 @@
 package app.vagina.server.textagent;
 
 import app.vagina.server.entity.TextAgentDefinition.TextAgentProviderView;
+import app.vagina.server.support.Constants;
 import app.vagina.server.support.Util;
 import java.net.URI;
 import java.time.Duration;
@@ -60,8 +61,8 @@ public final class TextAgentRuntimeModels {
       List<QueryImageInput> images,
       ToolResultSubmission toolResult,
       List<ToolCatalogEntry> toolCatalog) {
-    public static final int MAX_IMAGE_COUNT = 4;
-    public static final int MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+    public static final int MAX_IMAGE_COUNT = Constants.TEXT_AGENT_MAX_IMAGE_COUNT;
+    public static final int MAX_IMAGE_BYTES = Constants.TEXT_AGENT_MAX_IMAGE_BYTES;
 
     public QueryCommand {
       images = images == null ? List.of() : List.copyOf(images);

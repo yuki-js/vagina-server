@@ -778,8 +778,10 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
 
   private static ResolvedEndpoint resolveEndpoint(String baseUrl, String configuredModel) {
     URI parsed = URI.create(baseUrl);
-    String model =
-        configuredModel == null || configuredModel.isBlank() ? "gpt-4o" : configuredModel;
+    String model = configuredModel == null ? "" : configuredModel.trim();
+    if (model.isEmpty()) {
+      throw new IllegalArgumentException("Chat Completions model is required");
+    }
     String query = parsed.getRawQuery();
     if (query == null || query.isBlank()) {
       return new ResolvedEndpoint(parsed, model);

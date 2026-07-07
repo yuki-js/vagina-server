@@ -1,5 +1,6 @@
 package app.vagina.server.realtime;
 
+import app.vagina.server.support.Constants;
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
 import java.time.Duration;
@@ -35,7 +36,7 @@ public interface RealtimeModelsConfig {
   String defaultModel();
 
   /** How long a detached hosted-realtime session remains resumable before terminal expiry. */
-  @WithDefault("PT15S")
+  @WithDefault(Constants.VHRP_RESUME_RETENTION_CONFIG_DEFAULT)
   Duration resumeRetention();
 
   /** Per-{@code modelId} driver/connection groups, keyed by the {@code modelId} string. */

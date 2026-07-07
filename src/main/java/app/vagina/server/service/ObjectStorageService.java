@@ -1,6 +1,7 @@
 package app.vagina.server.service;
 
 import app.vagina.server.config.ObjectStorageConfig;
+import app.vagina.server.support.Constants;
 import app.vagina.server.support.Util;
 import io.quarkus.logging.Log;
 import io.vertx.mutiny.core.Vertx;
@@ -29,7 +30,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 @ApplicationScoped
 public class ObjectStorageService {
-  private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(10);
+  private static final Duration HTTP_TIMEOUT = Constants.SERVER_COMMON_HTTP_TIMEOUT;
   private static final String SERVICE = "s3";
   private static final String SIGNING_ALGORITHM = "AWS4-HMAC-SHA256";
   private static final DateTimeFormatter AMZ_DATE =

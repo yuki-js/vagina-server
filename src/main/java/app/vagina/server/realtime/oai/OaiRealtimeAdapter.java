@@ -53,7 +53,6 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   private static final String EXT_SELECTION_KEY = "selection";
   private static final String EXT_REQUIRED_KEY = "required";
 
-  private static final String DEFAULT_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
   private static final String INTERRUPTED_TOOL_ERROR_MESSAGE =
       "Tool call cancelled by user interrupt.";
   private static final String INTERRUPTED_TOOL_ERROR_OUTPUT =
@@ -108,7 +107,7 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   private String sessionVoice;
   private String serverOwnedInstructions;
   private String clientInstructions = "";
-  private String transcriptionModel = DEFAULT_TRANSCRIPTION_MODEL;
+  private String transcriptionModel;
   private RealtimeAdapterModels.AudioTurnMode audioTurnMode =
       RealtimeAdapterModels.AudioTurnMode.VOICE_ACTIVITY;
 
@@ -348,12 +347,13 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     this.serverOwnedInstructions =
         instructions != null ? instructions : modelConfig.instructions().orElse(null);
     this.clientInstructions = "";
-    this.transcriptionModel =
-        modelConfig
-            .transcriptionModel()
-            .filter(s -> !s.isBlank())
-            .map(String::trim)
-            .orElse(DEFAULT_TRANSCRIPTION_MODEL);
+    this.transcriptionModel = modelConfig.transcriptionModel().map(String::trim).orElse("");
+    if (transcriptionModel.isEmpty()) {
+      return Uni.createFrom()
+          .failure(
+              new IllegalStateException(
+                  "Realtime model " + modelId + " has no transcription-model"));
+    }
 
     String baseUrl = modelConfig.baseUrl().map(String::trim).orElse("");
     if (baseUrl.isEmpty()) {

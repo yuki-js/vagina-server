@@ -1,6 +1,7 @@
 package app.vagina.server.service.oidcprovider;
 
 import app.vagina.server.domain.error.ExternalServiceException;
+import app.vagina.server.support.Constants;
 import app.vagina.server.support.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,7 +20,7 @@ import java.util.Optional;
 
 public abstract class OidcProviderBase {
 
-  protected static final Duration HTTP_TIMEOUT = Duration.ofSeconds(10);
+  protected static final Duration HTTP_TIMEOUT = Constants.SERVER_COMMON_HTTP_TIMEOUT;
 
   @Inject protected Vertx vertx;
 

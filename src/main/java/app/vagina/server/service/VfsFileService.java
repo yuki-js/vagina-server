@@ -1,6 +1,7 @@
 package app.vagina.server.service;
 
 import app.vagina.server.entity.VfsFileData;
+import app.vagina.server.support.Constants;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.annotations.RegisterForReflection;
@@ -18,10 +19,10 @@ import java.util.TreeSet;
 
 @ApplicationScoped
 public class VfsFileService {
-  public static final int MAX_PATH_LENGTH = 512;
+  public static final int MAX_PATH_LENGTH = Constants.VFS_MAX_PATH_LENGTH;
   public static final int MAX_FILE_SIZE_BYTES = 1024 * 1024;
   public static final int MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024;
-  private static final int MAX_RAW_PATH_LENGTH = 8192;
+  private static final int MAX_RAW_PATH_LENGTH = Constants.VFS_MAX_RAW_PATH_LENGTH;
   private static final int SNAPSHOT_SCHEMA_VERSION = 1;
 
   public static final String ERROR_PATH_MUST_BE_ABSOLUTE = "Path must be absolute";
@@ -215,10 +216,8 @@ public class VfsFileService {
   }
 
   private void checkReservedPath(String path) {
-    if ("/system".equals(path)
-        || path.startsWith("/system/")
-        || "/tmp".equals(path)
-        || path.startsWith("/tmp/")) {
+    String reservedSystemPath = Constants.VFS_RESERVED_SYSTEM_PATH;
+    if (reservedSystemPath.equals(path) || path.startsWith(reservedSystemPath + "/")) {
       throw new IllegalArgumentException(ERROR_RESERVED_PATH);
     }
   }
