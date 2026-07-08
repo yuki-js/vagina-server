@@ -1,0 +1,84 @@
+# Kubernetes Production Configuration
+#
+# This file contains overridden values against server/src/main/resources/application.yaml.
+# Put only non-secret production-specific overrides here.
+# If a production value is not decided yet, keep it as FIXME until the deployment value is fixed.
+# Secret values belong in application-secret.yaml created from application-secret-template.yaml.
+
+quarkus:
+  datasource:
+    jdbc:
+      url: jdbc:postgresql://pg-cluster-rw.pg-cluster.svc.cluster.local:5432/vagina-server-db
+
+  swagger-ui:
+    always-include: true
+
+  log:
+    level: INFO
+    category:
+      "app.vagina.server":
+        level: INFO
+    console:
+      json: true
+      "json.pretty-print": false
+      "json.additional-field.\"service.name\".value": vagina-server
+      "json.additional-field.\"service.version\".value": 0.0.1
+
+mp:
+  jwt:
+    verify:
+      publickey:
+        location: /keys/publicKey.pem # provided via key generator initContainer
+        algorithm: ES256
+      issuer: https://api.vagina.app
+
+smallrye:
+  jwt:
+    sign:
+      key:
+        location: /keys-src/privateKey.pem # provided by dedicated key secret
+    new-token:
+      issuer: https://api.vagina.app
+
+vagina:
+  openai-base: https://default-msf-resource.services.ai.azure.com/openai/v1
+  auth:
+    oidc:
+      redirect-uri:
+        web: https://vagina.app/callback
+        mobile: https://vagina.app/callback
+        desktop: https://vagina.app/callback
+
+      harigata: null # harigata must be explicitly disabled
+
+      github:
+        client-id: FIXME
+
+  realtime:
+    default-model: realtime
+    models:
+      realtime:
+        provider: oai
+        base-url: "${vagina.openai-base}?model=gpt-realtime-2"
+        transcription-model: gpt-4o-transcribe
+      chat-completion:
+        provider: oai_cc
+        base-url: "${vagina.openai-base}?model=gpt-audio-1.5"
+
+  text-agent:
+    default-model: gpt-5.5
+    models:
+      gpt-5.5:
+        provider: oai_chat
+        display-name: GPT-5.5
+        base-url: "${vagina.openai-base}?model=gpt-5.5"
+      aok:
+        provider: oai_chat
+        display-name: Aok (Hermes Agent)
+        base-url: http://10.1.0.10:8642/v1
+
+  object-storage:
+    endpoint: https://9cacada6061eed702d20f32c61fe7755.r2.cloudflarestorage.com
+    bucket: vagina
+    region: cloudflare-global-region
+    path-prefix: ""

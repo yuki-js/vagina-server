@@ -4,14 +4,15 @@
 # Please define the properties that are common to all environments here.
 # For environment-specific configurations, and it is not a private value, please use the following:
 # - development environment:
-#     - application-dev.yaml for development-specific perference
+#     - application-dev.yaml for development-specific preference
 #     - .env for secret values on development environment
 # - production environment:
-#     - manifests/application.yaml for production-specific preference on Kubernetes
-#     - manifests/application-secret-template.yaml for the key of secret values on production environment
-#        - when you add secret value, please don't forget to add key to manifests/application-secret-template.yaml and set actual value via kubectl command.
-#     - do never write actual secret values to files. Instead, use secret resources.
-#     - mount under `$PWD/config` directory for secret values on production environment
+#     - server/manifests/application.yaml for production-specific non-secret overrides on Kubernetes
+#     - server/manifests/application-secret-template.yaml as the template for secret config file keys
+#        - create the actual secret-only config file out-of-band and mount it as application-secret.yaml
+#        - when you add a secret value, please also add its key to server/manifests/application-secret-template.yaml
+#     - do never write actual secret values to tracked files. Instead, use secret resources.
+#     - mount production config files under /deployments/config on Kubernetes
 
 
 quarkus:

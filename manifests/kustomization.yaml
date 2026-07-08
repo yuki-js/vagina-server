@@ -5,7 +5,6 @@ namespace: vagina-server
 
 resources:
   - backend.yaml
-  - common-secret.yaml
   - jwt-keys.yaml
   - ingress.yaml
   - db.yaml
@@ -13,7 +12,7 @@ resources:
 configMapGenerator:
   - name: backend-config
     files:
-      - application.properties
+      - application.yaml
 
 images:
   - name: ghcr.io/yuki-js/vagina-server

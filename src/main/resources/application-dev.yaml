@@ -120,5 +120,5 @@ vagina:
     endpoint: https://9cacada6061eed702d20f32c61fe7755.r2.cloudflarestorage.com
     bucket: vagina
     region: cloudflare-global-region
-    access-key: ${VAGINA_OBJECT_STORAGE_ACCESS_KEY:}
-    secret-key: ${VAGINA_OBJECT_STORAGE_SECRET_KEY:}
+    access-key: ${VAGINA_OBJECT_STORAGE_ACCESS_KEY}
+    secret-key: ${VAGINA_OBJECT_STORAGE_SECRET_KEY}

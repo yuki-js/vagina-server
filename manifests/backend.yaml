@@ -50,29 +50,20 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
-          envFrom:
-            - secretRef:
-                name: common-secret
           env:
             - name: QUARKUS_CONFIG_LOCATIONS
-              value: /deployments/config/application.properties
-            - name: MP_JWT_VERIFY_PUBLICKEY_LOCATION
-              value: /keys/publicKey.pem
-            - name: SMALLRYE_JWT_SIGN_KEY_LOCATION
-              value: /keys-src/privateKey.pem
-            # Authentication token lifecycle configuration
-            - name: VAGINA_AUTH_ACCESS_TOKEN_LIFESPAN
-              value: "3600"
-            - name: VAGINA_AUTH_REFRESH_TOKEN_LIFESPAN
-              value: "2592000"
-            - name: VAGINA_AUTH_OAUTH_STATE_LIFESPAN
-              value: "600"
+              value: /deployments/config/application.yaml,/deployments/config/application-secret.yaml
             # Observability environment variables
             - name: DEPLOYMENT_ENVIRONMENT
               value: production
           volumeMounts:
             - name: config
-              mountPath: /deployments/config
+              mountPath: /deployments/config/application.yaml
+              subPath: application.yaml
+              readOnly: true
+            - name: application-secret
+              mountPath: /deployments/config/application-secret.yaml
+              subPath: application-secret.yaml
               readOnly: true
             - name: jwt-keys
               mountPath: /keys-src
@@ -121,6 +112,9 @@ spec:
         - name: config
           configMap:
             name: backend-config
+        - name: application-secret
+          secret:
+            secretName: application-secret
         - name: jwt-keys
           secret:
             secretName: jwt-keys
