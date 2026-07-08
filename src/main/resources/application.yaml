@@ -1,0 +1,101 @@
+# Quarkus Base Configuration
+# 
+# This file contains the base configuration for a Quarkus application.
+# Please define the properties that are common to all environments here.
+# For environment-specific configurations, and it is not a private value, please use the following:
+# - development environment:
+#     - application-dev.yaml for development-specific perference
+#     - .env for secret values on development environment
+# - production environment:
+#     - manifests/application.yaml for production-specific preference on Kubernetes
+#     - manifests/application-secret-template.yaml for the key of secret values on production environment
+#        - when you add secret value, please don't forget to add key to manifests/application-secret-template.yaml and set actual value via kubectl command.
+#     - do never write actual secret values to files. Instead, use secret resources.
+#     - mount under `$PWD/config` directory for secret values on production environment
+
+
+quarkus:
+  datasource:
+    db-kind: postgresql
+    # username: ""
+    # password: ""
+    # jdbc:
+    #   url: ""
+
+  flyway:
+    enabled: true
+    locations: "classpath:db/migration"
+    migrate-at-start: true
+
+  smallrye-openapi:
+    path: /openapi
+    info-title: "VAGINA Server API"
+    info-version: 0.0.1
+
+  swagger-ui:
+    path: /swagger-ui
+
+  smallrye-health:
+    root-path: /healthz
+
+  http:
+    cors:
+      enabled: true
+      origins: /.*/
+      headers: accept,authorization,content-type,x-requested-with
+      exposed-headers: authorization,content-type
+      methods: GET,POST,PUT,DELETE,OPTIONS
+      access-control-allow-credentials: true
+      access-control-max-age: 24H
+    
+  log: {} # configure down level
+
+  websockets-next:
+    server:
+      max-frame-size: 1048576
+      max-message-size: 1048576
+    
+  micrometer:
+    enabled: true
+    export:
+      prometheus:
+        enabled: true
+        path: /q/metrics
+    binder:
+      http-server:
+        enabled: true
+      http-client:
+        enabled: true
+      vertx:
+        enabled: true
+      jvm:
+        enabled: true
+
+mybatis:
+  environment:
+    id: quarkus
+  
+
+vagina:
+  auth:
+    access-token: 
+      lifespan: 3600
+    refresh-token:
+      lifespan: 2592000
+    oauth:
+      state:
+        lifespan: 600
+      pkce:
+        secret: null
+    oidc:
+      redirect-uri:
+        web: ""
+        mobile: ""
+        desktop: ""
+
+  realtime: {} # configure down level
+  text-agent: {} # configure down level
+  object-storage: {}
+
+
+

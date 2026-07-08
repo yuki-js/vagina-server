@@ -1,0 +1,124 @@
+# Quarkus Configuration for development
+#
+# This file contains overridden values against [base configuration](application.yaml)
+# Please place the properties that you expect to override in development environment here.
+
+quarkus:
+  devservices:
+    enabled: true
+
+  datasource:
+    devservices:
+      enabled: true
+      image-name: postgres:15-alpine
+      reuse: false
+    username: postgres
+    password: postgres
+
+  test:
+    continuous-testing: paused
+    display-test-output: true
+
+  live-reload:
+    instrumentation: true
+
+  http:
+    host: 0.0.0.0
+    port: 8080
+
+  log:
+    level: WARN
+    category:
+      "app.vagina.server":
+        level: DEBUG
+    console:
+      format: "%d{HH:mm:ss} %-5p [%c{2.}] (%t) %s%e%n"
+
+  flyway:
+    baseline-on-migrate: true
+    clean-at-start: true
+
+  smallrye-openapi:
+    info-title: Vagina Server API (Dev Mode)
+    info-version: 0.0.1-SNAPSHOT
+
+  swagger-ui:
+    theme: feeling-blue
+
+  info:
+    build:
+      time: true
+    git:
+      mode: full
+
+mp:
+  jwt:
+    verify:
+      publickey:
+        location: classpath:dev-keys/publicKey.pem
+        algorithm: ES256
+      issuer: http://localhost:8080
+
+smallrye:
+  jwt:
+    sign:
+      key:
+        location: classpath:dev-keys/privateKey.pem
+    new-token:
+      issuer: http://localhost:8080
+
+vagina:
+  auth:
+    oidc:
+      harigata:
+        issuer: http://localhost:18080
+        configuration-url: http://localhost:18080/.well-known/openid-configuration
+        client-id: harigata-client-id
+        client-secret: harigata-client-secret
+        authorization-endpoint: http://localhost:18080/authorize
+        token-endpoint: http://localhost:18080/token
+        userinfo-endpoint: http://localhost:18080/userinfo
+        jwks-url: http://localhost:18080/jwks
+      github:
+        client-id: Ov23liGr3A2QB5vQfz7l
+        client-secret: ${VAGINA_AUTH_OIDC_GITHUB_CLIENT_SECRET}
+      redirect-uri:
+        web: http://localhost:3000/callback
+        mobile: http://localhost:3000/callback
+        desktop: http://localhost:3000/callback
+  
+  openai-base: https://default-msf-resource.services.ai.azure.com/openai/v1
+
+  realtime:
+    default-model: realtime
+    models:
+      realtime:
+        provider: oai
+        base-url: "${vagina.openai-base}?model=gpt-realtime-2"
+        api-key: ${OAI_COMMON_API_KEY}
+        transcription-model: gpt-4o-transcribe
+      chat-completion:
+        provider: oai_cc
+        base-url: "${vagina.openai-base}?model=gpt-audio-1.5"
+        api-key: ${OAI_COMMON_API_KEY}
+
+  text-agent:
+    default-model: gpt-5.5
+    models:
+      gpt-5.5:
+        provider: oai_chat
+        display-name: GPT-5.5
+        base-url: "${vagina.openai-base}?model=gpt-5.5"
+        api-key: ${OAI_COMMON_API_KEY}
+      aok:
+        provider: oai_chat
+        display-name: Aok (Hermes Agent)
+        base-url: http://10.1.0.10:8642/v1
+        api-key: ${AOK_API_KEY}
+
+  object-storage:
+    endpoint: https://9cacada6061eed702d20f32c61fe7755.r2.cloudflarestorage.com
+    bucket: vagina
+    region: cloudflare-global-region
+    access-key: ${VAGINA_OBJECT_STORAGE_ACCESS_KEY:}
+    secret-key: ${VAGINA_OBJECT_STORAGE_SECRET_KEY:}
