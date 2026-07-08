@@ -51,7 +51,7 @@ jobs:
           # Wait for Quarkus to start (max 2 minutes)
           echo "Waiting for Quarkus to start..."
           for i in {1..60}; do
-            if curl -s http://localhost:8080/q/health > /dev/null 2>&1; then
+            if curl -s http://localhost:8080/healthz > /dev/null 2>&1; then
               echo "Quarkus started successfully!"
               break
             fi
@@ -64,7 +64,7 @@ jobs:
             sleep 2
           done
 
-          if ! curl -s http://localhost:8080/q/health > /dev/null 2>&1; then
+          if ! curl -s http://localhost:8080/healthz > /dev/null 2>&1; then
             echo "Quarkus failed to start within 2 minutes"
             cat quarkus-dev.log
             kill $QUARKUS_PID || true
@@ -76,7 +76,7 @@ jobs:
           echo "Verifying Dev UI is accessible..."
 
           # Check health endpoint
-          if curl -f http://localhost:8080/q/health; then
+          if curl -f http://localhost:8080/healthz; then
             echo "✅ Health endpoint is accessible"
           else
             echo "❌ Health endpoint is not accessible"
@@ -103,7 +103,7 @@ jobs:
           echo "Testing live reload..."
 
           # Get initial response
-          INITIAL_RESPONSE=$(curl -s http://localhost:8080/q/health)
+          INITIAL_RESPONSE=$(curl -s http://localhost:8080/healthz)
           echo "Initial response: $INITIAL_RESPONSE"
 
           # Modify a source file to trigger reload
@@ -123,7 +123,7 @@ jobs:
           sleep 10
 
           # Get new response
-          NEW_RESPONSE=$(curl -s http://localhost:8080/q/health)
+          NEW_RESPONSE=$(curl -s http://localhost:8080/healthz)
           echo "New response: $NEW_RESPONSE"
 
           echo "✅ Live reload test completed"
