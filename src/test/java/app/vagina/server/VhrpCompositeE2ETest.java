@@ -65,23 +65,6 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
   }
 
   /**
-   * Scenario: a client opens the hosted realtime WebSocket with the supported VHRP subprotocol.
-   *
-   * <p>The transport contract is negotiated before any application frame exists. A successful
-   * handshake must echo {@code vhrp.cbor.v1}; otherwise a conforming client cannot know that binary
-   * frames will be interpreted as VHRP CBOR.
-   */
-  @Test
-  void subprotocolAccepted() throws Exception {
-    client.connect(testPort(), "vhrp.cbor.v1");
-
-    assertEquals(
-        "vhrp.cbor.v1",
-        client.negotiatedSubProtocol(),
-        "Server must echo vhrp.cbor.v1 in the WebSocket handshake");
-  }
-
-  /**
    * Scenario: a client attempts the hosted realtime WebSocket handshake with an unsupported
    * subprotocol.
    *

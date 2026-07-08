@@ -1,0 +1,58 @@
+# Test-only configuration overrides.
+#
+# These values exist to satisfy required config mappings during `./gradlew test`
+# without depending on development-only `application-dev.yaml` or production
+# manifests. They are placeholders only; real OpenAI sequence tests remain opt-in
+# and still require explicit credentials/config passed from the caller.
+
+quarkus:
+  http:
+    test-port: 0
+    test-ssl-port: 0
+mp:
+  jwt:
+    verify:
+      publickey:
+        location: classpath:dev-keys/publicKey.pem
+        algorithm: ES256
+      issuer: http://localhost:8081
+
+smallrye:
+  jwt:
+    sign:
+      key:
+        location: classpath:dev-keys/privateKey.pem
+    new-token:
+      issuer: http://localhost:8081
+
+vagina:
+  auth:
+    oidc:
+      redirect-uri:
+        web: https://example.test/callback
+        mobile: https://example.test/callback
+        desktop: https://example.test/callback
+
+  realtime:
+    default-model: voice-agent-prod
+    models:
+      voice-agent-prod:
+        provider: oai
+      voice-agent-prod-cc:
+        provider: oai_cc
+
+  text-agent:
+    default-model: text-agent-prod
+    models:
+      text-agent-prod:
+        provider: oai_chat
+        display-name: text-agent-prod
+        model: gpt-5.5
+
+  object-storage:
+    endpoint: https://object-storage.invalid
+    bucket: test-placeholder-bucket
+    region: us-east-1
+    access-key: test-placeholder-access-key
+    secret-key: test-placeholder-secret-key
+    path-prefix: test

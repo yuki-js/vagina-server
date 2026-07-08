@@ -9,6 +9,14 @@ jobs:
   dev-ui-startup:
     name: Verify Dev UI Starts with Dev Services
     runs-on: ubuntu-latest
+    env:
+      # CI only: dev-ui startup does not exercise object storage, but Quarkus config
+      # validation now requires these values to be non-empty.
+      VAGINA_OBJECT_STORAGE_ENDPOINT: https://object-storage.invalid
+      VAGINA_OBJECT_STORAGE_BUCKET: ci-dev-ui-placeholder
+      VAGINA_OBJECT_STORAGE_REGION: us-east-1
+      VAGINA_OBJECT_STORAGE_ACCESS_KEY: ci-dev-ui-placeholder-access
+      VAGINA_OBJECT_STORAGE_SECRET_KEY: ci-dev-ui-placeholder-secret
 
     steps:
       - name: Checkout code

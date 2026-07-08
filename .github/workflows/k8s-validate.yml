@@ -118,11 +118,18 @@ jobs:
         run: |
           echo "=== Documentation Check ==="
 
-          # Check application.properties
-          if [ -f "manifests/application.properties" ]; then
-            echo "✓ application.properties found"
+          # Check current application config manifests
+          if [ -f "manifests/application.yaml" ]; then
+            echo "✓ application.yaml found"
           else
-            echo "✗ application.properties not found"
+            echo "✗ application.yaml not found"
+            exit 1
+          fi
+
+          if [ -f "manifests/application-secret-template.yaml" ]; then
+            echo "✓ application-secret-template.yaml found"
+          else
+            echo "✗ application-secret-template.yaml not found"
             exit 1
           fi
 
