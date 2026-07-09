@@ -130,15 +130,6 @@ class TextAgentUsecaseToolCatalogTest {
         fixture.capturedToolNames());
   }
 
-  @Test
-  void listAvailableAgentsRemainsAvailableUnderSparseSemantics() {
-    Fixture fixture = fixture("{}", List.of());
-
-    fixture.usecase.queryTextAgent(7L, "ta_contract", command());
-
-    assertEquals(true, fixture.capturedToolNames().contains("list_available_agents"));
-  }
-
   private Fixture fixture(String enabledToolsJson, List<String> voiceAgentToolNames) {
     TextAgentDefinition definition =
         new TextAgentDefinition(

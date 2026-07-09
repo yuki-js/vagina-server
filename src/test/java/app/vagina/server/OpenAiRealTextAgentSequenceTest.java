@@ -16,8 +16,7 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import io.vertx.mutiny.core.Vertx;
-import jakarta.inject.Inject;
+import io.vertx.core.Vertx;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -69,8 +68,7 @@ class OpenAiRealTextAgentSequenceTest {
   @TestHTTPResource("/")
   URL testServerUrl;
 
-  @Inject Vertx mutinyVertx;
-
+  private Vertx vertx;
   private VhrpTestClient client;
 
   @BeforeEach
@@ -78,13 +76,17 @@ class OpenAiRealTextAgentSequenceTest {
     assumeTrue(realOpenAiTestEnabled(), "set -Dvagina.test.openai.real.enabled=true to run");
     assumeTrue(hasRequiredOpenAiConfig(), "Text Agent real OpenAI provider config must be set");
     VhrpLifecycleTestSupport.installSuccessfulAdapterFactory();
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    vertx = Vertx.vertx();
+    client = new VhrpTestClient(vertx);
   }
 
   @AfterEach
-  void tearDown() {
+  void tearDown() throws Exception {
     if (client != null) {
       client.close();
+    }
+    if (vertx != null) {
+      vertx.close().toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
     }
   }
 
@@ -138,7 +140,7 @@ class OpenAiRealTextAgentSequenceTest {
     assertCompletedWithMarkers(followUp, "OWNER=Mina", "DUE=Friday");
 
     closeSession();
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    client = new VhrpTestClient(vertx);
     SessionIds secondSession = openAuthenticatedSession(jwt);
 
     Response isolatedSession =
@@ -296,7 +298,7 @@ class OpenAiRealTextAgentSequenceTest {
         textAgentId,
         "You are an updated support triage Text Agent. For duplicate-invoice refund cases, reply "
             + "in one line containing TRIAGE_V2, category=billing_refund, and escalation=finance.");
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    client = new VhrpTestClient(vertx);
     SessionIds secondSession = openAuthenticatedSession(jwt);
     Response secondPolicy =
         queryTextAgent(jwt, textAgentId, secondSession.sessionId(), requestId(), supportCasePrompt);

@@ -105,13 +105,34 @@ test {
     useJUnitPlatform()
 }
 
+def testNativeRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName == 'testNative' || taskName.endsWith(':testNative')
+}
+def testNativeResourceIncludes = 'dev-keys/*.pem'
+// Native integration tests default to production-grade native optimization.
+// If CI build time becomes more important than runtime performance/size, change this to -Ob.
+def testNativeAdditionalBuildArgs = '-O3'
+
+if (testNativeRequested) {
+    tasks.named('quarkusBuild') {
+        inputs.property('testNativeResourceIncludes', testNativeResourceIncludes)
+        inputs.property('testNativeAdditionalBuildArgs', testNativeAdditionalBuildArgs)
+        nativeArgs {
+            it['resources.includes'] = testNativeResourceIncludes
+            it['additional-build-args'] = testNativeAdditionalBuildArgs
+        }
+    }
+}
+
 // Configure testNative to run IT tests against native binary
 tasks.named('testNative') {
     systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
-    
-    // Enable parallel test execution for native tests as well
-    // Run test classes in separate JVM processes for isolation
-    maxParallelForks = testParallelForks
+    systemProperty "vagina.test.openai.real.enabled", System.getProperty("vagina.test.openai.real.enabled", "false")
+    systemProperty "vagina.test.openai.real.transcript.dir", System.getProperty("vagina.test.openai.real.transcript.dir", "")
+
+    // QuarkusIntegrationTest launches native executables that share build/quarkus.log and launcher
+    // discovery state, so run native tests sequentially to avoid cross-process launch interference.
+    maxParallelForks = 1
     
     // Use JUnit Platform test framework
     useJUnitPlatform()

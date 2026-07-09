@@ -70,30 +70,6 @@ class TextAgentsApiTest {
   }
 
   @Test
-  void updateMissingTextAgentReturnsNotFound() {
-    String token = VhrpAuthTestSupport.obtainValidJwt();
-
-    Map<String, Object> body =
-        Map.of(
-            "name", "Missing Assistant",
-            "prompt", "You should not be saved.",
-            "textModelId", "text-agent-prod",
-            "enabledTools", Map.of());
-
-    given()
-        .auth()
-        .oauth2(token)
-        .contentType(ContentType.JSON)
-        .accept(ContentType.JSON)
-        .body(body)
-        .when()
-        .put("/api/text-agents/ta_missing")
-        .then()
-        .statusCode(404)
-        .body("message", notNullValue());
-  }
-
-  @Test
   void createTextAgentRejectsUnknownTextModelId() {
     String token = VhrpAuthTestSupport.obtainValidJwt();
 

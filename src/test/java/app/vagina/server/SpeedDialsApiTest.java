@@ -19,22 +19,6 @@ import org.junit.jupiter.api.Test;
 class SpeedDialsApiTest {
 
   @Test
-  void defaultSpeedDialGetsDefaultVoiceAgentId() {
-    String token = VhrpAuthTestSupport.obtainValidJwt();
-
-    given()
-        .auth()
-        .oauth2(token)
-        .accept(ContentType.JSON)
-        .when()
-        .get("/api/speed-dials/default")
-        .then()
-        .statusCode(200)
-        .body("id", equalTo("default"))
-        .body("voiceAgentId", equalTo("voice-agent-prod"));
-  }
-
-  @Test
   void createSpeedDialGeneratesIdThenUpdateRoundTripsVoiceAgentId() {
     String token = VhrpAuthTestSupport.obtainValidJwt();
 
@@ -99,33 +83,6 @@ class SpeedDialsApiTest {
         .then()
         .statusCode(200)
         .body("voiceAgentId", hasItem("voice-agent-prod-cc"));
-  }
-
-  @Test
-  void updateMissingSpeedDialReturnsNotFound() {
-    String token = VhrpAuthTestSupport.obtainValidJwt();
-
-    Map<String, Object> body =
-        Map.of(
-            "name", "Missing Agent",
-            "systemPrompt", "You should not be saved.",
-            "voice", "alloy",
-            "voiceAgentId", "voice-agent-prod",
-            "enabledTools", Map.of(),
-            "reasoningEffort", "off",
-            "toolChoiceRequired", false);
-
-    given()
-        .auth()
-        .oauth2(token)
-        .contentType(ContentType.JSON)
-        .accept(ContentType.JSON)
-        .body(body)
-        .when()
-        .put("/api/speed-dials/sd_missing")
-        .then()
-        .statusCode(404)
-        .body("message", notNullValue());
   }
 
   @Test

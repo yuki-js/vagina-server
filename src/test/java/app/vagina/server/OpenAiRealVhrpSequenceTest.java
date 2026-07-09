@@ -14,8 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
-import io.vertx.mutiny.core.Vertx;
-import jakarta.inject.Inject;
+import io.vertx.core.Vertx;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URL;
@@ -58,21 +57,24 @@ class OpenAiRealVhrpSequenceTest {
   @TestHTTPResource("/")
   URL testServerUrl;
 
-  @Inject Vertx mutinyVertx;
-
+  private Vertx vertx;
   private VhrpTestClient client;
 
   @BeforeEach
   void setUp() {
     assumeTrue(realOpenAiTestEnabled(), "set -Dvagina.test.openai.real.enabled=true to run");
     assumeTrue(hasRequiredOpenAiConfig(), REQUIRED_PROPERTY + " must be configured");
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    vertx = Vertx.vertx();
+    client = new VhrpTestClient(vertx);
   }
 
   @AfterEach
-  void tearDown() {
+  void tearDown() throws Exception {
     if (client != null) {
       client.close();
+    }
+    if (vertx != null) {
+      vertx.close().toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
     }
   }
 
@@ -428,7 +430,7 @@ class OpenAiRealVhrpSequenceTest {
     client.close();
     client.waitForClose(10, TimeUnit.SECONDS);
 
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    client = new VhrpTestClient(vertx);
     client.connect(testPort(), "vhrp.cbor.v1");
     String resumeMsgId = client.sendSessionOpenResume(jwt, "default", sessionIds.sessionId());
     JsonNode resumed = client.waitForMessage("session.resumed", 20, TimeUnit.SECONDS);

@@ -25,8 +25,7 @@ import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import io.vertx.mutiny.core.Vertx;
-import jakarta.inject.Inject;
+import io.vertx.core.Vertx;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URL;
@@ -72,8 +71,7 @@ class OpenAiRealVhrpSessionHistoryTest
   @TestHTTPResource("/")
   URL testServerUrl;
 
-  @Inject Vertx mutinyVertx;
-
+  private Vertx vertx;
   private VhrpTestClient client;
   private WireMockServer harigata;
 
@@ -86,13 +84,17 @@ class OpenAiRealVhrpSessionHistoryTest
   void setUp() {
     assumeTrue(realOpenAiTestEnabled(), "set -Dvagina.test.openai.real.enabled=true to run");
     assumeTrue(hasRequiredOpenAiConfig(), REQUIRED_PROPERTY + " must be configured");
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    vertx = Vertx.vertx();
+    client = new VhrpTestClient(vertx);
   }
 
   @AfterEach
-  void tearDown() {
+  void tearDown() throws Exception {
     if (client != null) {
       client.close();
+    }
+    if (vertx != null) {
+      vertx.close().toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
     }
   }
 
@@ -474,7 +476,7 @@ class OpenAiRealVhrpSessionHistoryTest
     assertTrue(
         client.waitForClose(10, TimeUnit.SECONDS) != -1, "socket drop must close the first client");
 
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    client = new VhrpTestClient(vertx);
     client.connect(testPort(), "vhrp.cbor.v1");
     String resumeMsgId = client.sendSessionOpenResume(jwt, speedDialId, sessionIds.sessionId());
     JsonNode resumed = client.waitForMessage("session.resumed", 20, TimeUnit.SECONDS);
@@ -585,7 +587,7 @@ class OpenAiRealVhrpSessionHistoryTest
     if (client != null) {
       client.close();
     }
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    client = new VhrpTestClient(vertx);
   }
 
   private SessionIds openAuthenticatedSession(String jwt, String speedDialId) throws Exception {

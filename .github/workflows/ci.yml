@@ -101,7 +101,9 @@ jobs:
           native-image-job-reports: 'true'
 
       - name: Build native binary
-        run: ./gradlew quarkusBuild -Dquarkus.native.enabled=true -Dquarkus.package.jar.enabled=false -Dquarkus.native.container-build=false --no-daemon
+        # -O3 keeps CI native tests on production-grade native optimization.
+        # If CI build time becomes more important than runtime performance/size, change it to -Ob.
+        run: ./gradlew quarkusBuild -Dquarkus.native.enabled=true -Dquarkus.package.jar.enabled=false -Dquarkus.native.container-build=false -Dquarkus.native.resources.includes=dev-keys/*.pem -Dquarkus.native.additional-build-args=-O3 --no-daemon
         env:
           QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://localhost:5432/vagina_server
           QUARKUS_DATASOURCE_USERNAME: postgres

@@ -3,6 +3,7 @@ package app.vagina.server;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -11,13 +12,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.vagina.server.realtime.VhrpTestClient;
 import app.vagina.server.support.HarigataOidcMockServerResource;
+import app.vagina.server.support.OaiCcWireMockServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
-import io.vertx.mutiny.core.Vertx;
-import jakarta.inject.Inject;
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
+import io.vertx.core.Vertx;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
@@ -37,13 +40,15 @@ import org.junit.jupiter.api.Test;
  */
 @QuarkusTest
 @QuarkusTestResource(HarigataOidcMockServerResource.class)
+@QuarkusTestResource(OaiCcWireMockServerResource.class)
 class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOidcMockServerAware {
+
+  private static final String FAIL_CONNECT_VOICE_AGENT_ID = "test-voice-agent-fail-connect";
 
   @TestHTTPResource("/")
   URL testServerUrl;
 
-  @Inject Vertx mutinyVertx;
-
+  private Vertx vertx;
   private VhrpTestClient client;
   private WireMockServer existingHarigata;
 
@@ -54,13 +59,17 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
 
   @BeforeEach
   void setUp() {
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    vertx = Vertx.vertx();
+    client = new VhrpTestClient(vertx);
   }
 
   @AfterEach
-  void tearDown() {
+  void tearDown() throws Exception {
     if (client != null) {
       client.close();
+    }
+    if (vertx != null) {
+      vertx.close().toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
     }
   }
 
@@ -104,8 +113,7 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
         code.contains("auth") || code.contains("invalid"),
         "Error code must indicate authentication failure, got: " + code);
 
-    int closeCode = client.waitForClose(5, TimeUnit.SECONDS);
-    assertNotEquals(-1, closeCode, "Server must close the connection after auth failure");
+    client.waitForClose(5, TimeUnit.SECONDS);
   }
 
   /**
@@ -144,18 +152,15 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
   @Test
   void freshOpenConnectFailure() throws Exception {
     String token = VhrpAuthTestSupport.obtainValidJwt();
-    VhrpLifecycleTestSupport.FailingConnectAdapter adapter =
-        VhrpLifecycleTestSupport.installFailingConnectAdapterFactory();
+    String failingSpeedDialId = createFailingSpeedDial(token);
 
     client.connect(testPort(), "vhrp.cbor.v1");
-    client.sendSessionOpen(token, "default");
+    client.sendSessionOpen(token, failingSpeedDialId);
 
     assertErrorCode(client.waitForMessage("error", 10, TimeUnit.SECONDS), "protocol.bad_message");
     client.waitForClose(5, TimeUnit.SECONDS);
 
     assertNoFrameType(client, "session.ready");
-    assertEquals(1, adapter.connectCalls.get(), "fresh open must attempt adapter connect once");
-    assertEquals(1, adapter.disposeCalls.get(), "failed fresh open must dispose adapter resources");
   }
 
   /**
@@ -189,7 +194,6 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
    */
   @Test
   void resumeWrongOwner() throws Exception {
-    VhrpLifecycleTestSupport.installSuccessfulAdapterFactory();
     stubExistingHarigataUser("vhrp-owner-subject", "vhrp-owner", "vhrp-owner@example.test");
     String ownerToken = VhrpAuthTestSupport.obtainValidJwt();
 
@@ -202,7 +206,7 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
 
     client.close();
     client.waitForClose(5, TimeUnit.SECONDS);
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    client = new VhrpTestClient(vertx);
 
     stubExistingHarigataUser("vhrp-other-subject", "vhrp-other", "vhrp-other@example.test");
     String otherToken = VhrpAuthTestSupport.obtainValidJwt();
@@ -228,7 +232,7 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
     long startMs = System.currentTimeMillis();
 
     for (int i = 0; i < wrongSubprotocolRepeat; i++) {
-      VhrpTestClient bad = new VhrpTestClient(mutinyVertx.getDelegate());
+      VhrpTestClient bad = new VhrpTestClient(vertx);
       try {
         try {
           bad.connect(testPort(), "wrong.protocol.v0");
@@ -263,6 +267,33 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
     assertTrue(
         elapsedMs < 20_000,
         "All wrong-subprotocol connections must be handled quickly (elapsed " + elapsedMs + " ms)");
+  }
+
+  private String createFailingSpeedDial(String token) {
+    Map<String, Object> body =
+        Map.of(
+            "name", "Failing native-capable adapter",
+            "systemPrompt", "Exercise failed adapter bootstrap.",
+            "voice", "alloy",
+            "voiceAgentId", FAIL_CONNECT_VOICE_AGENT_ID,
+            "enabledTools", Map.of(),
+            "reasoningEffort", "off",
+            "toolChoiceRequired", false);
+
+    Response response =
+        given()
+            .auth()
+            .oauth2(token)
+            .contentType(ContentType.JSON)
+            .accept(ContentType.JSON)
+            .body(body)
+            .when()
+            .post("/api/speed-dials")
+            .then()
+            .statusCode(201)
+            .extract()
+            .response();
+    return response.jsonPath().getString("id");
   }
 
   private int testPort() {

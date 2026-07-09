@@ -4,14 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import app.vagina.server.realtime.VhrpTestClient;
 import app.vagina.server.support.HarigataOidcMockServerResource;
+import app.vagina.server.support.OaiCcWireMockServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
-import io.vertx.mutiny.core.Vertx;
-import jakarta.inject.Inject;
+import io.vertx.core.Vertx;
 import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -22,25 +22,29 @@ import org.junit.jupiter.api.Test;
 /** VHRP resume-retention abnormal-path tests that need a short retention profile. */
 @QuarkusTest
 @QuarkusTestResource(HarigataOidcMockServerResource.class)
+@QuarkusTestResource(OaiCcWireMockServerResource.class)
 @TestProfile(VhrpResumeRetentionE2ETest.ShortRetentionProfile.class)
 class VhrpResumeRetentionE2ETest {
 
   @TestHTTPResource("/")
   URL testServerUrl;
 
-  @Inject Vertx mutinyVertx;
-
+  private Vertx vertx;
   private VhrpTestClient client;
 
   @BeforeEach
   void setUp() {
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    vertx = Vertx.vertx();
+    client = new VhrpTestClient(vertx);
   }
 
   @AfterEach
-  void tearDown() {
+  void tearDown() throws Exception {
     if (client != null) {
       client.close();
+    }
+    if (vertx != null) {
+      vertx.close().toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
     }
   }
 
@@ -55,7 +59,6 @@ class VhrpResumeRetentionE2ETest {
    */
   @Test
   void resumeExpired() throws Exception {
-    VhrpLifecycleTestSupport.installSuccessfulAdapterFactory();
     String token = VhrpAuthTestSupport.obtainValidJwt();
 
     client.connect(testPort(), "vhrp.cbor.v1");
@@ -67,7 +70,7 @@ class VhrpResumeRetentionE2ETest {
     client.close();
     client.waitForClose(5, TimeUnit.SECONDS);
     Thread.sleep(300);
-    client = new VhrpTestClient(mutinyVertx.getDelegate());
+    client = new VhrpTestClient(vertx);
 
     client.connect(testPort(), "vhrp.cbor.v1");
     client.sendSessionOpenResume(token, "default", sessionId);

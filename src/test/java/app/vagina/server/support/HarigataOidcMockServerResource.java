@@ -11,6 +11,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
+import java.util.HashMap;
 import java.util.Map;
 
 public class HarigataOidcMockServerResource implements QuarkusTestResourceLifecycleManager {
@@ -37,23 +38,18 @@ public class HarigataOidcMockServerResource implements QuarkusTestResourceLifecy
     setupDefaultStubs();
 
     String issuer = issuerBaseUrl();
-    return Map.of(
-        "vagina.auth.oidc.harigata.issuer",
-        issuer,
+    Map<String, String> properties = new HashMap<>();
+    properties.put("vagina.auth.oidc.harigata.issuer", issuer);
+    properties.put(
         "vagina.auth.oidc.harigata.configuration-url",
-        issuer + "/.well-known/openid-configuration",
-        "vagina.auth.oidc.harigata.client-id",
-        DEFAULT_CLIENT_ID,
-        "vagina.auth.oidc.harigata.client-secret",
-        DEFAULT_CLIENT_SECRET,
-        "vagina.auth.oidc.harigata.authorization-endpoint",
-        issuer + "/authorize",
-        "vagina.auth.oidc.harigata.token-endpoint",
-        issuer + "/token",
-        "vagina.auth.oidc.harigata.userinfo-endpoint",
-        issuer + "/userinfo",
-        "vagina.auth.oidc.harigata.jwks-url",
-        issuer + "/jwks");
+        issuer + "/.well-known/openid-configuration");
+    properties.put("vagina.auth.oidc.harigata.client-id", DEFAULT_CLIENT_ID);
+    properties.put("vagina.auth.oidc.harigata.client-secret", DEFAULT_CLIENT_SECRET);
+    properties.put("vagina.auth.oidc.harigata.authorization-endpoint", issuer + "/authorize");
+    properties.put("vagina.auth.oidc.harigata.token-endpoint", issuer + "/token");
+    properties.put("vagina.auth.oidc.harigata.userinfo-endpoint", issuer + "/userinfo");
+    properties.put("vagina.auth.oidc.harigata.jwks-url", issuer + "/jwks");
+    return properties;
   }
 
   @Override
