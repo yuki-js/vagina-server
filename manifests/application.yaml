@@ -31,7 +31,7 @@ mp:
       publickey:
         location: /keys/publicKey.pem # provided via key generator initContainer
         algorithm: ES256
-      issuer: https://api.vagina.app
+      issuer: https://vagina-api.ouchiserver.aokiapp.com
 
 smallrye:
   jwt:
@@ -39,7 +39,7 @@ smallrye:
       key:
         location: /keys-src/privateKey.pem # provided by dedicated key secret
     new-token:
-      issuer: https://api.vagina.app
+      issuer: https://vagina-api.ouchiserver.aokiapp.com
 
 vagina:
   openai-base: https://vagina-prod.services.ai.azure.com/openai/v1
