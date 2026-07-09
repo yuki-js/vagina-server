@@ -29,6 +29,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -51,6 +52,8 @@ public class AuthService {
   public record IssuedRefreshToken(String rawToken, RefreshToken persistedToken) {}
 
   public record RotateResult(String rawToken, RefreshToken persistedToken) {}
+
+  public record ConfiguredOidcProvider(String id, String displayName) {}
 
   @ConfigProperty(name = "vagina.auth.access-token.lifespan")
   Long accessTokenLifespan;
@@ -112,6 +115,25 @@ public class AuthService {
 
   public OidcUserInfo fetchUserInfo(String providerKey, String accessToken) {
     return resolveProvider(providerKey).fetchUserInfo(accessToken);
+  }
+
+  public List<ConfiguredOidcProvider> listConfiguredOidcProviders() {
+    return oidcProviders.stream()
+        .filter(OidcProviderBase::isConfigured)
+        .map(
+            provider ->
+                new ConfiguredOidcProvider(
+                    provider.getProviderKey(), providerDisplayName(provider)))
+        .sorted(Comparator.comparing(ConfiguredOidcProvider::displayName))
+        .toList();
+  }
+
+  private String providerDisplayName(OidcProviderBase provider) {
+    return switch (provider.getProviderKey()) {
+      case "github" -> "GitHub";
+      case "harigata" -> "Harigata";
+      default -> provider.getProviderKey();
+    };
   }
 
   @Transactional

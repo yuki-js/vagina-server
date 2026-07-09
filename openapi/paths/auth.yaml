@@ -1,4 +1,39 @@
 paths:
+  /auth/oidc/providers:
+    get:
+      tags:
+        - auth
+      operationId: listOidcProviders
+      summary: List enabled OIDC providers
+      description: Return OIDC providers that are implemented and configured on this server.
+      security: []
+      responses:
+        "200":
+          description: Enabled OIDC providers.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - displayName
+                  properties:
+                    id:
+                      type: string
+                      minLength: 1
+                      example: github
+                    displayName:
+                      type: string
+                      minLength: 1
+                      example: GitHub
+        "500":
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: "../components/schemas/common.yaml#/ErrorResponse"
   /auth/oidc/{provider}/start:
     parameters:
       - name: provider

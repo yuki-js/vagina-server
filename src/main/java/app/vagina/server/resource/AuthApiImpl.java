@@ -5,6 +5,7 @@ import app.vagina.server.entity.ClientType;
 import app.vagina.server.generated.api.AuthApi;
 import app.vagina.server.generated.model.AuthTokenResponse;
 import app.vagina.server.generated.model.ExchangeOidcLoginRequest;
+import app.vagina.server.generated.model.ListOidcProviders200ResponseInner;
 import app.vagina.server.generated.model.RefreshSessionRequest;
 import app.vagina.server.generated.model.StartOidcLogin200Response;
 import app.vagina.server.generated.model.StartOidcLoginRequest;
@@ -21,6 +22,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.util.List;
 
 @ApplicationScoped
 @Path("/")
@@ -28,6 +30,16 @@ public class AuthApiImpl implements AuthApi {
 
   @Inject AuthUsecase authUsecase;
   @Inject AuthenticatedUser authenticatedUser;
+
+  @Override
+  @GET
+  @Path("/auth/oidc/providers")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response listOidcProviders() {
+    List<ListOidcProviders200ResponseInner> providers =
+        authUsecase.listOidcProviders().stream().map(this::toGeneratedOidcProvider).toList();
+    return Response.ok(providers).build();
+  }
 
   @Override
   public Response exchangeOidcLogin(
@@ -114,6 +126,14 @@ public class AuthApiImpl implements AuthApi {
     response.setExpiresIn(result.expiresIn());
     response.setUser(toGeneratedUser(result.user()));
     return response;
+  }
+
+  private ListOidcProviders200ResponseInner toGeneratedOidcProvider(
+      AuthUsecase.OidcProviderView view) {
+    ListOidcProviders200ResponseInner provider = new ListOidcProviders200ResponseInner();
+    provider.setId(view.id());
+    provider.setDisplayName(view.displayName());
+    return provider;
   }
 
   private User toGeneratedUser(AuthUsecase.AuthUserView view) {

@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import java.net.URI;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -35,11 +36,19 @@ public class AuthUsecase {
       long expiresIn,
       AuthUserView user) {}
 
+  public record OidcProviderView(String id, String displayName) {}
+
   @ConfigProperty(name = "vagina.auth.access-token.lifespan")
   Long accessTokenLifespan;
 
   @Inject UserService userService;
   @Inject AuthService authService;
+
+  public List<OidcProviderView> listOidcProviders() {
+    return authService.listConfiguredOidcProviders().stream()
+        .map(provider -> new OidcProviderView(provider.id(), provider.displayName()))
+        .toList();
+  }
 
   public StartOidcLoginResult startOidcLogin(
       String provider, ClientType clientType, String codeChallenge, String codeChallengeMethod) {
