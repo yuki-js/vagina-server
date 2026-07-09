@@ -144,6 +144,7 @@ public class AuthApiImpl implements AuthApi {
     }
     user.setDisplayName(view.displayName());
     user.setAvatarUrl(view.avatarUrl());
+    user.setEntitlements(view.entitlementKeys());
     user.setCreatedAt(view.createdAt());
     return user;
   }

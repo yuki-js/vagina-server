@@ -13,6 +13,9 @@ quarkus:
     server:
       supported-subprotocols:
         - vhrp.cbor.v1
+  flyway:
+    clean-at-start: true
+    clean-disabled: false
 mp:
   jwt:
     verify:

@@ -6,6 +6,7 @@ import app.vagina.server.entity.AuthnProvider;
 import app.vagina.server.entity.ClientType;
 import app.vagina.server.entity.User;
 import app.vagina.server.service.AuthService;
+import app.vagina.server.service.EntitlementService;
 import app.vagina.server.service.UserService;
 import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcUserInfo;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -27,6 +28,7 @@ public class AuthUsecase {
       String accountLifecycle,
       String displayName,
       String avatarUrl,
+      List<String> entitlementKeys,
       OffsetDateTime createdAt) {}
 
   public record AuthSessionResult(
@@ -43,6 +45,7 @@ public class AuthUsecase {
 
   @Inject UserService userService;
   @Inject AuthService authService;
+  @Inject EntitlementService entitlementService;
 
   public List<OidcProviderView> listOidcProviders() {
     return authService.listConfiguredOidcProviders().stream()
@@ -166,8 +169,14 @@ public class AuthUsecase {
 
     String accountLifecycle =
         user.getAccountLifecycle() == null ? null : user.getAccountLifecycle().getValue();
+    List<String> entitlementKeys = entitlementService.listActiveEntitlementKeys(user.getId());
     OffsetDateTime createdAt = user.getCreatedAt().atOffset(ZoneOffset.UTC);
     return new AuthUserView(
-        String.valueOf(user.getId()), accountLifecycle, displayName, avatarUrl, createdAt);
+        String.valueOf(user.getId()),
+        accountLifecycle,
+        displayName,
+        avatarUrl,
+        entitlementKeys,
+        createdAt);
   }
 }

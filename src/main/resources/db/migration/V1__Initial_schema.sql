@@ -23,6 +23,69 @@ CREATE INDEX idx_users_lifecycle ON users(account_lifecycle);
 CREATE INDEX idx_users_created_at ON users(created_at DESC);
 
 -- ============================================================================
+-- Entitlements
+-- Typed feature, plan, and privilege grants used for authorization decisions.
+-- ============================================================================
+CREATE TABLE entitlement_definitions (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    entitlement_key VARCHAR(128) NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    sysmeta JSONB,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE entitlement_definitions IS 'Catalog of server-known entitlement keys used for feature, plan, and privilege checks';
+COMMENT ON COLUMN entitlement_definitions.entitlement_key IS 'Stable entitlement key such as premium.voice or admin.support';
+COMMENT ON COLUMN entitlement_definitions.enabled IS 'Whether new and existing grants for this entitlement are effective';
+COMMENT ON COLUMN entitlement_definitions.sysmeta IS 'System/admin-only auxiliary metadata for entitlement catalog management';
+
+CREATE UNIQUE INDEX idx_entitlement_definitions_key
+    ON entitlement_definitions(entitlement_key);
+CREATE INDEX idx_entitlement_definitions_enabled
+    ON entitlement_definitions(enabled);
+
+CREATE TABLE user_entitlement_grants (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    entitlement_id BIGINT NOT NULL,
+    grant_source VARCHAR(50) NOT NULL,
+    valid_from TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP,
+    revoked_at TIMESTAMP,
+    grant_reason TEXT,
+    revoke_reason TEXT,
+    sysmeta JSONB,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_entitlement_grants_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_user_entitlement_grants_entitlement
+        FOREIGN KEY (entitlement_id) REFERENCES entitlement_definitions(id) ON DELETE RESTRICT,
+    CONSTRAINT chk_user_entitlement_grants_time_window
+        CHECK (expires_at IS NULL OR expires_at > valid_from)
+);
+
+COMMENT ON TABLE user_entitlement_grants IS 'Per-user typed entitlement grants; effective grants have no revocation and are within their validity window';
+COMMENT ON COLUMN user_entitlement_grants.grant_source IS 'Grant source: manual, subscription, system, migration';
+COMMENT ON COLUMN user_entitlement_grants.valid_from IS 'First timestamp when this grant can become effective';
+COMMENT ON COLUMN user_entitlement_grants.expires_at IS 'Timestamp after which this grant is no longer effective';
+COMMENT ON COLUMN user_entitlement_grants.revoked_at IS 'Revocation timestamp; non-null grants are no longer effective';
+COMMENT ON COLUMN user_entitlement_grants.sysmeta IS 'System/admin-only auxiliary metadata such as external billing identifiers';
+
+CREATE INDEX idx_user_entitlement_grants_user_id
+    ON user_entitlement_grants(user_id);
+CREATE INDEX idx_user_entitlement_grants_entitlement_id
+    ON user_entitlement_grants(entitlement_id);
+CREATE INDEX idx_user_entitlement_grants_active_lookup
+    ON user_entitlement_grants(user_id, valid_from, expires_at)
+    WHERE revoked_at IS NULL;
+CREATE INDEX idx_user_entitlement_grants_user_entitlement
+    ON user_entitlement_grants(user_id, entitlement_id);
+
+-- ============================================================================
 -- Authentication Providers
 -- OIDC provider link table. Normal provider-derived user info is stored in typed columns.
 -- ============================================================================

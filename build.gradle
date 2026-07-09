@@ -85,12 +85,10 @@ java {
     }
 }
 
-// Configure parallel test execution.
-// When an external datasource URL is provided (for example, CI PostgreSQL service),
-// all test forks share the same database. Flyway clean/migrate at startup can race
-// across forks in that mode, so force sequential execution for stability.
-def hasExternalDatasource = System.getenv('QUARKUS_DATASOURCE_JDBC_URL') != null
-def testParallelForks = hasExternalDatasource ? 1 : Math.max(1, Runtime.runtime.availableProcessors())
+// Test profile resets the database at startup via Flyway clean/migrate.
+// All test forks can share the same database, so keep tests sequential to avoid
+// cross-fork schema-history races while the schema is being cleaned and recreated.
+def testParallelForks = 1
 
 test {
     systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"

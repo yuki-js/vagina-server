@@ -4,6 +4,7 @@ User:
     - id
     - accountLifecycle
     - createdAt
+    - entitlements
   properties:
     id:
       type: string
@@ -23,6 +24,12 @@ User:
       type: string
       nullable: true
       example: https://avatars.githubusercontent.com/u/1?v=4
+    entitlements:
+      type: array
+      description: Active entitlement keys currently effective for this user.
+      items:
+        type: string
+        example: premium.voice
     createdAt:
       type: string
       format: date-time
