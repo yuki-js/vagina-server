@@ -5,6 +5,7 @@ namespace: vagina-server
 
 resources:
   - backend.yaml
+  - application-secret.yaml
   - jwt-keys.yaml
   - ingress.yaml
   - db.yaml

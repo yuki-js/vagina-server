@@ -41,7 +41,7 @@ smallrye:
       issuer: https://api.vagina.app
 
 vagina:
-  openai-base: https://default-msf-resource.services.ai.azure.com/openai/v1
+  openai-base: https://vagina-prod.services.ai.azure.com/openai/v1
   auth:
     oidc:
       redirect-uri:
@@ -52,18 +52,20 @@ vagina:
       harigata: null # harigata must be explicitly disabled
 
       github:
-        client-id: FIXME
+        client-id: Ov23li65vfwKe2OOj9Xs
 
   realtime:
     default-model: realtime
     models:
       realtime:
         provider: oai
-        base-url: "${vagina.openai-base}?model=gpt-realtime-2"
+        base-url: "${vagina.openai-base}?model=gpt-realtime-2.1"
         transcription-model: gpt-4o-transcribe
+        api-key: ${vagina.openai-default-apikey}
       chat-completion:
         provider: oai_cc
         base-url: "${vagina.openai-base}?model=gpt-audio-1.5"
+        api-key: ${vagina.openai-default-apikey}
 
   text-agent:
     default-model: gpt-5.5
@@ -72,6 +74,7 @@ vagina:
         provider: oai_chat
         display-name: GPT-5.5
         base-url: "${vagina.openai-base}?model=gpt-5.5"
+        api-key: ${vagina.openai-default-apikey}
       aok:
         provider: oai_chat
         display-name: Aok (Hermes Agent)
