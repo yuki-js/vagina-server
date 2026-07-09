@@ -1017,7 +1017,16 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     if (existing != null) {
       return existing;
     }
-    return patch.addItem(
+    RealtimeThread.Item previousUserItem = lastVisibleUserMessage();
+    if (previousUserItem == null) {
+      return patch.addItem(
+          itemId,
+          RealtimeThread.ItemType.MESSAGE,
+          RealtimeThread.ItemRole.ASSISTANT,
+          RealtimeThread.ItemStatus.IN_PROGRESS);
+    }
+    return patch.addItemAfter(
+        previousUserItem.id(),
         itemId,
         RealtimeThread.ItemType.MESSAGE,
         RealtimeThread.ItemRole.ASSISTANT,
@@ -1036,12 +1045,20 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
       return existing;
     }
     RealtimeThread.ItemStatus status = RealtimeThread.ItemStatus.IN_PROGRESS;
+    RealtimeThread.Item previousAssistantItem = lastVisibleAssistantMessage();
     RealtimeThread.Item item =
-        patch.addItem(
-            itemId,
-            RealtimeThread.ItemType.FUNCTION_CALL,
-            RealtimeThread.ItemRole.ASSISTANT,
-            status);
+        previousAssistantItem == null
+            ? patch.addItem(
+                itemId,
+                RealtimeThread.ItemType.FUNCTION_CALL,
+                RealtimeThread.ItemRole.ASSISTANT,
+                status)
+            : patch.addItemAfter(
+                previousAssistantItem.id(),
+                itemId,
+                RealtimeThread.ItemType.FUNCTION_CALL,
+                RealtimeThread.ItemRole.ASSISTANT,
+                status);
     if (callId != null) {
       patch.setCallId(item, callId);
     }
@@ -1089,6 +1106,30 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
         // Unknown part kind: ignore, like the Dart switch falling through.
       }
     }
+  }
+
+  private RealtimeThread.Item lastVisibleUserMessage() {
+    for (int index = thread.items().size() - 1; index >= 0; index--) {
+      RealtimeThread.Item item = thread.items().get(index);
+      if (item.type() == RealtimeThread.ItemType.MESSAGE
+          && item.role() == RealtimeThread.ItemRole.USER
+          && item.displayState() == RealtimeThread.ItemDisplayState.VISIBLE) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  private RealtimeThread.Item lastVisibleAssistantMessage() {
+    for (int index = thread.items().size() - 1; index >= 0; index--) {
+      RealtimeThread.Item item = thread.items().get(index);
+      if (item.type() == RealtimeThread.ItemType.MESSAGE
+          && item.role() == RealtimeThread.ItemRole.ASSISTANT
+          && item.displayState() == RealtimeThread.ItemDisplayState.VISIBLE) {
+        return item;
+      }
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------

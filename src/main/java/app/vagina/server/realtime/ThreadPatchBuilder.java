@@ -90,11 +90,32 @@ public final class ThreadPatchBuilder {
       RealtimeThread.ItemRole role,
       RealtimeThread.ItemStatus status,
       RealtimeThread.ItemDisplayState displayState) {
+    return addItemAfter(null, id, type, role, status, displayState);
+  }
+
+  public RealtimeThread.Item addItemAfter(
+      String previousItemId,
+      String id,
+      RealtimeThread.ItemType type,
+      RealtimeThread.ItemRole role,
+      RealtimeThread.ItemStatus status) {
+    return addItemAfter(
+        previousItemId, id, type, role, status, RealtimeThread.ItemDisplayState.VISIBLE);
+  }
+
+  public RealtimeThread.Item addItemAfter(
+      String previousItemId,
+      String id,
+      RealtimeThread.ItemType type,
+      RealtimeThread.ItemRole role,
+      RealtimeThread.ItemStatus status,
+      RealtimeThread.ItemDisplayState displayState) {
     RealtimeThread.Item item = new RealtimeThread.Item(id, type, role, status);
     item.setDisplayState(displayState);
-    thread.addItem(item);
+    thread.addItemAfter(previousItemId, item);
     Map<String, Object> op = newOp("add_item");
     op.put("item", itemShape(item));
+    putIfPresent(op, "previousItemId", previousItemId);
     return item;
   }
 

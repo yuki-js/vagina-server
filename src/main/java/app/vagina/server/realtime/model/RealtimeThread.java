@@ -392,6 +392,20 @@ public final class RealtimeThread {
     items.add(item);
   }
 
+  public void addItemAfter(String previousItemId, Item item) {
+    if (previousItemId == null || previousItemId.isBlank()) {
+      addItem(item);
+      return;
+    }
+    for (int index = 0; index < items.size(); index++) {
+      if (items.get(index).id().equals(previousItemId)) {
+        items.add(index + 1, item);
+        return;
+      }
+    }
+    addItem(item);
+  }
+
   /** Removes the item with {@code itemId}; returns whether anything was removed. */
   public boolean removeItem(String itemId) {
     return items.removeIf(item -> item.id().equals(itemId));
