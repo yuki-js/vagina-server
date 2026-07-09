@@ -3,6 +3,7 @@ package app.vagina.server;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -326,6 +327,95 @@ class OpenAiRealTextAgentSequenceTest {
     closeSession();
   }
 
+  /**
+   * textAgentSeq04: real OpenAI Text Agent tool-call continuation does not leave stale pending
+   * state.
+   *
+   * <ol>
+   *   <li>User starts authentication and receives an app JWT.
+   *   <li>User starts a hosted VHRP session that owns Text Agent runtime state.
+   *   <li>User creates a Text Agent with instructions to call the supplied deterministic marker
+   *       tool.
+   *   <li>User queries the Text Agent through REST with a real tool catalog.
+   *   <li>Real OpenAI returns a function call through the Text Agent provider adapter.
+   *   <li>The app submits a tool result through REST continuation.
+   *   <li>Real OpenAI completes the continuation using the tool output.
+   *   <li>User sends a follow-up prompt in the same session and Text Agent.
+   *   <li>The follow-up completes instead of failing with stale pending tool-result state.
+   *   <li>User explicitly ends the hosted session.
+   * </ol>
+   */
+  @Test
+  void textAgentSeq04() throws Exception {
+    String jwt = VhrpAuthTestSupport.obtainValidJwt();
+    SessionIds session = openAuthenticatedSession(jwt);
+    String textAgentId =
+        createRealOpenAiTextAgent(
+            jwt,
+            DEFAULT_AGENT_PROMPT
+                + " When the user asks for the marker tool, call text_agent_sequence_probe exactly "
+                + "once. After receiving any tool result, including an error tool result, answer "
+                + "with exactly TEXT_AGENT_REAL_TOOL_ERROR_CONTINUED_OK and no other text.");
+    String toolPrompt =
+        "Call text_agent_sequence_probe now. Do not answer directly before the tool result.";
+    String requestId = requestId();
+
+    Response toolRequest =
+        queryTextAgentWithTools(
+            jwt,
+            textAgentId,
+            session.sessionId(),
+            requestId,
+            toolPrompt,
+            List.of(sequenceProbeTool()));
+    assertRequiresToolCall(toolRequest, "text_agent_sequence_probe");
+    String toolCallId = toolRequest.jsonPath().getString("toolCalls[0].id");
+
+    Response continuation =
+        submitTextAgentToolResult(
+            jwt,
+            textAgentId,
+            session.sessionId(),
+            requestId,
+            toolCallId,
+            "{\"success\":false,\"error\":\"TEXT_AGENT_REAL_TOOL_ERROR_PACKET\"}",
+            true,
+            List.of(sequenceProbeTool()));
+    assertCompletedWithMarker(continuation, "TEXT_AGENT_REAL_TOOL_ERROR_CONTINUED_OK");
+
+    String followUpPrompt =
+        "Reply with exactly TEXT_AGENT_TOOL_STATE_RECOVERED_OK and no other text.";
+    Response followUp =
+        queryTextAgent(jwt, textAgentId, session.sessionId(), requestId(), followUpPrompt);
+    assertCompletedWithMarker(followUp, "TEXT_AGENT_TOOL_STATE_RECOVERED_OK");
+
+    writeTranscriptArtifact(
+        "textAgentSeq04",
+        List.of(
+            artifactEntry(
+                "real-tool-call-required",
+                session,
+                textAgentId,
+                toolPrompt,
+                toolRequest,
+                "text_agent_sequence_probe"),
+            artifactEntry(
+                "real-tool-error-continuation",
+                session,
+                textAgentId,
+                "tool error result: TEXT_AGENT_REAL_TOOL_ERROR_PACKET",
+                continuation,
+                "TEXT_AGENT_REAL_TOOL_ERROR_CONTINUED_OK"),
+            artifactEntry(
+                "post-tool-follow-up-no-stale-pending",
+                session,
+                textAgentId,
+                followUpPrompt,
+                followUp,
+                "TEXT_AGENT_TOOL_STATE_RECOVERED_OK")));
+    closeSession();
+  }
+
   private SessionIds openAuthenticatedSession(String jwt) throws Exception {
     client.connect(testPort(), "vhrp.cbor.v1");
     String openMsgId = client.sendSessionOpen(jwt, "default");
@@ -390,6 +480,17 @@ class OpenAiRealTextAgentSequenceTest {
 
   private Response queryTextAgent(
       String token, String textAgentId, String voiceSessionId, String requestId, String prompt) {
+    return queryTextAgentWithTools(
+        token, textAgentId, voiceSessionId, requestId, prompt, List.of());
+  }
+
+  private Response queryTextAgentWithTools(
+      String token,
+      String textAgentId,
+      String voiceSessionId,
+      String requestId,
+      String prompt,
+      List<Map<String, Object>> toolSchemas) {
     return given()
         .auth()
         .oauth2(token)
@@ -400,13 +501,53 @@ class OpenAiRealTextAgentSequenceTest {
                 "voiceSessionId", voiceSessionId,
                 "requestId", requestId,
                 "prompt", prompt,
-                "toolSchemas", List.of()))
+                "toolSchemas", toolSchemas))
         .when()
         .post("/api/text-agents/{textAgentId}/query", textAgentId)
         .then()
         .statusCode(200)
         .extract()
         .response();
+  }
+
+  private Response submitTextAgentToolResult(
+      String token,
+      String textAgentId,
+      String voiceSessionId,
+      String requestId,
+      String toolCallId,
+      String output,
+      boolean isError,
+      List<Map<String, Object>> toolSchemas) {
+    return given()
+        .auth()
+        .oauth2(token)
+        .contentType(ContentType.JSON)
+        .accept(ContentType.JSON)
+        .body(
+            Map.of(
+                "voiceSessionId",
+                voiceSessionId,
+                "requestId",
+                requestId,
+                "toolSchemas",
+                toolSchemas,
+                "toolResult",
+                Map.of("toolCallId", toolCallId, "output", output, "isError", isError)))
+        .when()
+        .post("/api/text-agents/{textAgentId}/query", textAgentId)
+        .then()
+        .statusCode(200)
+        .extract()
+        .response();
+  }
+
+  private static void assertRequiresToolCall(Response response, String toolName) {
+    response.then().body("status", equalTo("requires_tool"));
+    String actualToolName = response.jsonPath().getString("toolCalls[0].name");
+    String toolCallId = response.jsonPath().getString("toolCalls[0].id");
+    assertEquals(toolName, actualToolName);
+    assertNotNull(toolCallId, "requires_tool Text Agent response must include tool call id");
   }
 
   private static void assertCompletedWithMarker(Response response, String marker) {
@@ -427,6 +568,16 @@ class OpenAiRealTextAgentSequenceTest {
     assertNotNull(text, "completed Text Agent response must include text");
     assertTrue(
         !text.contains(forbidden), "Text Agent response must not expose marker " + forbidden);
+  }
+
+  private static Map<String, Object> sequenceProbeTool() {
+    return Map.of(
+        "name",
+        "text_agent_sequence_probe",
+        "description",
+        "Returns a deterministic marker for the real OpenAI Text Agent tool sequence test.",
+        "parameters",
+        Map.of("type", "object", "properties", Map.of(), "additionalProperties", false));
   }
 
   private void closeSession() throws InterruptedException {

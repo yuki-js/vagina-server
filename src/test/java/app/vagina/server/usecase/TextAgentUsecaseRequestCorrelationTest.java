@@ -235,6 +235,57 @@ class TextAgentUsecaseRequestCorrelationTest {
     assertTrue(fixture.sessionState.pendingToolCalls().isEmpty());
   }
 
+  @Test
+  void promptAdapterExceptionClearsActiveRequestAndAllowsRetry() {
+    RecordingAdapter adapter =
+        new RecordingAdapter(
+            new IllegalStateException("provider unavailable"), QueryResult.completed("retried"));
+    Fixture fixture = fixture(adapter);
+
+    IllegalStateException error =
+        assertThrows(
+            IllegalStateException.class,
+            () -> fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_fail")));
+    assertEquals("provider unavailable", error.getMessage());
+    assertEquals(Optional.empty(), fixture.sessionState.activeRequestId());
+    assertTrue(fixture.sessionState.pendingToolCalls().isEmpty());
+
+    QueryResult retried =
+        fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_retry"));
+
+    assertEquals(QueryResult.completed("retried"), retried);
+    assertEquals(Optional.empty(), fixture.sessionState.activeRequestId());
+    assertEquals(2, adapter.executionCount());
+  }
+
+  @Test
+  void finalToolResultAdapterExceptionClearsActiveRequestAndAllowsRetry() {
+    RecordingAdapter adapter =
+        new RecordingAdapter(
+            QueryResult.requiresTool(List.of(toolCall("tc_1"))),
+            new IllegalStateException("continuation unavailable"),
+            QueryResult.completed("retried"));
+    Fixture fixture = fixture(adapter);
+
+    fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_1"));
+    IllegalStateException error =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                fixture.usecase.queryTextAgent(
+                    7L, "ta_contract", toolResultCommand("req_1", "tc_1")));
+    assertEquals("continuation unavailable", error.getMessage());
+    assertEquals(Optional.empty(), fixture.sessionState.activeRequestId());
+    assertTrue(fixture.sessionState.pendingToolCalls().isEmpty());
+
+    QueryResult retried =
+        fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_retry"));
+
+    assertEquals(QueryResult.completed("retried"), retried);
+    assertEquals(Optional.empty(), fixture.sessionState.activeRequestId());
+    assertEquals(3, adapter.executionCount());
+  }
+
   private Fixture fixture(RecordingAdapter adapter) {
     TextAgentDefinition definition =
         new TextAgentDefinition(
@@ -311,11 +362,11 @@ class TextAgentUsecaseRequestCorrelationTest {
   private record Fixture(TextAgentUsecase usecase, ProviderSessionState sessionState) {}
 
   private static final class RecordingAdapter implements TextAgentAdapter {
-    private final Queue<QueryResult> results = new ArrayDeque<>();
+    private final Queue<Object> results = new ArrayDeque<>();
     private final List<ProviderContext> contexts = new ArrayList<>();
     private final List<List<String>> acceptedToolResultIdsByExecution = new ArrayList<>();
 
-    RecordingAdapter(QueryResult... results) {
+    RecordingAdapter(Object... results) {
       this.results.addAll(List.of(results));
     }
 
@@ -339,7 +390,14 @@ class TextAgentUsecaseRequestCorrelationTest {
       if (results.isEmpty()) {
         throw new AssertionError("Unexpected text agent adapter execution");
       }
-      return results.remove();
+      Object result = results.remove();
+      if (result instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+      if (result instanceof Error error) {
+        throw error;
+      }
+      return (QueryResult) result;
     }
 
     int executionCount() {

@@ -86,7 +86,8 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
         "enabledTools",
         EnabledToolsJson.deserialize(objectMapper, preset.getEnabledTools(), ENABLED_TOOLS_LABEL));
     body.put(
-        "createdAt", preset.getCreatedAt() == null ? null : preset.getCreatedAt().atOffset(ZoneOffset.UTC));
+        "createdAt",
+        preset.getCreatedAt() == null ? null : preset.getCreatedAt().atOffset(ZoneOffset.UTC));
     return body;
   }
 
@@ -125,7 +126,8 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     if (reasoningEffort == null || reasoningEffort.isBlank()) {
       return defaultReasoningEffort();
     }
-    return SpeedDial.ReasoningEffortEnum.fromValue(reasoningEffort.toLowerCase(Locale.ROOT)).value();
+    return SpeedDial.ReasoningEffortEnum.fromValue(reasoningEffort.toLowerCase(Locale.ROOT))
+        .value();
   }
 
   private String toEntityReasoningEffort(

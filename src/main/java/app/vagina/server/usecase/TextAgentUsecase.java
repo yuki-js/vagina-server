@@ -80,9 +80,14 @@ public class TextAgentUsecase {
             command,
             sessionState,
             allowedToolCatalog(textAgent, command));
-    QueryResult result = adapter.execute(context);
-    adapter.applyResultToSessionState(context, result);
-    return result;
+    try {
+      QueryResult result = adapter.execute(context);
+      adapter.applyResultToSessionState(context, result);
+      return result;
+    } catch (RuntimeException | Error e) {
+      sessionState.clearRequestState();
+      throw e;
+    }
   }
 
   private TextAgentModelBinding initialBinding(TextAgentDefinition textAgent) {
