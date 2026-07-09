@@ -87,5 +87,5 @@ vagina:
   object-storage:
     endpoint: https://9cacada6061eed702d20f32c61fe7755.r2.cloudflarestorage.com
     bucket: vagina
-    region: cloudflare-global-region
+    region: auto
     path-prefix: ""
