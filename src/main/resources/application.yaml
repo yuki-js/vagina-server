@@ -27,6 +27,7 @@ quarkus:
     enabled: true
     locations: "classpath:db/migration"
     migrate-at-start: true
+    schemas: public
 
   smallrye-openapi:
     path: /openapi
@@ -35,6 +36,7 @@ quarkus:
 
   swagger-ui:
     path: /swagger-ui
+    always-include: true
 
   smallrye-health:
     root-path: /healthz

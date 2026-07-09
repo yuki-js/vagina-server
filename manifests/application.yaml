@@ -10,19 +10,20 @@ quarkus:
     jdbc:
       url: jdbc:postgresql://pg-cluster-rw.pg-cluster.svc.cluster.local:5432/vagina-server-db
 
-  swagger-ui:
-    always-include: true
-
   log:
     level: INFO
     category:
       "app.vagina.server":
         level: INFO
     console:
-      json: true
-      "json.pretty-print": false
-      "json.additional-field.\"service.name\".value": vagina-server
-      "json.additional-field.\"service.version\".value": 0.0.1
+      json:
+        enabled: true
+        pretty-print: false
+        additional-field:
+          "service.name":
+            value: vagina-server
+          "service.version":
+            value: 0.0.1
 
 mp:
   jwt:
