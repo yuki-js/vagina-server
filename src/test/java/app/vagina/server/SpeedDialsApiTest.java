@@ -45,6 +45,7 @@ class SpeedDialsApiTest {
             .statusCode(201)
             .body("id", matchesPattern("sd_[0-9a-f]{32}"))
             .body("voiceAgentId", equalTo("voice-agent-prod-cc"))
+            .body("reasoningEffort", equalTo("off"))
             .extract()
             .response();
 
@@ -72,7 +73,8 @@ class SpeedDialsApiTest {
         .statusCode(200)
         .body("id", equalTo(generatedId))
         .body("name", equalTo("Custom Step2 Updated"))
-        .body("voiceAgentId", equalTo("voice-agent-prod-cc"));
+        .body("voiceAgentId", equalTo("voice-agent-prod-cc"))
+        .body("reasoningEffort", equalTo("off"));
 
     given()
         .auth()
@@ -82,7 +84,34 @@ class SpeedDialsApiTest {
         .get("/api/speed-dials")
         .then()
         .statusCode(200)
-        .body("voiceAgentId", hasItem("voice-agent-prod-cc"));
+        .body("voiceAgentId", hasItem("voice-agent-prod-cc"))
+        .body("reasoningEffort", hasItem("off"));
+  }
+
+  @Test
+  void createSpeedDialRejectsNonCanonicalReasoningEffort() {
+    String token = VhrpAuthTestSupport.obtainValidJwt();
+
+    Map<String, Object> body =
+        Map.of(
+            "name", "Bad Reasoning Effort",
+            "systemPrompt", "You should not be saved.",
+            "voice", "alloy",
+            "voiceAgentId", "voice-agent-prod",
+            "enabledTools", Map.of(),
+            "reasoningEffort", "OFF",
+            "toolChoiceRequired", false);
+
+    given()
+        .auth()
+        .oauth2(token)
+        .contentType(ContentType.JSON)
+        .accept(ContentType.JSON)
+        .body(body)
+        .when()
+        .post("/api/speed-dials")
+        .then()
+        .statusCode(400);
   }
 
   @Test

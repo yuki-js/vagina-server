@@ -15,7 +15,10 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 @ApplicationScoped
 @Path("/speed-dials")
@@ -31,8 +34,8 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
   @Override
   public Response listSpeedDials() {
     Long userId = authenticatedUser.get().getId();
-    List<SpeedDial> speedDials =
-        speedDialUsecase.listSpeedDials(userId).stream().map(this::toGeneratedModel).toList();
+    List<Map<String, Object>> speedDials =
+        speedDialUsecase.listSpeedDials(userId).stream().map(this::toResponseBody).toList();
     return Response.ok(speedDials).build();
   }
 
@@ -41,14 +44,14 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     Long userId = authenticatedUser.get().getId();
     SpeedDialPreset created =
         speedDialUsecase.createSpeedDial(userId, toCreateCommand(speedDialCreateRequest));
-    return Response.status(Response.Status.CREATED).entity(toGeneratedModel(created)).build();
+    return Response.status(Response.Status.CREATED).entity(toResponseBody(created)).build();
   }
 
   @Override
   public Response getSpeedDial(String speedDialId) {
     Long userId = authenticatedUser.get().getId();
     SpeedDialPreset speedDialPreset = speedDialUsecase.getSpeedDial(userId, speedDialId);
-    return Response.ok(toGeneratedModel(speedDialPreset)).build();
+    return Response.ok(toResponseBody(speedDialPreset)).build();
   }
 
   @Override
@@ -58,7 +61,7 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     SpeedDialPreset updated =
         speedDialUsecase.updateSpeedDial(
             userId, speedDialId, toUpdateCommand(speedDialUpdateRequest));
-    return Response.ok(toGeneratedModel(updated)).build();
+    return Response.ok(toResponseBody(updated)).build();
   }
 
   @Override
@@ -68,23 +71,23 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     return Response.noContent().build();
   }
 
-  private SpeedDial toGeneratedModel(SpeedDialPreset preset) {
-    SpeedDial model = new SpeedDial();
-    model.setId(preset.getSpeedDialId());
-    model.setName(preset.getName());
-    model.setSystemPrompt(preset.getSystemPrompt());
-    model.setDescription(preset.getDescription());
-    model.setIconEmoji(preset.getIconEmoji());
-    model.setVoice(preset.getVoice());
-    model.setVoiceAgentId(preset.getVoiceAgentId());
-    model.setReasoningEffort(toGeneratedReasoningEffort(preset.getReasoningEffort()));
-    model.setToolChoiceRequired(preset.isToolChoiceRequired());
-    model.setEnabledTools(
+  private Map<String, Object> toResponseBody(SpeedDialPreset preset) {
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("id", preset.getSpeedDialId());
+    body.put("name", preset.getName());
+    body.put("systemPrompt", preset.getSystemPrompt());
+    body.put("description", preset.getDescription());
+    body.put("iconEmoji", preset.getIconEmoji());
+    body.put("voice", preset.getVoice());
+    body.put("voiceAgentId", preset.getVoiceAgentId());
+    body.put("reasoningEffort", toCanonicalReasoningEffort(preset.getReasoningEffort()));
+    body.put("toolChoiceRequired", preset.isToolChoiceRequired());
+    body.put(
+        "enabledTools",
         EnabledToolsJson.deserialize(objectMapper, preset.getEnabledTools(), ENABLED_TOOLS_LABEL));
-    if (preset.getCreatedAt() != null) {
-      model.setCreatedAt(preset.getCreatedAt().atOffset(ZoneOffset.UTC));
-    }
-    return model;
+    body.put(
+        "createdAt", preset.getCreatedAt() == null ? null : preset.getCreatedAt().atOffset(ZoneOffset.UTC));
+    return body;
   }
 
   private SpeedDialUsecase.CreateCommand toCreateCommand(SpeedDialCreateRequest model) {
@@ -118,11 +121,11 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
         objectMapper, enabledTools, ENABLED_TOOL_LABEL, ENABLED_TOOLS_LABEL);
   }
 
-  private SpeedDial.ReasoningEffortEnum toGeneratedReasoningEffort(String reasoningEffort) {
+  private String toCanonicalReasoningEffort(String reasoningEffort) {
     if (reasoningEffort == null || reasoningEffort.isBlank()) {
-      return SpeedDial.ReasoningEffortEnum.OFF;
+      return defaultReasoningEffort();
     }
-    return SpeedDial.ReasoningEffortEnum.fromValue(reasoningEffort);
+    return SpeedDial.ReasoningEffortEnum.fromValue(reasoningEffort.toLowerCase(Locale.ROOT)).value();
   }
 
   private String toEntityReasoningEffort(
