@@ -20,7 +20,7 @@ TextAgent:
       example: Research Assistant
     prompt:
       type: string
-      minLength: 1
+      nullable: true
       example: You are a careful research assistant.
     description:
       type: string
@@ -63,7 +63,6 @@ TextAgentWriteRequest:
       example: Research Assistant
     prompt:
       type: string
-      minLength: 1
       example: You are a careful research assistant.
     description:
       type: string
