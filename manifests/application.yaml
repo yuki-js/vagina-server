@@ -24,6 +24,9 @@ quarkus:
             value: vagina-server
           "service.version":
             value: 0.0.1
+  http:
+    cors:
+      origins: https://vagina.app
 
 mp:
   jwt:
