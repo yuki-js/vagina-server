@@ -8,7 +8,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 
 @ApplicationScoped
 public class TextAgentModelRegistryService {
@@ -32,7 +31,7 @@ public class TextAgentModelRegistryService {
             entry ->
                 new TextAgentModelCatalogItem(
                     entry.getKey(),
-                    entry.getValue().displayName().orElse(entry.getKey()),
+                    entry.getValue().displayName(),
                     entry.getKey().equals(defaultModelId()),
                     isEntitled(userId, entry.getKey())))
         .toList();
@@ -99,9 +98,5 @@ public class TextAgentModelRegistryService {
       String id, String displayName, boolean isDefault, boolean isAvailable) {}
 
   public record TextAgentModelConfigView(
-      String id,
-      String provider,
-      Optional<String> baseUrl,
-      Optional<String> apiKey,
-      Optional<String> model) {}
+      String id, String provider, String baseUrl, String apiKey, String model) {}
 }

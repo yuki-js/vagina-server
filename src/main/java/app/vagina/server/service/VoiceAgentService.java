@@ -83,13 +83,7 @@ public class VoiceAgentService {
   }
 
   private String displayName(String modelId) {
-    return modelsConfig
-        .models()
-        .get(modelId)
-        .displayName()
-        .map(String::trim)
-        .filter(value -> !value.isEmpty())
-        .orElse(modelId);
+    return modelsConfig.models().get(modelId).displayName();
   }
 
   public record ModelCatalogItem(

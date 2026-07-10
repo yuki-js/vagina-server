@@ -19,8 +19,7 @@ public class OaiCcWireMockServerResource implements QuarkusTestResourceLifecycle
     successServer = new WireMockServer(WireMockConfiguration.options().dynamicPort());
     successServer.start();
     setupSuccessStubs();
-    return Map.of(
-        "vagina.test.oai-cc.base-url", successServer.baseUrl() + "/v1?model=test-oai-cc-model");
+    return Map.of("vagina.test.oai-cc.base-url", successServer.baseUrl() + "/v1");
   }
 
   @Override

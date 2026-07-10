@@ -343,9 +343,8 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
   @Override
   public Uni<Void> connect(String voice, String instructions) {
     ensureNotDisposed();
-    this.sessionVoice = voice != null ? voice : modelConfig.voice().orElse(null);
-    this.serverOwnedInstructions =
-        instructions != null ? instructions : modelConfig.instructions().orElse(null);
+    this.sessionVoice = voice;
+    this.serverOwnedInstructions = instructions;
     this.clientInstructions = "";
     this.transcriptionModel = modelConfig.transcriptionModel().map(String::trim).orElse("");
     if (transcriptionModel.isEmpty()) {
@@ -355,14 +354,19 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
                   "Realtime model " + modelId + " has no transcription-model"));
     }
 
-    String baseUrl = modelConfig.baseUrl().map(String::trim).orElse("");
+    String baseUrl = modelConfig.baseUrl().trim();
     if (baseUrl.isEmpty()) {
       return Uni.createFrom()
           .failure(new IllegalStateException("Realtime model " + modelId + " has no base-url"));
     }
+    String providerModel = modelConfig.model().trim();
+    if (providerModel.isEmpty()) {
+      return Uni.createFrom()
+          .failure(new IllegalStateException("Realtime model " + modelId + " has no model"));
+    }
     OaiRealtimeConnectConfig connectConfig =
         new OaiRealtimeConnectConfig(
-            baseUrl, "/realtime", modelConfig.apiKey().orElse(null), Map.of());
+            baseUrl, "/realtime", providerModel, modelConfig.apiKey(), Map.of());
 
     return client.connect(connectConfig).chain(() -> client.updateSession(buildSessionConfig()));
   }

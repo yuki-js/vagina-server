@@ -1,6 +1,7 @@
 package app.vagina.server.textagent;
 
 import app.vagina.server.domain.error.ExternalServiceException;
+import app.vagina.server.support.Constants;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
@@ -115,14 +116,11 @@ final class OpenAiTextAgentHttpClient {
   }
 
   private void applyApiKeyHeaders(ProviderContext context, HttpRequest.Builder builder) {
-    context
-        .binding()
-        .apiKey()
-        .filter(key -> !key.isBlank())
-        .ifPresent(
-            key -> {
-              builder.header("Authorization", "Bearer " + key);
-              builder.header("api-key", key);
-            });
+    String key = context.binding().apiKey();
+    if (Constants.NO_AUTH_API_KEY.equals(key)) {
+      return;
+    }
+    builder.header("Authorization", "Bearer " + key);
+    builder.header("api-key", key);
   }
 }

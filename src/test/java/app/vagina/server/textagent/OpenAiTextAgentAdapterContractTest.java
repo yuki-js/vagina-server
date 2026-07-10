@@ -26,7 +26,6 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -856,11 +855,7 @@ class OpenAiTextAgentAdapterContractTest {
 
   private TextAgentModelBinding binding(String providerKey) {
     return new TextAgentModelBinding(
-        "text-agent-test",
-        providerKey,
-        Optional.of(provider.baseUrl() + "/v1"),
-        Optional.of("test-key"),
-        Optional.of("gpt-5.5"));
+        "text-agent-test", providerKey, provider.baseUrl() + "/v1", "test-key", "gpt-5.5");
   }
 
   @Test

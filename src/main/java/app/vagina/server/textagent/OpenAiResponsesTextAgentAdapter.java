@@ -38,9 +38,6 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
 
   @Override
   public QueryResult execute(ProviderContext context) {
-    if (context.binding().baseUri().isEmpty()) {
-      return failedProviderConfiguration("OpenAI Responses base URL is required");
-    }
     providerState(context).put(PROVIDER_STATE_LAST_REQUEST_ID, context.command().requestId());
     ResponsesResponse response =
         http.postJson(
@@ -120,7 +117,7 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   }
 
   private URI responsesUri(ProviderContext context) {
-    return Util.resolveUriWithPathSuffix(context.binding().baseUri().orElseThrow(), "/responses");
+    return Util.resolveUriWithPathSuffix(context.binding().baseUri(), "/responses");
   }
 
   public void rememberPreviousResponseId(ProviderContext context, String responseId) {

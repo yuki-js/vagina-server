@@ -38,9 +38,6 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
 
   @Override
   public QueryResult execute(ProviderContext context) {
-    if (context.binding().baseUri().isEmpty()) {
-      return failedProviderConfiguration("OpenAI Chat Completions base URL is required");
-    }
     List<ChatCompletionMessage> messages = mutableMessages(context);
     ensureSystemMessage(context, messages);
     appendCurrentInput(context, messages);
@@ -127,8 +124,7 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
   }
 
   private URI chatCompletionsUri(ProviderContext context) {
-    return Util.resolveUriWithPathSuffix(
-        context.binding().baseUri().orElseThrow(), "/chat/completions");
+    return Util.resolveUriWithPathSuffix(context.binding().baseUri(), "/chat/completions");
   }
 
   @SuppressWarnings("unchecked")

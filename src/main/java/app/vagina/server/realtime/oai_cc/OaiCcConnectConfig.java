@@ -15,6 +15,10 @@ public record OaiCcConnectConfig(
     if (model == null || model.isBlank()) {
       throw new IllegalArgumentException("Chat Completions model is required");
     }
+    if (apiKey == null || apiKey.isBlank()) {
+      throw new IllegalArgumentException("Chat Completions API key is required");
+    }
+    apiKey = apiKey.trim();
     extraHeaders = extraHeaders == null ? Map.of() : Map.copyOf(extraHeaders);
   }
 

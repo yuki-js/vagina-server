@@ -1,6 +1,7 @@
 package app.vagina.server.realtime.oai;
 
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
+import app.vagina.server.support.Constants;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -120,9 +121,12 @@ public final class OaiWebSocketTransport implements OaiRealtimeTransport {
    */
   static void applyAuthHeaders(WebSocketConnectOptions options, String token) {
     if (token == null || token.isBlank()) {
-      return;
+      throw new IllegalArgumentException("Realtime API key is required");
     }
     String trimmed = token.trim();
+    if (Constants.NO_AUTH_API_KEY.equals(trimmed)) {
+      return;
+    }
     options.addHeader("Authorization", "Bearer " + trimmed);
     options.addHeader("api-key", trimmed);
   }

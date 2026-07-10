@@ -63,13 +63,17 @@ vagina:
     models:
       realtime:
         provider: oai
-        base-url: "${vagina.openai-base}?model=gpt-realtime-2.1"
+        display-name: Realtime
+        base-url: "${vagina.openai-base}"
         transcription-model: gpt-4o-transcribe
         api-key: ${vagina.openai-default-apikey}
+        model: gpt-realtime-2.1
       chat-completion:
         provider: oai_cc
-        base-url: "${vagina.openai-base}?model=gpt-audio-1.5"
+        display-name: Chat Completion
+        base-url: "${vagina.openai-base}"
         api-key: ${vagina.openai-default-apikey}
+        model: gpt-audio-1.5
 
   text-agent:
     default-model: gpt-5.5
@@ -77,12 +81,15 @@ vagina:
       gpt-5.5:
         provider: oai_chat
         display-name: GPT-5.5
-        base-url: "${vagina.openai-base}?model=gpt-5.5"
+        base-url: "${vagina.openai-base}"
         api-key: ${vagina.openai-default-apikey}
+        model: gpt-5.5
       aok:
         provider: oai_chat
         display-name: Aok (Hermes Agent)
         base-url: http://10.1.0.10:8642/v1
+        api-key: ${vagina.openai-default-apikey}
+        model: aok
 
   object-storage:
     endpoint: https://9cacada6061eed702d20f32c61fe7755.r2.cloudflarestorage.com

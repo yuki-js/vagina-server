@@ -14,7 +14,6 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class TextAgentAdapterFactoryTest {
@@ -120,11 +119,7 @@ class TextAgentAdapterFactoryTest {
 
   private TextAgentModelBinding binding(String provider) {
     return new TextAgentModelBinding(
-        "text-agent-test",
-        provider,
-        Optional.of("https://api.openai.test/v1"),
-        Optional.of("test-key"),
-        Optional.of("gpt-test"));
+        "text-agent-test", provider, "https://api.openai.test/v1", "test-key", "gpt-test");
   }
 
   @SuppressWarnings("unused")

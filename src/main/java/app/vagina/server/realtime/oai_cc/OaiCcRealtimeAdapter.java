@@ -93,11 +93,10 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
   public Uni<Void> connect(String voice, String instructions) {
     ensureNotDisposed();
     setConnectionState(RealtimeAdapterModels.ConnectionState.connecting());
-    this.sessionVoice = voice != null ? voice : modelConfig.voice().orElse(null);
-    this.serverOwnedInstructions =
-        instructions != null ? instructions : modelConfig.instructions().orElse(null);
+    this.sessionVoice = voice;
+    this.serverOwnedInstructions = instructions;
     this.clientInstructions = "";
-    String baseUrl = modelConfig.baseUrl().map(String::trim).orElse("");
+    String baseUrl = modelConfig.baseUrl().trim();
     if (baseUrl.isEmpty()) {
       setConnectionState(
           RealtimeAdapterModels.ConnectionState.failed(
@@ -107,10 +106,10 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
               new IllegalStateException("Chat Completions model " + modelId + " has no base-url"));
     }
     try {
-      ResolvedEndpoint endpoint = resolveEndpoint(baseUrl, modelConfig.model().orElse(null));
+      ResolvedEndpoint endpoint = resolveEndpoint(baseUrl, modelConfig.model());
       this.connectConfig =
           new OaiCcConnectConfig(
-              endpoint.baseUri(), endpoint.model(), modelConfig.apiKey().orElse(null), Map.of());
+              endpoint.baseUri(), endpoint.model(), modelConfig.apiKey(), Map.of());
     } catch (RuntimeException e) {
       setConnectionState(
           RealtimeAdapterModels.ConnectionState.failed(
@@ -833,12 +832,10 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       String rawName = separator < 0 ? entry : entry.substring(0, separator);
       String name = URLDecoder.decode(rawName, StandardCharsets.UTF_8);
       if ("model".equals(name)) {
-        String rawValue = separator < 0 ? "" : entry.substring(separator + 1);
-        String value = URLDecoder.decode(rawValue, StandardCharsets.UTF_8);
-        if (!value.isBlank()) {
-          model = value;
-        }
-      } else if (!entry.isBlank()) {
+        throw new IllegalArgumentException(
+            "Chat Completions base URI must not contain model query");
+      }
+      if (!entry.isBlank()) {
         retained.add(entry);
       }
     }

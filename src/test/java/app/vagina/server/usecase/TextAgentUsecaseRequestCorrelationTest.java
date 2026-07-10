@@ -304,9 +304,9 @@ class TextAgentUsecaseRequestCorrelationTest {
         new TextAgentModelBinding(
             "text-agent-test",
             TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
-            Optional.of("https://provider.test/v1"),
-            Optional.of("test-key"),
-            Optional.of("gpt-test"));
+            "https://provider.test/v1",
+            "test-key",
+            "gpt-test");
     ProviderSessionState sessionState = new ProviderSessionState("ta_contract", binding);
 
     TextAgentService textAgentService = mock(TextAgentService.class);
@@ -319,9 +319,9 @@ class TextAgentUsecaseRequestCorrelationTest {
             new TextAgentModelRegistryService.TextAgentModelConfigView(
                 "text-agent-test",
                 TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
-                Optional.of("https://provider.test/v1"),
-                Optional.of("test-key"),
-                Optional.of("gpt-test")));
+                "https://provider.test/v1",
+                "test-key",
+                "gpt-test"));
 
     VhrpSession session = mock(VhrpSession.class);
     when(session.textAgentProviderState("ta_contract", binding)).thenReturn(sessionState);

@@ -94,13 +94,17 @@ vagina:
     models:
       realtime:
         provider: oai
-        base-url: "${vagina.openai-base}?model=gpt-realtime-2"
+        display-name: Realtime
+        base-url: "${vagina.openai-base}"
         api-key: ${OAI_COMMON_API_KEY}
+        model: gpt-realtime-2
         transcription-model: gpt-4o-transcribe
       chat-completion:
         provider: oai_cc
-        base-url: "${vagina.openai-base}?model=gpt-audio-1.5"
+        display-name: Chat Completion
+        base-url: "${vagina.openai-base}"
         api-key: ${OAI_COMMON_API_KEY}
+        model: gpt-audio-1.5
         required-entitlement: premium.voice
 
   text-agent:
@@ -109,13 +113,15 @@ vagina:
       gpt-5.5:
         provider: oai_chat
         display-name: GPT-5.5
-        base-url: "${vagina.openai-base}?model=gpt-5.5"
+        base-url: "${vagina.openai-base}"
         api-key: ${OAI_COMMON_API_KEY}
+        model: gpt-5.5
       aok:
         provider: oai_chat
         display-name: Aok (Hermes Agent)
         base-url: http://10.1.0.10:8642/v1
         api-key: ${AOK_API_KEY}
+        model: aok
         required-entitlement: premium.text
 
   object-storage:

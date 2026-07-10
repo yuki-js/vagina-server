@@ -61,7 +61,7 @@ public abstract sealed class VhrpException extends RuntimeException
     }
   }
 
-  /** {@code session.unknown_model}: session.open modelId resolves to no driver. */
+  /** {@code session.unknown_model}: the server-owned voice-agent id resolves to no driver. */
   public static final class SessionUnknownModel extends VhrpException {
     public SessionUnknownModel(String message) {
       super(message);

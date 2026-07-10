@@ -16,13 +16,13 @@ public interface TextAgentModelsConfig {
   interface ModelConfig {
     String provider();
 
-    Optional<String> displayName();
+    String displayName();
 
-    Optional<String> baseUrl();
+    String baseUrl();
 
-    Optional<String> apiKey();
+    String apiKey();
 
-    Optional<String> model();
+    String model();
 
     Optional<String> requiredEntitlement();
 

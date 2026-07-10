@@ -45,6 +45,7 @@ vagina:
     models:
       voice-agent-prod:
         provider: oai_cc
+        display-name: voice-agent-prod
         base-url: ${vagina.test.oai-cc.base-url}
         api-key: test-oai-cc-api-key
         model: test-oai-cc-model
@@ -56,6 +57,7 @@ vagina:
         model: test-oai-cc-model
       test-voice-agent-entitled:
         provider: oai_cc
+        display-name: test-voice-agent-entitled
         base-url: ${vagina.test.oai-cc.base-url}
         api-key: test-oai-cc-api-key
         model: test-oai-cc-model
@@ -70,7 +72,8 @@ vagina:
         required-entitlement: premium.voice.public
       test-voice-agent-fail-connect:
         provider: oai_cc
-        base-url: ""
+        display-name: Test Voice Agent Fail Connect
+        base-url: ${vagina.test.oai-cc.base-url}
         api-key: test-oai-cc-api-key
         model: test-oai-cc-model
 
@@ -80,16 +83,22 @@ vagina:
       text-agent-prod:
         provider: oai_chat
         display-name: text-agent-prod
+        base-url: https://text-agent.invalid/v1
+        api-key: __NO_AUTH__
         model: gpt-5.5
       test-text-agent-entitled:
         provider: oai_chat
         display-name: test-text-agent-entitled
+        base-url: https://text-agent.invalid/v1
+        api-key: __NO_AUTH__
         model: gpt-5.5
         required-entitlement: premium.text
         is-stealth: true
       test-text-agent-public-entitled:
         provider: oai_chat
         display-name: Test Locked Text Agent
+        base-url: https://text-agent.invalid/v1
+        api-key: __NO_AUTH__
         model: gpt-5.5
         required-entitlement: premium.text.public
 

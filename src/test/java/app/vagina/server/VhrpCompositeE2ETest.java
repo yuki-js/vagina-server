@@ -151,6 +151,7 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
    */
   @Test
   void freshOpenConnectFailure() throws Exception {
+    VhrpLifecycleTestSupport.installFailingConnectAdapterFactory();
     String token = VhrpAuthTestSupport.obtainValidJwt();
     String failingSpeedDialId = createFailingSpeedDial(token);
 

@@ -4,6 +4,8 @@ import app.vagina.server.entity.TextAgentDefinition.TextAgentProviderView;
 import app.vagina.server.support.Constants;
 import app.vagina.server.support.Util;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -28,11 +30,7 @@ public final class TextAgentRuntimeModels {
   }
 
   public record TextAgentModelBinding(
-      String textModelId,
-      String provider,
-      Optional<String> baseUrl,
-      Optional<String> apiKey,
-      Optional<String> model) {
+      String textModelId, String provider, String baseUrl, String apiKey, String model) {
     public TextAgentModelBinding {
       if (textModelId == null || textModelId.isBlank()) {
         throw new IllegalArgumentException("Text model id is required");
@@ -40,17 +38,39 @@ public final class TextAgentRuntimeModels {
       if (provider == null || provider.isBlank()) {
         throw new IllegalArgumentException("Text agent provider is required");
       }
-      baseUrl = baseUrl == null ? Optional.empty() : baseUrl;
-      apiKey = apiKey == null ? Optional.empty() : apiKey;
-      model = model == null ? Optional.empty() : model;
+      if (baseUrl == null || baseUrl.isBlank()) {
+        throw new IllegalArgumentException("Text agent base URL is required");
+      }
+      if (apiKey == null || apiKey.isBlank()) {
+        throw new IllegalArgumentException("Text agent API key is required");
+      }
+      if (model == null || model.isBlank()) {
+        throw new IllegalArgumentException("Text agent provider model is required");
+      }
+      rejectModelQuery(baseUrl, "Text agent base URL");
     }
 
-    public Optional<URI> baseUri() {
-      return baseUrl.filter(value -> !value.isBlank()).map(URI::create);
+    public URI baseUri() {
+      return URI.create(baseUrl);
     }
 
     public String providerModelName() {
-      return model.filter(value -> !value.isBlank()).orElse(textModelId);
+      return model;
+    }
+
+    private static void rejectModelQuery(String baseUrl, String sourceDescription) {
+      String query = URI.create(baseUrl).getRawQuery();
+      if (query == null || query.isBlank()) {
+        return;
+      }
+      for (String entry : query.split("&", -1)) {
+        int separator = entry.indexOf('=');
+        String rawName = separator < 0 ? entry : entry.substring(0, separator);
+        String name = URLDecoder.decode(rawName, StandardCharsets.UTF_8);
+        if ("model".equals(name)) {
+          throw new IllegalArgumentException(sourceDescription + " must not contain model query");
+        }
+      }
     }
   }
 

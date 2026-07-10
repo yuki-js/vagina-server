@@ -1,5 +1,6 @@
 package app.vagina.server.realtime.oai_cc;
 
+import app.vagina.server.support.Constants;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.subscription.MultiEmitter;
@@ -102,8 +103,8 @@ public final class OaiCcClient {
             .header("Content-Type", "application/json")
             .header("Accept", "text/event-stream")
             .POST(HttpRequest.BodyPublishers.ofString(request.toJson(json)));
-    if (config.apiKey() != null && !config.apiKey().isBlank()) {
-      String token = config.apiKey().trim();
+    String token = config.apiKey().trim();
+    if (!Constants.NO_AUTH_API_KEY.equals(token)) {
       builder.header("Authorization", "Bearer " + token);
       builder.header("api-key", token);
     }

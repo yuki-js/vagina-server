@@ -10,6 +10,7 @@ public final class Constants {
   public static final String VFS_RESERVED_SYSTEM_PATH = "/system";
 
   public static final Duration SERVER_COMMON_HTTP_TIMEOUT = Duration.ofSeconds(10);
+  public static final String NO_AUTH_API_KEY = "__NO_AUTH__";
 
   public static final String VHRP_RESUME_RETENTION_CONFIG_DEFAULT = "PT15S";
   public static final Duration VHRP_RESUME_RETENTION = Duration.ofSeconds(15);
