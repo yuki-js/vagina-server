@@ -54,6 +54,9 @@ public interface RealtimeModelsConfig {
      */
     String provider();
 
+    /** Optional user-facing name exposed in the voice-agent catalog. */
+    Optional<String> displayName();
+
     /** Downstream vendor base URL; opaque to the factory, interpreted by the driver. */
     Optional<String> baseUrl();
 

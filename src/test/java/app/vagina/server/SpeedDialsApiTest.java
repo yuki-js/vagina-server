@@ -155,6 +155,7 @@ class SpeedDialsApiTest {
         .then()
         .statusCode(200)
         .body("id", hasItem("voice-agent-prod-cc"))
+        .body("find { it.id == 'voice-agent-prod-cc' }.displayName", equalTo("Test Voice Agent CC"))
         .body("id", not(hasItem("test-voice-agent-entitled")));
   }
 

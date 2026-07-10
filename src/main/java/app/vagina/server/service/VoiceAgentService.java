@@ -27,7 +27,10 @@ public class VoiceAgentService {
     return modelsConfig.models().keySet().stream()
         .filter(modelId -> isEntitled(userId, modelId))
         .sorted(Comparator.naturalOrder())
-        .map(modelId -> new ModelCatalogItem(modelId, modelId, modelId.equals(defaultModelId())))
+        .map(
+            modelId ->
+                new ModelCatalogItem(
+                    modelId, displayName(modelId), modelId.equals(defaultModelId())))
         .toList();
   }
 
@@ -66,6 +69,16 @@ public class VoiceAgentService {
         .map(String::trim)
         .filter(value -> !value.isEmpty())
         .orElse(null);
+  }
+
+  private String displayName(String modelId) {
+    return modelsConfig
+        .models()
+        .get(modelId)
+        .displayName()
+        .map(String::trim)
+        .filter(value -> !value.isEmpty())
+        .orElse(modelId);
   }
 
   public record ModelCatalogItem(String id, String displayName, boolean isDefault) {}

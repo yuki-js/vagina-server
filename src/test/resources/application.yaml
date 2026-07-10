@@ -50,6 +50,7 @@ vagina:
         model: test-oai-cc-model
       voice-agent-prod-cc:
         provider: oai_cc
+        display-name: Test Voice Agent CC
         base-url: ${vagina.test.oai-cc.base-url}
         api-key: test-oai-cc-api-key
         model: test-oai-cc-model
