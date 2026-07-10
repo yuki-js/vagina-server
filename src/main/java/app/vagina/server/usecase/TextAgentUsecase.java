@@ -37,36 +37,38 @@ public class TextAgentUsecase {
   @Inject TextAgentAdapterFactory textAgentAdapterFactory;
   @Inject ObjectMapper objectMapper;
 
-  public List<TextAgentDefinition> listTextAgents(Long userId) {
-    return textAgentService.findByUserId(userId);
+  public List<TextAgentDefinition> listTextAgents(Long currentUserId) {
+    return textAgentService.findByUserId(currentUserId);
   }
 
-  public TextAgentDefinition getTextAgent(Long userId, String textAgentId) {
+  public TextAgentDefinition getTextAgent(Long currentUserId, String textAgentId) {
     return textAgentService
-        .findByUserIdAndTextAgentId(userId, textAgentId)
+        .findByUserIdAndTextAgentId(currentUserId, textAgentId)
         .orElseThrow(() -> new NotFoundException("Text agent not found"));
   }
 
   @Transactional
-  public TextAgentDefinition createTextAgent(Long userId, WriteCommand command) {
-    textAgentModelRegistryService.validateKnownModelId(command.textModelId());
-    return textAgentService.create(userId, command.toCreateServiceCommand());
+  public TextAgentDefinition createTextAgent(Long currentUserId, WriteCommand command) {
+    textAgentModelRegistryService.validateEntitledModelId(currentUserId, command.textModelId());
+    return textAgentService.create(currentUserId, command.toCreateServiceCommand());
   }
 
   @Transactional
   public TextAgentDefinition updateTextAgent(
-      Long userId, String textAgentId, WriteCommand command) {
-    textAgentModelRegistryService.validateKnownModelId(command.textModelId());
+      Long currentUserId, String textAgentId, WriteCommand command) {
+    textAgentModelRegistryService.validateEntitledModelId(currentUserId, command.textModelId());
     return textAgentService
-        .update(userId, textAgentId, command.toUpdateServiceCommand())
+        .update(currentUserId, textAgentId, command.toUpdateServiceCommand())
         .orElseThrow(() -> new NotFoundException("Text agent not found"));
   }
 
-  public QueryResult queryTextAgent(Long userId, String textAgentId, QueryCommand command) {
+  public QueryResult queryTextAgent(Long currentUserId, String textAgentId, QueryCommand command) {
     command.requireValidShape();
-    TextAgentDefinition textAgent = getTextAgent(userId, textAgentId);
+    TextAgentDefinition textAgent = getTextAgent(currentUserId, textAgentId);
+    textAgentModelRegistryService.validateEntitledModelId(
+        currentUserId, textAgent.getTextModelId());
     VhrpSession session =
-        vhrpSessionRegistry.getOwnedActiveSession(command.voiceSessionId(), userId);
+        vhrpSessionRegistry.getOwnedActiveSession(command.voiceSessionId(), currentUserId);
     ProviderSessionState sessionState =
         session.textAgentProviderState(textAgentId, initialBinding(textAgent));
     QueryResult pendingToolResult = validateAndApplyRequestState(command, sessionState);
@@ -178,8 +180,8 @@ public class TextAgentUsecase {
   }
 
   @Transactional
-  public void deleteTextAgent(Long userId, String textAgentId) {
-    boolean deleted = textAgentService.delete(userId, textAgentId);
+  public void deleteTextAgent(Long currentUserId, String textAgentId) {
+    boolean deleted = textAgentService.delete(currentUserId, textAgentId);
     if (!deleted) {
       throw new NotFoundException("Text agent not found");
     }

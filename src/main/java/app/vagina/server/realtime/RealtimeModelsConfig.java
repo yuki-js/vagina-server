@@ -71,5 +71,8 @@ public interface RealtimeModelsConfig {
 
     /** Optional default instructions applied when {@code session.open} carries none. */
     Optional<String> instructions();
+
+    /** Optional entitlement key associated with this voice-agent model. Not enforced here. */
+    Optional<String> requiredEntitlement();
   }
 }

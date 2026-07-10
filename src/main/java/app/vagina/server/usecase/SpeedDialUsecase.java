@@ -15,50 +15,51 @@ public class SpeedDialUsecase {
   @Inject SpeedDialService speedDialService;
   @Inject VoiceAgentService voiceAgentService;
 
-  public List<SpeedDialPreset> listSpeedDials(Long userId) {
-    speedDialService.ensureDefaultExists(userId);
-    return speedDialService.findByUserId(userId);
+  public List<SpeedDialPreset> listSpeedDials(Long currentUserId) {
+    speedDialService.ensureDefaultExists(currentUserId);
+    return speedDialService.findByUserId(currentUserId);
   }
 
-  public SpeedDialPreset getSpeedDial(Long userId, String speedDialId) {
+  public SpeedDialPreset getSpeedDial(Long currentUserId, String speedDialId) {
     if (SpeedDialService.DEFAULT_SPEED_DIAL_ID.equals(speedDialId)) {
-      speedDialService.ensureDefaultExists(userId);
+      speedDialService.ensureDefaultExists(currentUserId);
     }
 
     return speedDialService
-        .findByUserIdAndSpeedDialId(userId, speedDialId)
+        .findByUserIdAndSpeedDialId(currentUserId, speedDialId)
         .orElseThrow(() -> new NotFoundException("Speed dial not found"));
   }
 
   @Transactional
-  public SpeedDialPreset createSpeedDial(Long userId, CreateCommand command) {
-    voiceAgentService.validateKnownModelId(command.voiceAgentId());
-    return speedDialService.create(userId, command.toServiceCommand());
+  public SpeedDialPreset createSpeedDial(Long currentUserId, CreateCommand command) {
+    voiceAgentService.validateEntitledModelId(currentUserId, command.voiceAgentId());
+    return speedDialService.create(currentUserId, command.toServiceCommand());
   }
 
   @Transactional
-  public SpeedDialPreset updateSpeedDial(Long userId, String speedDialId, UpdateCommand command) {
-    voiceAgentService.validateKnownModelId(command.voiceAgentId());
+  public SpeedDialPreset updateSpeedDial(
+      Long currentUserId, String speedDialId, UpdateCommand command) {
+    voiceAgentService.validateEntitledModelId(currentUserId, command.voiceAgentId());
 
     if (SpeedDialService.DEFAULT_SPEED_DIAL_ID.equals(speedDialId)) {
-      speedDialService.ensureDefaultExists(userId);
+      speedDialService.ensureDefaultExists(currentUserId);
       if (!SpeedDialService.DEFAULT_SPEED_DIAL_NAME.equals(command.name())) {
         throw new ConflictException("Default speed dial cannot be renamed");
       }
     }
 
     return speedDialService
-        .update(userId, speedDialId, command.toServiceCommand())
+        .update(currentUserId, speedDialId, command.toServiceCommand())
         .orElseThrow(() -> new NotFoundException("Speed dial not found"));
   }
 
   @Transactional
-  public void deleteSpeedDial(Long userId, String speedDialId) {
+  public void deleteSpeedDial(Long currentUserId, String speedDialId) {
     if (SpeedDialService.DEFAULT_SPEED_DIAL_ID.equals(speedDialId)) {
       throw new ConflictException("Default speed dial cannot be deleted");
     }
 
-    boolean deleted = speedDialService.delete(userId, speedDialId);
+    boolean deleted = speedDialService.delete(currentUserId, speedDialId);
     if (!deleted) {
       throw new NotFoundException("Speed dial not found");
     }

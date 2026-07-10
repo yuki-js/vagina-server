@@ -21,5 +21,7 @@ public interface TextAgentModelsConfig {
     Optional<String> apiKey();
 
     Optional<String> model();
+
+    Optional<String> requiredEntitlement();
   }
 }

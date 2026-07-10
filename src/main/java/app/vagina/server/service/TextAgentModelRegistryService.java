@@ -1,6 +1,7 @@
 package app.vagina.server.service;
 
 import app.vagina.server.config.TextAgentModelsConfig;
+import app.vagina.server.domain.error.AuthorizationException;
 import app.vagina.server.domain.error.ValidationException;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -13,6 +14,7 @@ import java.util.Optional;
 public class TextAgentModelRegistryService {
 
   @Inject TextAgentModelsConfig modelsConfig;
+  @Inject EntitlementService entitlementService;
 
   @PostConstruct
   void validateDefaultModel() {
@@ -22,8 +24,9 @@ public class TextAgentModelRegistryService {
     }
   }
 
-  public List<TextAgentModelCatalogItem> listTextAgentModels() {
+  public List<TextAgentModelCatalogItem> listTextAgentModels(Long userId) {
     return modelsConfig.models().entrySet().stream()
+        .filter(entry -> isEntitled(userId, entry.getKey()))
         .sorted(Comparator.comparing(entry -> entry.getKey()))
         .map(
             entry ->
@@ -38,17 +41,40 @@ public class TextAgentModelRegistryService {
     return modelsConfig.defaultModel();
   }
 
-  public boolean isKnownModel(String modelId) {
-    return modelsConfig.models().containsKey(modelId);
-  }
-
-  public void validateKnownModelId(String modelId) {
+  public void validateEntitledModelId(Long userId, String modelId) {
     if (modelId == null || modelId.isBlank()) {
       throw new ValidationException("Text model id is required");
     }
-    if (!isKnownModel(modelId)) {
+    if (!modelsConfig.models().containsKey(modelId)) {
       throw new ValidationException("Unknown text model id: " + modelId);
     }
+    String requiredEntitlement = requiredEntitlement(modelId);
+    if (requiredEntitlement == null) {
+      return;
+    }
+    if (!entitlementService.hasActiveEntitlement(userId, requiredEntitlement)) {
+      throw new AuthorizationException(
+          "Missing required entitlement for text agent model "
+              + modelId
+              + ": "
+              + requiredEntitlement);
+    }
+  }
+
+  private boolean isEntitled(Long userId, String modelId) {
+    String requiredEntitlement = requiredEntitlement(modelId);
+    return requiredEntitlement == null
+        || entitlementService.hasActiveEntitlement(userId, requiredEntitlement);
+  }
+
+  private String requiredEntitlement(String modelId) {
+    return modelsConfig
+        .models()
+        .get(modelId)
+        .requiredEntitlement()
+        .map(String::trim)
+        .filter(value -> !value.isEmpty())
+        .orElse(null);
   }
 
   public TextAgentModelConfigView getModelConfig(String modelId) {

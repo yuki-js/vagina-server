@@ -101,6 +101,7 @@ vagina:
         provider: oai_cc
         base-url: "${vagina.openai-base}?model=gpt-audio-1.5"
         api-key: ${OAI_COMMON_API_KEY}
+        required-entitlement: premium.voice
 
   text-agent:
     default-model: gpt-5.5
@@ -115,6 +116,7 @@ vagina:
         display-name: Aok (Hermes Agent)
         base-url: http://10.1.0.10:8642/v1
         api-key: ${AOK_API_KEY}
+        required-entitlement: premium.text
 
   object-storage:
     endpoint: https://9cacada6061eed702d20f32c61fe7755.r2.cloudflarestorage.com

@@ -11,8 +11,8 @@ public class VoiceAgentUsecase {
 
   @Inject VoiceAgentService voiceAgentService;
 
-  public List<VoiceAgentView> listVoiceAgents() {
-    return voiceAgentService.listVoiceAgents().stream().map(this::toView).toList();
+  public List<VoiceAgentView> listVoiceAgents(Long currentUserId) {
+    return voiceAgentService.listVoiceAgents(currentUserId).stream().map(this::toView).toList();
   }
 
   private VoiceAgentView toView(ModelCatalogItem item) {

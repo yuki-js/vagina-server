@@ -3,6 +3,7 @@ package app.vagina.server.resource;
 import app.vagina.server.generated.api.VoiceAgentsApi;
 import app.vagina.server.generated.model.VoiceAgent;
 import app.vagina.server.support.Authenticated;
+import app.vagina.server.support.AuthenticatedUser;
 import app.vagina.server.usecase.VoiceAgentUsecase;
 import app.vagina.server.usecase.VoiceAgentUsecase.VoiceAgentView;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,11 +18,13 @@ import java.util.List;
 public class VoiceAgentsApiImpl implements VoiceAgentsApi {
 
   @Inject VoiceAgentUsecase voiceAgentUsecase;
+  @Inject AuthenticatedUser authenticatedUser;
 
   @Override
   public Response listVoiceAgents() {
+    Long userId = authenticatedUser.get().getId();
     List<VoiceAgent> voiceAgents =
-        voiceAgentUsecase.listVoiceAgents().stream().map(this::toGeneratedModel).toList();
+        voiceAgentUsecase.listVoiceAgents(userId).stream().map(this::toGeneratedModel).toList();
     return Response.ok(voiceAgents).build();
   }
 

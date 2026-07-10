@@ -4,6 +4,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 
 import app.vagina.server.support.HarigataOidcMockServerResource;
@@ -139,6 +140,52 @@ class SpeedDialsApiTest {
         .then()
         .statusCode(400)
         .body("message", notNullValue());
+  }
+
+  @Test
+  void listVoiceAgentsExcludesModelsMissingRequiredEntitlement() {
+    String token = VhrpAuthTestSupport.obtainValidJwt();
+
+    given()
+        .auth()
+        .oauth2(token)
+        .accept(ContentType.JSON)
+        .when()
+        .get("/api/voice-agents")
+        .then()
+        .statusCode(200)
+        .body("id", hasItem("voice-agent-prod-cc"))
+        .body("id", not(hasItem("test-voice-agent-entitled")));
+  }
+
+  @Test
+  void createSpeedDialRejectsVoiceAgentMissingRequiredEntitlement() {
+    String token = VhrpAuthTestSupport.obtainValidJwt();
+
+    Map<String, Object> body =
+        Map.of(
+            "name", "Locked Agent",
+            "systemPrompt", "You should not be saved.",
+            "voice", "alloy",
+            "voiceAgentId", "test-voice-agent-entitled",
+            "enabledTools", Map.of(),
+            "reasoningEffort", "off",
+            "toolChoiceRequired", false);
+
+    given()
+        .auth()
+        .oauth2(token)
+        .contentType(ContentType.JSON)
+        .accept(ContentType.JSON)
+        .body(body)
+        .when()
+        .post("/api/speed-dials")
+        .then()
+        .statusCode(403)
+        .body(
+            "message",
+            equalTo(
+                "Missing required entitlement for voice agent test-voice-agent-entitled: premium.voice"));
   }
 
   @Test

@@ -2,7 +2,9 @@ package app.vagina.server;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 
 import app.vagina.server.support.HarigataOidcMockServerResource;
@@ -91,5 +93,48 @@ class TextAgentsApiTest {
         .then()
         .statusCode(400)
         .body("message", notNullValue());
+  }
+
+  @Test
+  void listTextAgentModelsExcludesModelsMissingRequiredEntitlement() {
+    String token = VhrpAuthTestSupport.obtainValidJwt();
+
+    given()
+        .auth()
+        .oauth2(token)
+        .accept(ContentType.JSON)
+        .when()
+        .get("/api/text-agents/models")
+        .then()
+        .statusCode(200)
+        .body("id", hasItem("text-agent-prod"))
+        .body("id", not(hasItem("test-text-agent-entitled")));
+  }
+
+  @Test
+  void createTextAgentRejectsTextModelMissingRequiredEntitlement() {
+    String token = VhrpAuthTestSupport.obtainValidJwt();
+
+    Map<String, Object> body =
+        Map.of(
+            "name", "Locked Text Model",
+            "prompt", "You should not be saved.",
+            "textModelId", "test-text-agent-entitled",
+            "enabledTools", Map.of());
+
+    given()
+        .auth()
+        .oauth2(token)
+        .contentType(ContentType.JSON)
+        .accept(ContentType.JSON)
+        .body(body)
+        .when()
+        .post("/api/text-agents")
+        .then()
+        .statusCode(403)
+        .body(
+            "message",
+            equalTo(
+                "Missing required entitlement for text agent model test-text-agent-entitled: premium.text"));
   }
 }

@@ -3,6 +3,7 @@ package app.vagina.server.resource;
 import app.vagina.server.generated.api.TextAgentModelsApi;
 import app.vagina.server.generated.model.ListTextAgentModels200ResponseInner;
 import app.vagina.server.support.Authenticated;
+import app.vagina.server.support.AuthenticatedUser;
 import app.vagina.server.usecase.TextAgentModelRegistryUsecase;
 import app.vagina.server.usecase.TextAgentModelRegistryUsecase.TextAgentModelView;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,11 +18,13 @@ import java.util.List;
 public class TextAgentModelsApiImpl implements TextAgentModelsApi {
 
   @Inject TextAgentModelRegistryUsecase textAgentModelRegistryUsecase;
+  @Inject AuthenticatedUser authenticatedUser;
 
   @Override
   public Response listTextAgentModels() {
+    Long userId = authenticatedUser.get().getId();
     List<ListTextAgentModels200ResponseInner> models =
-        textAgentModelRegistryUsecase.listTextAgentModels().stream()
+        textAgentModelRegistryUsecase.listTextAgentModels(userId).stream()
             .map(this::toGeneratedModel)
             .toList();
     return Response.ok(models).build();

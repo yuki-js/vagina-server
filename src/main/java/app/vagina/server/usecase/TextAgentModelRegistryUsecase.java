@@ -11,8 +11,10 @@ public class TextAgentModelRegistryUsecase {
 
   @Inject TextAgentModelRegistryService textAgentModelRegistryService;
 
-  public List<TextAgentModelView> listTextAgentModels() {
-    return textAgentModelRegistryService.listTextAgentModels().stream().map(this::toView).toList();
+  public List<TextAgentModelView> listTextAgentModels(Long currentUserId) {
+    return textAgentModelRegistryService.listTextAgentModels(currentUserId).stream()
+        .map(this::toView)
+        .toList();
   }
 
   private TextAgentModelView toView(TextAgentModelCatalogItem item) {

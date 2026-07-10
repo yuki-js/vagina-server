@@ -1,5 +1,6 @@
 package app.vagina.server.service;
 
+import app.vagina.server.domain.error.AuthorizationException;
 import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.realtime.RealtimeModelsConfig;
 import jakarta.annotation.PostConstruct;
@@ -12,6 +13,7 @@ import java.util.List;
 public class VoiceAgentService {
 
   @Inject RealtimeModelsConfig modelsConfig;
+  @Inject EntitlementService entitlementService;
 
   @PostConstruct
   void validateDefaultModel() {
@@ -21,8 +23,9 @@ public class VoiceAgentService {
     }
   }
 
-  public List<ModelCatalogItem> listVoiceAgents() {
+  public List<ModelCatalogItem> listVoiceAgents(Long userId) {
     return modelsConfig.models().keySet().stream()
+        .filter(modelId -> isEntitled(userId, modelId))
         .sorted(Comparator.naturalOrder())
         .map(modelId -> new ModelCatalogItem(modelId, modelId, modelId.equals(defaultModelId())))
         .toList();
@@ -32,17 +35,37 @@ public class VoiceAgentService {
     return modelsConfig.defaultModel();
   }
 
-  public boolean isKnownModel(String modelId) {
-    return modelsConfig.models().containsKey(modelId);
-  }
-
-  public void validateKnownModelId(String modelId) {
+  public void validateEntitledModelId(Long userId, String modelId) {
     if (modelId == null || modelId.isBlank()) {
       throw new ValidationException("Voice agent id is required");
     }
-    if (!isKnownModel(modelId)) {
+    if (!modelsConfig.models().containsKey(modelId)) {
       throw new ValidationException("Unknown voice agent id: " + modelId);
     }
+    String requiredEntitlement = requiredEntitlement(modelId);
+    if (requiredEntitlement == null) {
+      return;
+    }
+    if (!entitlementService.hasActiveEntitlement(userId, requiredEntitlement)) {
+      throw new AuthorizationException(
+          "Missing required entitlement for voice agent " + modelId + ": " + requiredEntitlement);
+    }
+  }
+
+  private boolean isEntitled(Long userId, String modelId) {
+    String requiredEntitlement = requiredEntitlement(modelId);
+    return requiredEntitlement == null
+        || entitlementService.hasActiveEntitlement(userId, requiredEntitlement);
+  }
+
+  private String requiredEntitlement(String modelId) {
+    return modelsConfig
+        .models()
+        .get(modelId)
+        .requiredEntitlement()
+        .map(String::trim)
+        .filter(value -> !value.isEmpty())
+        .orElse(null);
   }
 
   public record ModelCatalogItem(String id, String displayName, boolean isDefault) {}

@@ -7,6 +7,7 @@ import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.entity.User;
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.service.AuthService;
+import app.vagina.server.service.VoiceAgentService;
 import app.vagina.server.support.Constants;
 import app.vagina.server.support.EnabledToolsJson;
 import app.vagina.server.support.EnabledToolsJson.ParseResult;
@@ -60,6 +61,7 @@ public class VhrpSessionRegistry {
   @Inject Vertx vertx;
   @Inject VhrpBlockingUsecaseBridge blockingUsecaseBridge;
   @Inject RealtimeModelsConfig realtimeConfig;
+  @Inject VoiceAgentService voiceAgentService;
   @Inject ObjectMapper objectMapper;
 
   /** A session plus the bookkeeping the registry needs to police retention and ownership. */
@@ -124,6 +126,7 @@ public class VhrpSessionRegistry {
     SpeedDialPreset.VoiceSessionConfig runtimeConfig = speedDial.toVoiceSessionConfig();
     RealtimeAdapter adapter;
     String voiceAgentId = runtimeConfig.voiceAgentId();
+    voiceAgentService.validateEntitledModelId(user.getId(), voiceAgentId);
     try {
       adapter = adapterFactory.create(voiceAgentId);
     } catch (RealtimeAdapterFactory.UnknownModelException e) {

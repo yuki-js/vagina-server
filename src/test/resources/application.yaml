@@ -53,6 +53,12 @@ vagina:
         base-url: ${vagina.test.oai-cc.base-url}
         api-key: test-oai-cc-api-key
         model: test-oai-cc-model
+      test-voice-agent-entitled:
+        provider: oai_cc
+        base-url: ${vagina.test.oai-cc.base-url}
+        api-key: test-oai-cc-api-key
+        model: test-oai-cc-model
+        required-entitlement: premium.voice
       test-voice-agent-fail-connect:
         provider: oai_cc
         base-url: ""
@@ -66,6 +72,11 @@ vagina:
         provider: oai_chat
         display-name: text-agent-prod
         model: gpt-5.5
+      test-text-agent-entitled:
+        provider: oai_chat
+        display-name: test-text-agent-entitled
+        model: gpt-5.5
+        required-entitlement: premium.text
 
   object-storage:
     endpoint: https://object-storage.invalid
