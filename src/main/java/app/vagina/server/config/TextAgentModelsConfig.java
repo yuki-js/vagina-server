@@ -1,6 +1,8 @@
 package app.vagina.server.config;
 
 import io.smallrye.config.ConfigMapping;
+import io.smallrye.config.WithDefault;
+import io.smallrye.config.WithName;
 import java.util.Map;
 import java.util.Optional;
 
@@ -23,5 +25,9 @@ public interface TextAgentModelsConfig {
     Optional<String> model();
 
     Optional<String> requiredEntitlement();
+
+    @WithName("is-stealth")
+    @WithDefault("false")
+    boolean isStealth();
   }
 }

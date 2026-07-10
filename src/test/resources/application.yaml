@@ -60,6 +60,14 @@ vagina:
         api-key: test-oai-cc-api-key
         model: test-oai-cc-model
         required-entitlement: premium.voice
+        is-stealth: true
+      test-voice-agent-public-entitled:
+        provider: oai_cc
+        display-name: Test Locked Voice Agent
+        base-url: ${vagina.test.oai-cc.base-url}
+        api-key: test-oai-cc-api-key
+        model: test-oai-cc-model
+        required-entitlement: premium.voice.public
       test-voice-agent-fail-connect:
         provider: oai_cc
         base-url: ""
@@ -78,6 +86,12 @@ vagina:
         display-name: test-text-agent-entitled
         model: gpt-5.5
         required-entitlement: premium.text
+        is-stealth: true
+      test-text-agent-public-entitled:
+        provider: oai_chat
+        display-name: Test Locked Text Agent
+        model: gpt-5.5
+        required-entitlement: premium.text.public
 
   object-storage:
     endpoint: https://object-storage.invalid

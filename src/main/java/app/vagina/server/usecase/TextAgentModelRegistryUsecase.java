@@ -18,8 +18,10 @@ public class TextAgentModelRegistryUsecase {
   }
 
   private TextAgentModelView toView(TextAgentModelCatalogItem item) {
-    return new TextAgentModelView(item.id(), item.displayName(), item.isDefault());
+    return new TextAgentModelView(
+        item.id(), item.displayName(), item.isDefault(), item.isAvailable());
   }
 
-  public record TextAgentModelView(String id, String displayName, boolean isDefault) {}
+  public record TextAgentModelView(
+      String id, String displayName, boolean isDefault, boolean isAvailable) {}
 }

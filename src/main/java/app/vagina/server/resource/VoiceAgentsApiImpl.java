@@ -33,6 +33,7 @@ public class VoiceAgentsApiImpl implements VoiceAgentsApi {
     voiceAgent.setId(view.id());
     voiceAgent.setDisplayName(view.displayName());
     voiceAgent.setIsDefault(view.isDefault());
+    voiceAgent.setIsAvailable(view.isAvailable());
     return voiceAgent;
   }
 }

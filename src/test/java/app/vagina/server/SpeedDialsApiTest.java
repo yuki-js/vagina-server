@@ -143,7 +143,7 @@ class SpeedDialsApiTest {
   }
 
   @Test
-  void listVoiceAgentsExcludesModelsMissingRequiredEntitlement() {
+  void listVoiceAgentsReturnsAvailableModelsAndPublicLockedModelsButExcludesStealthModels() {
     String token = VhrpAuthTestSupport.obtainValidJwt();
 
     given()
@@ -156,6 +156,12 @@ class SpeedDialsApiTest {
         .statusCode(200)
         .body("id", hasItem("voice-agent-prod-cc"))
         .body("find { it.id == 'voice-agent-prod-cc' }.displayName", equalTo("Test Voice Agent CC"))
+        .body("find { it.id == 'voice-agent-prod-cc' }.isAvailable", equalTo(true))
+        .body("id", hasItem("test-voice-agent-public-entitled"))
+        .body(
+            "find { it.id == 'test-voice-agent-public-entitled' }.displayName",
+            equalTo("Test Locked Voice Agent"))
+        .body("find { it.id == 'test-voice-agent-public-entitled' }.isAvailable", equalTo(false))
         .body("id", not(hasItem("test-voice-agent-entitled")));
   }
 
@@ -187,6 +193,36 @@ class SpeedDialsApiTest {
             "message",
             equalTo(
                 "Missing required entitlement for voice agent test-voice-agent-entitled: premium.voice"));
+  }
+
+  @Test
+  void createSpeedDialRejectsPublicVoiceAgentMissingRequiredEntitlement() {
+    String token = VhrpAuthTestSupport.obtainValidJwt();
+
+    Map<String, Object> body =
+        Map.of(
+            "name", "Public Locked Agent",
+            "systemPrompt", "You should not be saved.",
+            "voice", "alloy",
+            "voiceAgentId", "test-voice-agent-public-entitled",
+            "enabledTools", Map.of(),
+            "reasoningEffort", "off",
+            "toolChoiceRequired", false);
+
+    given()
+        .auth()
+        .oauth2(token)
+        .contentType(ContentType.JSON)
+        .accept(ContentType.JSON)
+        .body(body)
+        .when()
+        .post("/api/speed-dials")
+        .then()
+        .statusCode(403)
+        .body(
+            "message",
+            equalTo(
+                "Missing required entitlement for voice agent test-voice-agent-public-entitled: premium.voice.public"));
   }
 
   @Test

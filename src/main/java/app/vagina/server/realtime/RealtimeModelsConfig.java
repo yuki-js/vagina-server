@@ -3,6 +3,7 @@ package app.vagina.server.realtime;
 import app.vagina.server.support.Constants;
 import io.smallrye.config.ConfigMapping;
 import io.smallrye.config.WithDefault;
+import io.smallrye.config.WithName;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
@@ -77,5 +78,10 @@ public interface RealtimeModelsConfig {
 
     /** Optional entitlement key associated with this voice-agent model. Not enforced here. */
     Optional<String> requiredEntitlement();
+
+    /** Whether a missing-entitlement model is hidden from catalog responses. */
+    @WithName("is-stealth")
+    @WithDefault("false")
+    boolean isStealth();
   }
 }

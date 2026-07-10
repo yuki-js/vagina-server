@@ -13,7 +13,7 @@ paths:
         - bearerAuth: []
       responses:
         "200":
-          description: Text agent model presets available to the authenticated user.
+          description: Text agent model presets visible to the authenticated user.
           content:
             application/json:
               schema:
@@ -25,6 +25,7 @@ paths:
                     - id
                     - displayName
                     - isDefault
+                    - isAvailable
                   properties:
                     id:
                       type: string
@@ -38,6 +39,13 @@ paths:
                       example: text-agent-prod
                     isDefault:
                       type: boolean
+                      example: true
+                    isAvailable:
+                      type: boolean
+                      description: >-
+                        Whether the authenticated user may select and use this
+                        text agent model. Public catalog items can be returned
+                        with false so clients can render them as locked.
                       example: true
         "401":
           description: Authentication required.

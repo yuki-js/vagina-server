@@ -25,12 +25,15 @@ public class VoiceAgentService {
 
   public List<ModelCatalogItem> listVoiceAgents(Long userId) {
     return modelsConfig.models().keySet().stream()
-        .filter(modelId -> isEntitled(userId, modelId))
+        .filter(modelId -> isVisible(userId, modelId))
         .sorted(Comparator.naturalOrder())
         .map(
             modelId ->
                 new ModelCatalogItem(
-                    modelId, displayName(modelId), modelId.equals(defaultModelId())))
+                    modelId,
+                    displayName(modelId),
+                    modelId.equals(defaultModelId()),
+                    isEntitled(userId, modelId)))
         .toList();
   }
 
@@ -55,10 +58,18 @@ public class VoiceAgentService {
     }
   }
 
+  private boolean isVisible(Long userId, String modelId) {
+    return isEntitled(userId, modelId) || !isStealth(modelId);
+  }
+
   private boolean isEntitled(Long userId, String modelId) {
     String requiredEntitlement = requiredEntitlement(modelId);
     return requiredEntitlement == null
         || entitlementService.hasActiveEntitlement(userId, requiredEntitlement);
+  }
+
+  private boolean isStealth(String modelId) {
+    return modelsConfig.models().get(modelId).isStealth();
   }
 
   private String requiredEntitlement(String modelId) {
@@ -81,5 +92,6 @@ public class VoiceAgentService {
         .orElse(modelId);
   }
 
-  public record ModelCatalogItem(String id, String displayName, boolean isDefault) {}
+  public record ModelCatalogItem(
+      String id, String displayName, boolean isDefault, boolean isAvailable) {}
 }

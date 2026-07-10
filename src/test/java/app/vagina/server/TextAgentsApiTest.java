@@ -96,7 +96,7 @@ class TextAgentsApiTest {
   }
 
   @Test
-  void listTextAgentModelsExcludesModelsMissingRequiredEntitlement() {
+  void listTextAgentModelsReturnsAvailableModelsAndPublicLockedModelsButExcludesStealthModels() {
     String token = VhrpAuthTestSupport.obtainValidJwt();
 
     given()
@@ -108,6 +108,12 @@ class TextAgentsApiTest {
         .then()
         .statusCode(200)
         .body("id", hasItem("text-agent-prod"))
+        .body("find { it.id == 'text-agent-prod' }.isAvailable", equalTo(true))
+        .body("id", hasItem("test-text-agent-public-entitled"))
+        .body(
+            "find { it.id == 'test-text-agent-public-entitled' }.displayName",
+            equalTo("Test Locked Text Agent"))
+        .body("find { it.id == 'test-text-agent-public-entitled' }.isAvailable", equalTo(false))
         .body("id", not(hasItem("test-text-agent-entitled")));
   }
 
@@ -136,5 +142,32 @@ class TextAgentsApiTest {
             "message",
             equalTo(
                 "Missing required entitlement for text agent model test-text-agent-entitled: premium.text"));
+  }
+
+  @Test
+  void createTextAgentRejectsPublicTextModelMissingRequiredEntitlement() {
+    String token = VhrpAuthTestSupport.obtainValidJwt();
+
+    Map<String, Object> body =
+        Map.of(
+            "name", "Public Locked Text Model",
+            "prompt", "You should not be saved.",
+            "textModelId", "test-text-agent-public-entitled",
+            "enabledTools", Map.of());
+
+    given()
+        .auth()
+        .oauth2(token)
+        .contentType(ContentType.JSON)
+        .accept(ContentType.JSON)
+        .body(body)
+        .when()
+        .post("/api/text-agents")
+        .then()
+        .statusCode(403)
+        .body(
+            "message",
+            equalTo(
+                "Missing required entitlement for text agent model test-text-agent-public-entitled: premium.text.public"));
   }
 }

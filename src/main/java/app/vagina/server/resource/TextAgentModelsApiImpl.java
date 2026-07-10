@@ -35,6 +35,7 @@ public class TextAgentModelsApiImpl implements TextAgentModelsApi {
     model.setId(view.id());
     model.setDisplayName(view.displayName());
     model.setIsDefault(view.isDefault());
+    model.setIsAvailable(view.isAvailable());
     return model;
   }
 }

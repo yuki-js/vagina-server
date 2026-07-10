@@ -16,8 +16,9 @@ public class VoiceAgentUsecase {
   }
 
   private VoiceAgentView toView(ModelCatalogItem item) {
-    return new VoiceAgentView(item.id(), item.displayName(), item.isDefault());
+    return new VoiceAgentView(item.id(), item.displayName(), item.isDefault(), item.isAvailable());
   }
 
-  public record VoiceAgentView(String id, String displayName, boolean isDefault) {}
+  public record VoiceAgentView(
+      String id, String displayName, boolean isDefault, boolean isAvailable) {}
 }

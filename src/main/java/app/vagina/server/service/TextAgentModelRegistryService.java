@@ -26,14 +26,15 @@ public class TextAgentModelRegistryService {
 
   public List<TextAgentModelCatalogItem> listTextAgentModels(Long userId) {
     return modelsConfig.models().entrySet().stream()
-        .filter(entry -> isEntitled(userId, entry.getKey()))
+        .filter(entry -> isVisible(userId, entry.getKey()))
         .sorted(Comparator.comparing(entry -> entry.getKey()))
         .map(
             entry ->
                 new TextAgentModelCatalogItem(
                     entry.getKey(),
                     entry.getValue().displayName().orElse(entry.getKey()),
-                    entry.getKey().equals(defaultModelId())))
+                    entry.getKey().equals(defaultModelId()),
+                    isEntitled(userId, entry.getKey())))
         .toList();
   }
 
@@ -61,10 +62,18 @@ public class TextAgentModelRegistryService {
     }
   }
 
+  private boolean isVisible(Long userId, String modelId) {
+    return isEntitled(userId, modelId) || !isStealth(modelId);
+  }
+
   private boolean isEntitled(Long userId, String modelId) {
     String requiredEntitlement = requiredEntitlement(modelId);
     return requiredEntitlement == null
         || entitlementService.hasActiveEntitlement(userId, requiredEntitlement);
+  }
+
+  private boolean isStealth(String modelId) {
+    return modelsConfig.models().get(modelId).isStealth();
   }
 
   private String requiredEntitlement(String modelId) {
@@ -86,7 +95,8 @@ public class TextAgentModelRegistryService {
         modelId, model.provider(), model.baseUrl(), model.apiKey(), model.model());
   }
 
-  public record TextAgentModelCatalogItem(String id, String displayName, boolean isDefault) {}
+  public record TextAgentModelCatalogItem(
+      String id, String displayName, boolean isDefault, boolean isAvailable) {}
 
   public record TextAgentModelConfigView(
       String id,
