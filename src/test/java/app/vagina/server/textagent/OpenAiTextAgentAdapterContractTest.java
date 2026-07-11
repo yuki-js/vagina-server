@@ -22,14 +22,17 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCatalogEntry;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import io.quarkiverse.wiremock.devservice.ConnectWireMock;
+import io.quarkus.test.junit.QuarkusTest;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.AfterEach;
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+@QuarkusTest
+@ConnectWireMock
 class OpenAiTextAgentAdapterContractTest {
   private static final String CHAT_COMPLETED_RESPONSE =
       """
@@ -232,24 +235,19 @@ class OpenAiTextAgentAdapterContractTest {
       }
       """;
 
-  private WireMockServer provider;
+  private WireMock wireMock;
   private ObjectMapper objectMapper;
 
   @BeforeEach
-  void startProvider() {
-    provider = new WireMockServer(WireMockConfiguration.options().dynamicPort());
-    provider.start();
+  void resetProvider() {
+    wireMock.resetToDefaultMappings();
+    wireMock.resetRequests();
     objectMapper = new ObjectMapper();
-  }
-
-  @AfterEach
-  void stopProvider() {
-    provider.stop();
   }
 
   @Test
   void chatCompletionsCompletedResponseUsesCapturedGpt55Shape() {
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/chat/completions"))
             .withRequestBody(matchingJsonPath("$.model", equalTo("gpt-5.5")))
             .withRequestBody(matchingJsonPath("$.messages[0].role", equalTo("system")))
@@ -272,12 +270,12 @@ class OpenAiTextAgentAdapterContractTest {
     assertEquals(QueryStatus.COMPLETED, result.status());
     assertEquals("live chat ok", result.text());
     assertTrue(result.toolCalls().isEmpty());
-    provider.verify(postRequestedFor(urlPathEqualTo("/v1/chat/completions")));
+    wireMock.verifyThat(postRequestedFor(urlPathEqualTo("/v1/chat/completions")));
   }
 
   @Test
   void chatCompletionsToolCallAndContinuationUseCapturedGpt55Shapes() {
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/chat/completions"))
             .withRequestBody(
                 matchingJsonPath(
@@ -287,7 +285,7 @@ class OpenAiTextAgentAdapterContractTest {
                 aResponse()
                     .withHeader("Content-Type", "application/json")
                     .withBody(CHAT_TOOL_CALL_RESPONSE)));
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/chat/completions"))
             .withRequestBody(
                 matchingJsonPath(
@@ -324,7 +322,7 @@ class OpenAiTextAgentAdapterContractTest {
   @Test
   void chatCompletionsContinuationIncludesAllAcceptedToolOutputsBeforeProviderCall()
       throws Exception {
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/chat/completions"))
             .withRequestBody(
                 matchingJsonPath(
@@ -333,7 +331,7 @@ class OpenAiTextAgentAdapterContractTest {
                 aResponse()
                     .withHeader("Content-Type", "application/json")
                     .withBody(CHAT_MULTI_TOOL_CALL_RESPONSE)));
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/chat/completions"))
             .withRequestBody(
                 matchingJsonPath("$.messages[2].tool_calls[0].id", equalTo("call_first")))
@@ -373,12 +371,12 @@ class OpenAiTextAgentAdapterContractTest {
         List.of("call_first", "call_second"),
         toolRequest.toolCalls().stream().map(TextAgentRuntimeModels.ToolCall::id).toList());
     assertEquals(QueryStatus.COMPLETED, completed.status());
-    provider.verify(2, postRequestedFor(urlPathEqualTo("/v1/chat/completions")));
+    wireMock.verifyThat(2, postRequestedFor(urlPathEqualTo("/v1/chat/completions")));
   }
 
   @Test
   void responsesCompletedResponseUsesCapturedGpt55OutputTextShape() {
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/responses"))
             .withRequestBody(matchingJsonPath("$.model", equalTo("gpt-5.5")))
             .withRequestBody(
@@ -404,7 +402,7 @@ class OpenAiTextAgentAdapterContractTest {
 
   @Test
   void responsesToolCallAndArrayContinuationUseCapturedGpt55Shapes() {
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/responses"))
             .withRequestBody(
                 matchingJsonPath(
@@ -413,7 +411,7 @@ class OpenAiTextAgentAdapterContractTest {
                 aResponse()
                     .withHeader("Content-Type", "application/json")
                     .withBody(RESPONSES_TOOL_CALL_RESPONSE)));
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/responses"))
             .withRequestBody(
                 matchingJsonPath(
@@ -481,7 +479,7 @@ class OpenAiTextAgentAdapterContractTest {
 
   @Test
   void chatCompletionsPromptWithImageUsesMultimodalContentParts() throws Exception {
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/chat/completions"))
             .willReturn(
                 aResponse()
@@ -509,7 +507,7 @@ class OpenAiTextAgentAdapterContractTest {
             List.of());
 
     adapter.execute(context);
-    String body = provider.getAllServeEvents().getFirst().getRequest().getBodyAsString();
+    String body = wireMock.getServeEvents().getFirst().getRequest().getBodyAsString();
 
     assertEquals(
         "user", objectMapper.readTree(body).path("messages").path(1).path("role").asText());
@@ -548,7 +546,7 @@ class OpenAiTextAgentAdapterContractTest {
 
   @Test
   void chatCompletionsContinuationUsesErrorToolOutputAsContentOnly() throws Exception {
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/chat/completions"))
             .withRequestBody(
                 matchingJsonPath(
@@ -558,7 +556,7 @@ class OpenAiTextAgentAdapterContractTest {
                 aResponse()
                     .withHeader("Content-Type", "application/json")
                     .withBody(CHAT_TOOL_CALL_RESPONSE)));
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/chat/completions"))
             .withRequestBody(matchingJsonPath("$.messages[3].role", equalTo("tool")))
             .withRequestBody(
@@ -590,7 +588,7 @@ class OpenAiTextAgentAdapterContractTest {
 
     QueryResult completed = adapter.execute(continuationContext);
     String body =
-        provider.getAllServeEvents().stream()
+        wireMock.getServeEvents().stream()
             .map(event -> event.getRequest().getBodyAsString())
             .filter(requestBody -> requestBody.contains("read failed"))
             .findFirst()
@@ -655,7 +653,7 @@ class OpenAiTextAgentAdapterContractTest {
 
   @Test
   void responsesPromptWithImageUsesMultimodalInputParts() throws Exception {
-    provider.stubFor(
+    wireMock.register(
         post(urlPathEqualTo("/v1/responses"))
             .willReturn(
                 aResponse()
@@ -682,7 +680,7 @@ class OpenAiTextAgentAdapterContractTest {
             List.of());
 
     adapter.execute(context);
-    String body = provider.getAllServeEvents().getFirst().getRequest().getBodyAsString();
+    String body = wireMock.getServeEvents().getFirst().getRequest().getBodyAsString();
 
     assertEquals(
         "message", objectMapper.readTree(body).path("input").path(0).path("type").asText());
@@ -855,7 +853,11 @@ class OpenAiTextAgentAdapterContractTest {
 
   private TextAgentModelBinding binding(String providerKey) {
     return new TextAgentModelBinding(
-        "text-agent-test", providerKey, provider.baseUrl() + "/v1", "test-key", "gpt-5.5");
+        "text-agent-test",
+        providerKey,
+        ConfigProvider.getConfig().getValue("vagina.test.oai-cc.base-url", String.class),
+        "test-key",
+        "gpt-5.5");
   }
 
   @Test

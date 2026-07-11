@@ -1,0 +1,26 @@
+{
+  "priority": 5,
+  "request": {
+    "method": "GET",
+    "urlPath": "/userinfo",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer harigata-access-token"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "sub": "harigata-user-123",
+      "preferred_username": "harigata-user",
+      "name": "Harigata Test User",
+      "picture": "https://harigata.example.test/avatar.png",
+      "email": "harigata@example.test",
+      "email_verified": true
+    }
+  }
+}

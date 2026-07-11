@@ -7,8 +7,7 @@ import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 
-import app.vagina.server.support.HarigataOidcMockServerResource;
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkiverse.wiremock.devservice.ConnectWireMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
@@ -16,7 +15,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(HarigataOidcMockServerResource.class)
+@ConnectWireMock
 class SpeedDialsApiTest {
 
   @Test

@@ -3,10 +3,8 @@ package app.vagina.server;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import app.vagina.server.realtime.VhrpTestClient;
-import app.vagina.server.support.HarigataOidcMockServerResource;
-import app.vagina.server.support.OaiCcWireMockServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkiverse.wiremock.devservice.ConnectWireMock;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
@@ -21,8 +19,7 @@ import org.junit.jupiter.api.Test;
 
 /** VHRP resume-retention abnormal-path tests that need a short retention profile. */
 @QuarkusTest
-@QuarkusTestResource(HarigataOidcMockServerResource.class)
-@QuarkusTestResource(OaiCcWireMockServerResource.class)
+@ConnectWireMock
 @TestProfile(VhrpResumeRetentionE2ETest.ShortRetentionProfile.class)
 class VhrpResumeRetentionE2ETest {
 

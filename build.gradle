@@ -61,9 +61,10 @@ dependencies {
     
     // OpenAPI contract validation for tests
     testImplementation 'com.atlassian.oai:swagger-request-validator-restassured:2.41.0'
-    
-    // WireMock for mocking OpenAI API
-    testImplementation 'org.wiremock:wiremock-standalone:3.9.2'
+
+    // Embedded WireMock Dev Service for Harigata in dev and test modes.
+    quarkusDev 'io.quarkiverse.wiremock:quarkus-wiremock:1.5.3'
+    testImplementation 'io.quarkiverse.wiremock:quarkus-wiremock-test:1.5.3'
     
     // Dev Services - provides automatic containerized PostgreSQL for dev mode
     // This enables Quarkus to start a PostgreSQL container automatically when running in dev mode

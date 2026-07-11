@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import app.vagina.server.support.HarigataOidcMockServerResource;
-import io.quarkus.test.common.QuarkusTestResource;
+import app.vagina.server.support.HarigataOidcTestConstants;
+import io.quarkiverse.wiremock.devservice.ConnectWireMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
@@ -22,7 +22,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(HarigataOidcMockServerResource.class)
+@ConnectWireMock
 class AuthOidcStateRoutingTest {
 
   @Test
@@ -108,7 +108,7 @@ class AuthOidcStateRoutingTest {
             .contentType(ContentType.JSON)
             .body(
                 Map.of(
-                    "code", HarigataOidcMockServerResource.DEFAULT_AUTHORIZATION_CODE,
+                    "code", HarigataOidcTestConstants.AUTHORIZATION_CODE,
                     "state", state,
                     "codeVerifier", codeVerifier))
             .when()

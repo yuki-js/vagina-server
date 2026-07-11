@@ -1,0 +1,23 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/authorize",
+    "queryParameters": {
+      "redirect_uri": {
+        "matches": ".+"
+      },
+      "state": {
+        "matches": ".+"
+      }
+    }
+  },
+  "response": {
+    "status": 302,
+    "headers": {
+      "Location": "{{request.query.redirect_uri}}?code=harigata-auth-code&state={{request.query.state}}"
+    },
+    "transformers": [
+      "response-template"
+    ]
+  }
+}

@@ -12,9 +12,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.vagina.server.entity.EntitlementGrantSource;
 import app.vagina.server.service.EntitlementService;
-import app.vagina.server.support.HarigataOidcMockServerResource;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import io.quarkus.test.common.QuarkusTestResource;
+import app.vagina.server.support.HarigataOidcTestConstants;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import io.quarkiverse.wiremock.devservice.ConnectWireMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
@@ -23,17 +23,12 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(HarigataOidcMockServerResource.class)
-class EntitlementApiTest implements HarigataOidcMockServerResource.HarigataOidcMockServerAware {
+@ConnectWireMock
+class EntitlementApiTest {
 
   @Inject EntitlementService entitlementService;
 
-  private WireMockServer harigata;
-
-  @Override
-  public void setWireMockServer(WireMockServer wireMockServer) {
-    this.harigata = wireMockServer;
-  }
+  WireMock wireMock;
 
   @Test
   void meReturnsEmptyEntitlementsByDefault() {
@@ -156,12 +151,11 @@ class EntitlementApiTest implements HarigataOidcMockServerResource.HarigataOidcM
   }
 
   private void stubHarigataUser(String subject, String login) {
-    harigata.stubFor(
+    wireMock.register(
         get(urlPathEqualTo("/userinfo"))
             .atPriority(1)
             .withHeader(
-                "Authorization",
-                equalTo("Bearer " + HarigataOidcMockServerResource.DEFAULT_ACCESS_TOKEN))
+                "Authorization", equalTo("Bearer " + HarigataOidcTestConstants.ACCESS_TOKEN))
             .willReturn(
                 aResponse()
                     .withStatus(200)

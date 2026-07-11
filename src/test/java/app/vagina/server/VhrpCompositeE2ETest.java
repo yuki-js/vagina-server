@@ -11,11 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.vagina.server.realtime.VhrpTestClient;
-import app.vagina.server.support.HarigataOidcMockServerResource;
-import app.vagina.server.support.OaiCcWireMockServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import io.quarkus.test.common.QuarkusTestResource;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import io.quarkiverse.wiremock.devservice.ConnectWireMock;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -39,9 +37,8 @@ import org.junit.jupiter.api.Test;
  * approximated.
  */
 @QuarkusTest
-@QuarkusTestResource(HarigataOidcMockServerResource.class)
-@QuarkusTestResource(OaiCcWireMockServerResource.class)
-class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOidcMockServerAware {
+@ConnectWireMock
+class VhrpCompositeE2ETest {
 
   private static final String FAIL_CONNECT_VOICE_AGENT_ID = "test-voice-agent-fail-connect";
 
@@ -50,12 +47,7 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
 
   private Vertx vertx;
   private VhrpTestClient client;
-  private WireMockServer existingHarigata;
-
-  @Override
-  public void setWireMockServer(WireMockServer wireMockServer) {
-    this.existingHarigata = wireMockServer;
-  }
+  WireMock wireMock;
 
   @BeforeEach
   void setUp() {
@@ -318,7 +310,7 @@ class VhrpCompositeE2ETest implements HarigataOidcMockServerResource.HarigataOid
   }
 
   private void stubExistingHarigataUser(String subject, String login, String email) {
-    existingHarigata.stubFor(
+    wireMock.register(
         get(urlPathEqualTo("/userinfo"))
             .atPriority(1)
             .willReturn(

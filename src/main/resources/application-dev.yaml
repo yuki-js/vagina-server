@@ -7,6 +7,14 @@ quarkus:
   devservices:
     enabled: true
 
+  wiremock:
+    devservices:
+      enabled: true
+      port: 18080
+      reload: true
+      files-mapping: wiremock/harigata
+      global-response-templating: true
+
   datasource:
     devservices:
       enabled: true

@@ -8,10 +8,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import app.vagina.server.realtime.VhrpTestClient;
 import app.vagina.server.realtime.oai_cc.OaiCcWavEncoder;
-import app.vagina.server.support.HarigataOidcMockServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkiverse.wiremock.devservice.ConnectWireMock;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.Vertx;
@@ -44,7 +43,7 @@ import org.junit.jupiter.api.Test;
  * backed user JWT, opens a hosted VHRP session, and then drives a user-visible conversation path.
  */
 @QuarkusTest
-@QuarkusTestResource(HarigataOidcMockServerResource.class)
+@ConnectWireMock
 class OpenAiRealVhrpSequenceTest {
 
   private static final String MODEL_ID = "voice-agent-prod-cc";

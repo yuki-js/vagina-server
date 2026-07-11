@@ -9,10 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import app.vagina.server.realtime.VhrpTestClient;
-import app.vagina.server.support.HarigataOidcMockServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkiverse.wiremock.devservice.ConnectWireMock;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -50,7 +49,7 @@ import org.junit.jupiter.api.Test;
  * from real OpenAI would test prompt luck instead of a stable product contract.
  */
 @QuarkusTest
-@QuarkusTestResource(HarigataOidcMockServerResource.class)
+@ConnectWireMock
 class OpenAiRealTextAgentSequenceTest {
 
   private static final String MODEL_ID = "text-agent-prod";

@@ -9,6 +9,12 @@ quarkus:
   http:
     test-port: 0
     test-ssl-port: 0
+  wiremock:
+    devservices:
+      enabled: true
+      reload: false
+      files-mapping: wiremock/test
+      global-response-templating: true
   websockets-next:
     server:
       supported-subprotocols:
@@ -33,8 +39,21 @@ smallrye:
       issuer: http://localhost:8081
 
 vagina:
+  test:
+    oai-cc:
+      base-url: http://localhost:${quarkus.wiremock.devservices.port}/v1
+
   auth:
     oidc:
+      harigata:
+        issuer: http://localhost:${quarkus.wiremock.devservices.port}
+        configuration-url: http://localhost:${quarkus.wiremock.devservices.port}/.well-known/openid-configuration
+        client-id: harigata-client-id
+        client-secret: harigata-client-secret
+        authorization-endpoint: http://localhost:${quarkus.wiremock.devservices.port}/authorize
+        token-endpoint: http://localhost:${quarkus.wiremock.devservices.port}/token
+        userinfo-endpoint: http://localhost:${quarkus.wiremock.devservices.port}/userinfo
+        jwks-url: http://localhost:${quarkus.wiremock.devservices.port}/jwks
       redirect-uri:
         web: https://example.test/callback
         mobile: https://example.test/callback

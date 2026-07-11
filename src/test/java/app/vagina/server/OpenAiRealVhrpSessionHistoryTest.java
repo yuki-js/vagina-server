@@ -16,11 +16,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import app.vagina.server.realtime.VhrpTestClient;
 import app.vagina.server.realtime.oai_cc.OaiCcWavEncoder;
-import app.vagina.server.support.HarigataOidcMockServerResource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import io.quarkus.test.common.QuarkusTestResource;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import io.quarkiverse.wiremock.devservice.ConnectWireMock;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -56,9 +55,8 @@ import org.junit.jupiter.api.Test;
  * visibility.
  */
 @QuarkusTest
-@QuarkusTestResource(HarigataOidcMockServerResource.class)
-class OpenAiRealVhrpSessionHistoryTest
-    implements HarigataOidcMockServerResource.HarigataOidcMockServerAware {
+@ConnectWireMock
+class OpenAiRealVhrpSessionHistoryTest {
 
   private static final String MODEL_ID = "voice-agent-prod-cc";
   private static final String REQUIRED_PROPERTY =
@@ -73,12 +71,7 @@ class OpenAiRealVhrpSessionHistoryTest
 
   private Vertx vertx;
   private VhrpTestClient client;
-  private WireMockServer harigata;
-
-  @Override
-  public void setWireMockServer(WireMockServer wireMockServer) {
-    this.harigata = wireMockServer;
-  }
+  WireMock wireMock;
 
   @BeforeEach
   void setUp() {
@@ -1304,7 +1297,7 @@ class OpenAiRealVhrpSessionHistoryTest
   }
 
   private void stubHarigataUser(String subject, String login, String email) {
-    harigata.stubFor(
+    wireMock.register(
         get(urlPathEqualTo("/userinfo"))
             .atPriority(1)
             .willReturn(
