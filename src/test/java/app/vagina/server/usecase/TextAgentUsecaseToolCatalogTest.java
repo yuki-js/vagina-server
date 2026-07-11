@@ -36,7 +36,9 @@ class TextAgentUsecaseToolCatalogTest {
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
-    assertEquals(List.of("document_read", "list_available_agents"), fixture.capturedToolNames());
+    assertEquals(
+        List.of("document_read", "list_available_agents", "say_hello_to_agent"),
+        fixture.capturedToolNames());
     verify(fixture.session(), never()).textAgentToolCatalogSnapshot();
   }
 
@@ -47,17 +49,19 @@ class TextAgentUsecaseToolCatalogTest {
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
-    assertEquals(List.of("calculator", "list_available_agents"), fixture.capturedToolNames());
+    assertEquals(
+        List.of("calculator", "list_available_agents", "say_hello_to_agent"),
+        fixture.capturedToolNames());
   }
 
   @Test
-  void emptyEnabledToolsEnablesAllTextAgentCatalogToolsExceptRecursionDeniedTool() {
+  void emptyEnabledToolsEnablesAllTextAgentCatalogToolsExceptVoiceAgentAuthorityTool() {
     Fixture fixture = fixture("{}", List.of());
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
     assertEquals(
-        List.of("document_read", "calculator", "list_available_agents"),
+        List.of("document_read", "calculator", "list_available_agents", "say_hello_to_agent"),
         fixture.capturedToolNames());
   }
 
@@ -67,7 +71,9 @@ class TextAgentUsecaseToolCatalogTest {
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
-    assertEquals(List.of("document_read", "list_available_agents"), fixture.capturedToolNames());
+    assertEquals(
+        List.of("document_read", "list_available_agents", "say_hello_to_agent"),
+        fixture.capturedToolNames());
   }
 
   @Test
@@ -76,7 +82,9 @@ class TextAgentUsecaseToolCatalogTest {
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
-    assertEquals(List.of("calculator", "list_available_agents"), fixture.capturedToolNames());
+    assertEquals(
+        List.of("calculator", "list_available_agents", "say_hello_to_agent"),
+        fixture.capturedToolNames());
   }
 
   @Test
@@ -85,7 +93,9 @@ class TextAgentUsecaseToolCatalogTest {
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
-    assertEquals(List.of("document_read", "list_available_agents"), fixture.capturedToolNames());
+    assertEquals(
+        List.of("document_read", "list_available_agents", "say_hello_to_agent"),
+        fixture.capturedToolNames());
   }
 
   @Test
@@ -98,13 +108,13 @@ class TextAgentUsecaseToolCatalogTest {
   }
 
   @Test
-  void sayHelloToAgentIsExcludedFromProviderCatalogForRecursionSafety() {
+  void sayHelloToAgentIsAllowedLikeAnyOtherToolForTextAgentRecursion() {
     Fixture fixture = fixture("{\"say_hello_to_agent\":true}", List.of());
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
     assertEquals(
-        List.of("document_read", "calculator", "list_available_agents"),
+        List.of("document_read", "calculator", "list_available_agents", "say_hello_to_agent"),
         fixture.capturedToolNames());
   }
 
@@ -115,7 +125,7 @@ class TextAgentUsecaseToolCatalogTest {
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
     assertEquals(
-        List.of("document_read", "calculator", "list_available_agents"),
+        List.of("document_read", "calculator", "list_available_agents", "say_hello_to_agent"),
         fixture.capturedToolNames());
   }
 
@@ -126,7 +136,7 @@ class TextAgentUsecaseToolCatalogTest {
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
     assertEquals(
-        List.of("document_read", "calculator", "list_available_agents"),
+        List.of("document_read", "calculator", "list_available_agents", "say_hello_to_agent"),
         fixture.capturedToolNames());
   }
 

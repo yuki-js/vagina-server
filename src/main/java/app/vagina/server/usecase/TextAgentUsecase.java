@@ -27,7 +27,6 @@ import java.util.List;
 
 @ApplicationScoped
 public class TextAgentUsecase {
-  private static final String SAY_HELLO_TO_AGENT_TOOL_NAME = "say_hello_to_agent";
   private static final String END_CALL_TOOL_NAME = "end_call";
   private static final Duration PENDING_REQUEST_TTL = Duration.ofMinutes(5);
 
@@ -165,8 +164,11 @@ public class TextAgentUsecase {
       return List.of();
     }
 
+    // Text Agent delegation is an ordinary client-executed tool call. Deliberately allow
+    // say_hello_to_agent here, including TA -> TA and same-TA recursion; do not reintroduce a
+    // recursion-specific catalog filter. end_call remains excluded because call termination belongs
+    // to the Voice Agent, not because it is recursive.
     return command.toolCatalog().stream()
-        .filter(tool -> !SAY_HELLO_TO_AGENT_TOOL_NAME.equals(tool.name()))
         .filter(tool -> !END_CALL_TOOL_NAME.equals(tool.name()))
         .filter(tool -> enabledTools.overrides().getOrDefault(tool.name(), true))
         .toList();
