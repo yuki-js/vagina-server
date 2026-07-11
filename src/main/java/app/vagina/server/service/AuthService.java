@@ -41,6 +41,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 public class AuthService {
   private static final Set<String> DECLARED_BUT_NOT_IMPLEMENTED_PROVIDERS =
       Set.of("google", "apple", "twitter");
+  private static final char OIDC_STATE_SEPARATOR = '.';
 
   public record CreatedOidcState(
       String rawState,
@@ -139,9 +140,13 @@ public class AuthService {
   @Transactional
   public CreatedOidcState createState(
       String providerKey, ClientType clientType, String codeChallenge, String codeChallengeMethod) {
-    String rawState = Util.randomHexToken();
+    ClientType effectiveClientType = clientType == null ? ClientType.WEB : clientType;
+    String rawState =
+        statePrefix(effectiveClientType)
+            + String.valueOf(OIDC_STATE_SEPARATOR)
+            + Util.randomHexToken();
     LocalDateTime now = LocalDateTime.now();
-    String redirectUri = resolveRedirectUri(clientType);
+    String redirectUri = resolveRedirectUri(effectiveClientType);
     String normalizedCodeChallenge = validateCodeChallenge(codeChallenge);
     String normalizedCodeChallengeMethod = validateCodeChallengeMethod(codeChallengeMethod);
 
@@ -151,7 +156,7 @@ public class AuthService {
             Util.sha256Hex(rawState),
             AuthMethod.OIDC,
             providerKey,
-            clientType,
+            effectiveClientType,
             redirectUri,
             normalizedCodeChallenge,
             normalizedCodeChallengeMethod,
@@ -174,6 +179,7 @@ public class AuthService {
 
   @Transactional
   public OAuthLoginAttempt consumeState(String providerKey, String rawState, String codeVerifier) {
+    char suppliedStatePrefix = validateStateShape(rawState);
     OAuthLoginAttempt attempt =
         oauthLoginAttemptMapper
             .findByStateHash(Util.sha256Hex(rawState))
@@ -182,6 +188,9 @@ public class AuthService {
 
     LocalDateTime now = LocalDateTime.now();
 
+    if (suppliedStatePrefix != statePrefix(attempt.getClientType())) {
+      throw new AuthenticationException("OIDC state client type mismatch");
+    }
     if (!providerKey.equals(attempt.getProviderKey())) {
       throw new AuthenticationException("OIDC provider mismatch");
     }
@@ -221,6 +230,28 @@ public class AuthService {
           (desktopRedirectUri != null && !desktopRedirectUri.isBlank())
               ? desktopRedirectUri
               : requiredRedirectUri(webRedirectUri, "web");
+    };
+  }
+
+  private char validateStateShape(String rawState) {
+    if (rawState == null || rawState.length() < 3 || rawState.charAt(1) != OIDC_STATE_SEPARATOR) {
+      throw new AuthenticationException("Invalid OIDC state format");
+    }
+    char prefix = rawState.charAt(0);
+    if (prefix != 'w' && prefix != 'm' && prefix != 'd') {
+      throw new AuthenticationException("Invalid OIDC state client type");
+    }
+    return prefix;
+  }
+
+  private char statePrefix(ClientType clientType) {
+    if (clientType == null) {
+      throw new AuthenticationException("OIDC state has no client type");
+    }
+    return switch (clientType) {
+      case WEB -> 'w';
+      case MOBILE -> 'm';
+      case DESKTOP -> 'd';
     };
   }
 
