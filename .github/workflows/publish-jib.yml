@@ -249,25 +249,60 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare verification configuration
+        run: |
+          mkdir -p "${RUNNER_TEMP}/vagina-server-verify-config"
+          cat > "${RUNNER_TEMP}/vagina-server-verify-config/application.yaml" <<'YAML'
+          quarkus:
+            datasource:
+              username: postgres
+              password: postgres
+              jdbc:
+                url: jdbc:postgresql://localhost:5432/vagina_server
+
+          smallrye:
+            jwt:
+              new-token:
+                issuer: http://localhost:8080
+
+          vagina:
+            auth:
+              oidc:
+                redirect-uri:
+                  web: https://verify.invalid/callback
+                  mobile: https://verify.invalid/callback
+                  desktop: https://verify.invalid/callback
+            realtime:
+              default-model: verifyrealtime
+              models:
+                verifyrealtime:
+                  provider: oai
+                  display-name: Verify Realtime
+                  base-url: https://realtime.invalid
+                  api-key: verify-placeholder-api-key
+                  model: verify-realtime-model
+            text-agent:
+              default-model: verifytextagent
+              models:
+                verifytextagent:
+                  provider: oai_chat
+                  display-name: Verify Text Agent
+                  base-url: https://text-agent.invalid
+                  api-key: verify-placeholder-api-key
+                  model: verify-text-agent-model
+            object-storage:
+              endpoint: https://object-storage.invalid
+              bucket: verify-placeholder-bucket
+              access-key: verify-placeholder-access-key
+              secret-key: verify-placeholder-secret-key
+          YAML
+
       - name: Pull and verify JVM normal image
         run: |
           docker pull ${{ needs.prepare.outputs.image_base }}:${{ needs.prepare.outputs.short_sha }}-jvm
           docker run --rm --network=host \
-            -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://localhost:5432/vagina_server \
-            -e QUARKUS_DATASOURCE_USERNAME=postgres \
-            -e QUARKUS_DATASOURCE_PASSWORD=postgres \
-            -e SMALLRYE_JWT_NEW_TOKEN_ISSUER=http://localhost:8080 \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_WEB=https://verify.invalid/callback \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_MOBILE=https://verify.invalid/callback \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_DESKTOP=https://verify.invalid/callback \
-            -e VAGINA_REALTIME_DEFAULT_MODEL=verifyrealtime \
-            -e VAGINA_REALTIME_MODELS_VERIFYREALTIME_PROVIDER=oai \
-            -e VAGINA_TEXT_AGENT_DEFAULT_MODEL=verifytextagent \
-            -e VAGINA_TEXT_AGENT_MODELS_VERIFYTEXTAGENT_PROVIDER=oai_chat \
-            -e VAGINA_OBJECT_STORAGE_ENDPOINT=https://object-storage.invalid \
-            -e VAGINA_OBJECT_STORAGE_BUCKET=verify-placeholder-bucket \
-            -e VAGINA_OBJECT_STORAGE_ACCESS_KEY=verify-placeholder-access-key \
-            -e VAGINA_OBJECT_STORAGE_SECRET_KEY=verify-placeholder-secret-key \
+            -e QUARKUS_CONFIG_LOCATIONS=/deployments/config/application.yaml \
+            -v "${RUNNER_TEMP}/vagina-server-verify-config:/deployments/config:ro" \
             ${{ needs.prepare.outputs.image_base }}:${{ needs.prepare.outputs.short_sha }}-jvm &
           CONTAINER_PID=$!
           sleep 10
@@ -278,21 +313,8 @@ jobs:
         run: |
           docker pull ${{ needs.prepare.outputs.image_base }}:${{ needs.prepare.outputs.short_sha }}-jvm-debug
           docker run --rm --network=host \
-            -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://localhost:5432/vagina_server \
-            -e QUARKUS_DATASOURCE_USERNAME=postgres \
-            -e QUARKUS_DATASOURCE_PASSWORD=postgres \
-            -e SMALLRYE_JWT_NEW_TOKEN_ISSUER=http://localhost:8080 \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_WEB=https://verify.invalid/callback \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_MOBILE=https://verify.invalid/callback \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_DESKTOP=https://verify.invalid/callback \
-            -e VAGINA_REALTIME_DEFAULT_MODEL=verifyrealtime \
-            -e VAGINA_REALTIME_MODELS_VERIFYREALTIME_PROVIDER=oai \
-            -e VAGINA_TEXT_AGENT_DEFAULT_MODEL=verifytextagent \
-            -e VAGINA_TEXT_AGENT_MODELS_VERIFYTEXTAGENT_PROVIDER=oai_chat \
-            -e VAGINA_OBJECT_STORAGE_ENDPOINT=https://object-storage.invalid \
-            -e VAGINA_OBJECT_STORAGE_BUCKET=verify-placeholder-bucket \
-            -e VAGINA_OBJECT_STORAGE_ACCESS_KEY=verify-placeholder-access-key \
-            -e VAGINA_OBJECT_STORAGE_SECRET_KEY=verify-placeholder-secret-key \
+            -e QUARKUS_CONFIG_LOCATIONS=/deployments/config/application.yaml \
+            -v "${RUNNER_TEMP}/vagina-server-verify-config:/deployments/config:ro" \
             ${{ needs.prepare.outputs.image_base }}:${{ needs.prepare.outputs.short_sha }}-jvm-debug &
           CONTAINER_PID=$!
           sleep 10
@@ -303,21 +325,8 @@ jobs:
         run: |
           docker pull ${{ needs.prepare.outputs.image_base }}:${{ needs.prepare.outputs.short_sha }}-native
           docker run --rm --network=host \
-            -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://localhost:5432/vagina_server \
-            -e QUARKUS_DATASOURCE_USERNAME=postgres \
-            -e QUARKUS_DATASOURCE_PASSWORD=postgres \
-            -e SMALLRYE_JWT_NEW_TOKEN_ISSUER=http://localhost:8080 \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_WEB=https://verify.invalid/callback \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_MOBILE=https://verify.invalid/callback \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_DESKTOP=https://verify.invalid/callback \
-            -e VAGINA_REALTIME_DEFAULT_MODEL=verifyrealtime \
-            -e VAGINA_REALTIME_MODELS_VERIFYREALTIME_PROVIDER=oai \
-            -e VAGINA_TEXT_AGENT_DEFAULT_MODEL=verifytextagent \
-            -e VAGINA_TEXT_AGENT_MODELS_VERIFYTEXTAGENT_PROVIDER=oai_chat \
-            -e VAGINA_OBJECT_STORAGE_ENDPOINT=https://object-storage.invalid \
-            -e VAGINA_OBJECT_STORAGE_BUCKET=verify-placeholder-bucket \
-            -e VAGINA_OBJECT_STORAGE_ACCESS_KEY=verify-placeholder-access-key \
-            -e VAGINA_OBJECT_STORAGE_SECRET_KEY=verify-placeholder-secret-key \
+            -e QUARKUS_CONFIG_LOCATIONS=/deployments/config/application.yaml \
+            -v "${RUNNER_TEMP}/vagina-server-verify-config:/deployments/config:ro" \
             ${{ needs.prepare.outputs.image_base }}:${{ needs.prepare.outputs.short_sha }}-native &
           CONTAINER_PID=$!
           sleep 5
@@ -328,21 +337,8 @@ jobs:
         run: |
           docker pull ${{ needs.prepare.outputs.image_base }}:${{ needs.prepare.outputs.short_sha }}-native-debug
           docker run --rm --network=host \
-            -e QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://localhost:5432/vagina_server \
-            -e QUARKUS_DATASOURCE_USERNAME=postgres \
-            -e QUARKUS_DATASOURCE_PASSWORD=postgres \
-            -e SMALLRYE_JWT_NEW_TOKEN_ISSUER=http://localhost:8080 \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_WEB=https://verify.invalid/callback \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_MOBILE=https://verify.invalid/callback \
-            -e VAGINA_AUTH_OIDC_REDIRECT_URI_DESKTOP=https://verify.invalid/callback \
-            -e VAGINA_REALTIME_DEFAULT_MODEL=verifyrealtime \
-            -e VAGINA_REALTIME_MODELS_VERIFYREALTIME_PROVIDER=oai \
-            -e VAGINA_TEXT_AGENT_DEFAULT_MODEL=verifytextagent \
-            -e VAGINA_TEXT_AGENT_MODELS_VERIFYTEXTAGENT_PROVIDER=oai_chat \
-            -e VAGINA_OBJECT_STORAGE_ENDPOINT=https://object-storage.invalid \
-            -e VAGINA_OBJECT_STORAGE_BUCKET=verify-placeholder-bucket \
-            -e VAGINA_OBJECT_STORAGE_ACCESS_KEY=verify-placeholder-access-key \
-            -e VAGINA_OBJECT_STORAGE_SECRET_KEY=verify-placeholder-secret-key \
+            -e QUARKUS_CONFIG_LOCATIONS=/deployments/config/application.yaml \
+            -v "${RUNNER_TEMP}/vagina-server-verify-config:/deployments/config:ro" \
             ${{ needs.prepare.outputs.image_base }}:${{ needs.prepare.outputs.short_sha }}-native-debug &
           CONTAINER_PID=$!
           sleep 5
