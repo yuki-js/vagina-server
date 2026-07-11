@@ -1,6 +1,8 @@
 package app.vagina.server.textagent;
 
 import app.vagina.server.support.Util;
+import app.vagina.server.textagent.OpenAiTextAgentHttpClient.PostJsonResult;
+import app.vagina.server.textagent.OpenAiTextAgentHttpClient.ProviderFailure;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryImageInput;
@@ -11,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,13 +42,18 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   @Override
   public QueryResult execute(ProviderContext context) {
     providerState(context).put(PROVIDER_STATE_LAST_REQUEST_ID, context.command().requestId());
-    ResponsesResponse response =
+    PostJsonResult<ResponsesResponse> httpResult =
         http.postJson(
             context,
             responsesUri(context),
             requestBody(context),
             ResponsesResponse.class,
             "Responses text agent request failed");
+    if (httpResult.rejectedByProvider()) {
+      ProviderFailure failure = httpResult.providerFailure();
+      return QueryResult.failed(failure.code(), failure.message());
+    }
+    ResponsesResponse response = httpResult.body();
     rememberPreviousResponseId(context, response.id());
     return parseResponse(response);
   }
@@ -172,10 +180,12 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   private record ResponsesInputContentPart(
       String type, String text, @JsonProperty("image_url") String imageUrl, String detail) {}
 
+  @RegisterForReflection
   @JsonIgnoreProperties(ignoreUnknown = true)
   private record ResponsesResponse(
       String id, List<ResponsesOutputItem> output, ProviderError error) {}
 
+  @RegisterForReflection
   private record ResponsesOutputItem(
       String id,
       String type,
@@ -188,8 +198,10 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
       List<?> summary,
       List<ResponsesContentPart> content) {}
 
+  @RegisterForReflection
   private record ResponsesContentPart(
       String type, String text, Object annotations, Object logprobs) {}
 
+  @RegisterForReflection
   private record ProviderError(String code, String message, String type, String param) {}
 }

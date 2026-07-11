@@ -1,6 +1,8 @@
 package app.vagina.server.textagent;
 
 import app.vagina.server.support.Util;
+import app.vagina.server.textagent.OpenAiTextAgentHttpClient.PostJsonResult;
+import app.vagina.server.textagent.OpenAiTextAgentHttpClient.ProviderFailure;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryImageInput;
@@ -11,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,14 +44,18 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
     List<ChatCompletionMessage> messages = mutableMessages(context);
     ensureSystemMessage(context, messages);
     appendCurrentInput(context, messages);
-    ChatCompletionResponse response =
+    PostJsonResult<ChatCompletionResponse> httpResult =
         http.postJson(
             context,
             chatCompletionsUri(context),
             requestBody(context, messages),
             ChatCompletionResponse.class,
             "Chat Completions text agent request failed");
-    QueryResult result = parseResponse(response);
+    if (httpResult.rejectedByProvider()) {
+      ProviderFailure failure = httpResult.providerFailure();
+      return QueryResult.failed(failure.code(), failure.message());
+    }
+    QueryResult result = parseResponse(httpResult.body());
     if (result.status() == TextAgentRuntimeModels.QueryStatus.REQUIRES_TOOL) {
       messages.add(ChatCompletionMessage.assistantToolCalls(result.toolCalls()));
     } else if (result.status() == TextAgentRuntimeModels.QueryStatus.COMPLETED) {
@@ -207,14 +214,17 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
 
   private record ChatCompletionFunction(String name, String arguments) {}
 
+  @RegisterForReflection
   @JsonIgnoreProperties(ignoreUnknown = true)
   private record ChatCompletionResponse(List<ChatCompletionChoice> choices, ProviderError error) {}
 
+  @RegisterForReflection
   private record ChatCompletionChoice(
       @JsonProperty("finish_reason") String finishReason,
       Integer index,
       ChatCompletionResponseMessage message) {}
 
+  @RegisterForReflection
   private record ChatCompletionResponseMessage(
       String role,
       String content,
@@ -222,10 +232,13 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
       String refusal,
       @JsonProperty("tool_calls") List<ChatCompletionResponseToolCall> toolCalls) {}
 
+  @RegisterForReflection
   private record ChatCompletionResponseToolCall(
       String id, String type, ChatCompletionResponseFunction function) {}
 
+  @RegisterForReflection
   private record ChatCompletionResponseFunction(String name, String arguments) {}
 
+  @RegisterForReflection
   private record ProviderError(String code, String message, String type, String param) {}
 }

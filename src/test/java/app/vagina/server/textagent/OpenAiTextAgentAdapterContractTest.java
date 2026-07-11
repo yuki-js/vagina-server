@@ -9,8 +9,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import app.vagina.server.domain.error.ExternalServiceException;
 import app.vagina.server.entity.TextAgentDefinition;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderSessionState;
@@ -764,6 +766,112 @@ class OpenAiTextAgentAdapterContractTest {
 
     assertFalse(objectMapper.readTree(body).has("tools"));
     assertFalse(objectMapper.readTree(body).has("tool_choice"));
+  }
+
+  @Test
+  void chatCompletionsAuthenticationFailureIsSanitized() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .willReturn(
+                aResponse()
+                    .withStatus(401)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(providerError("invalid_api_key", "Invalid API key: secret-value"))));
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+
+    QueryResult result =
+        adapter.execute(
+            promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS, "Hello"));
+
+    assertEquals(QueryStatus.FAILED, result.status());
+    assertEquals("provider_authentication_error", result.error().code());
+    assertEquals(
+        "This AI model is currently unavailable. Please contact the service administrator.",
+        result.error().message());
+    assertFalse(result.error().message().contains("secret-value"));
+  }
+
+  @Test
+  void responsesAuthenticationFailureIsSanitized() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/responses"))
+            .willReturn(
+                aResponse()
+                    .withStatus(401)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(providerError("invalid_api_key", "Invalid API key: secret-value"))));
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+
+    QueryResult result =
+        adapter.execute(promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES, "Hello"));
+
+    assertEquals(QueryStatus.FAILED, result.status());
+    assertEquals("provider_authentication_error", result.error().code());
+    assertFalse(result.error().message().contains("secret-value"));
+  }
+
+  @Test
+  void malformedClientErrorBecomesExternalServiceFailure() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .willReturn(
+                aResponse()
+                    .withStatus(400)
+                    .withHeader("Content-Type", "text/plain")
+                    .withBody("not-json")));
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+
+    assertThrows(
+        ExternalServiceException.class,
+        () ->
+            adapter.execute(
+                promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS, "Hello")));
+  }
+
+  @Test
+  void providerServerErrorBecomesExternalServiceFailureWithoutParsingBody() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/responses"))
+            .willReturn(
+                aResponse()
+                    .withStatus(503)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(providerError("server_error", "Temporary provider failure"))));
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+
+    assertThrows(
+        ExternalServiceException.class,
+        () ->
+            adapter.execute(
+                promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES, "Hello")));
+  }
+
+  @Test
+  void emptySuccessfulResponseBecomesExternalServiceFailure() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("")));
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+
+    assertThrows(
+        ExternalServiceException.class,
+        () ->
+            adapter.execute(
+                promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS, "Hello")));
+  }
+
+  private String providerError(String code, String message) {
+    return """
+        {"error":{"code":"%s","message":"%s","type":"invalid_request_error"}}
+        """
+        .formatted(code, message);
   }
 
   private ProviderContext promptContext(String providerKey, String prompt) {
