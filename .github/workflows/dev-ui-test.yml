@@ -10,8 +10,10 @@ jobs:
     name: Verify Dev UI Starts with Dev Services
     runs-on: ubuntu-latest
     env:
-      # CI only: dev-ui startup does not exercise object storage, but Quarkus config
-      # validation now requires these values to be non-empty.
+      # CI only: this startup check does not call external providers or object storage,
+      # but Quarkus validates every configured development model during startup.
+      OAI_COMMON_API_KEY: ci-dev-ui-placeholder-oai-key
+      AOK_API_KEY: ci-dev-ui-placeholder-aok-key
       VAGINA_OBJECT_STORAGE_ENDPOINT: https://object-storage.invalid
       VAGINA_OBJECT_STORAGE_BUCKET: ci-dev-ui-placeholder
       VAGINA_OBJECT_STORAGE_REGION: us-east-1
@@ -41,6 +43,7 @@ jobs:
           ./gradlew assemble
 
       - name: Start Quarkus in dev mode
+        id: start-quarkus
         run: |
           echo "Starting Quarkus in dev mode..."
           ./gradlew quarkusDev > quarkus-dev.log 2>&1 &
@@ -51,7 +54,7 @@ jobs:
           # Wait for Quarkus to start (max 2 minutes)
           echo "Waiting for Quarkus to start..."
           for i in {1..60}; do
-            if curl -s http://localhost:8080/healthz > /dev/null 2>&1; then
+            if curl --fail --silent --show-error http://localhost:8080/healthz > /dev/null 2>&1; then
               echo "Quarkus started successfully!"
               break
             fi
@@ -64,7 +67,7 @@ jobs:
             sleep 2
           done
 
-          if ! curl -s http://localhost:8080/healthz > /dev/null 2>&1; then
+          if ! curl --fail --silent --show-error http://localhost:8080/healthz > /dev/null 2>&1; then
             echo "Quarkus failed to start within 2 minutes"
             cat quarkus-dev.log
             kill $QUARKUS_PID || true
@@ -72,11 +75,12 @@ jobs:
           fi
 
       - name: Verify Dev UI is accessible
+        id: verify-dev-ui
         run: |
           echo "Verifying Dev UI is accessible..."
 
           # Check health endpoint
-          if curl -f http://localhost:8080/healthz; then
+          if curl --fail --silent --show-error http://localhost:8080/healthz; then
             echo "✅ Health endpoint is accessible"
           else
             echo "❌ Health endpoint is not accessible"
@@ -84,7 +88,7 @@ jobs:
           fi
 
           # Check Dev UI
-          if curl -f -L http://localhost:8080/q/dev-ui; then
+          if curl --fail --silent --show-error --location http://localhost:8080/q/dev-ui > /dev/null; then
             echo "✅ Dev UI is accessible"
           else
             echo "❌ Dev UI is not accessible"
@@ -99,6 +103,7 @@ jobs:
           fi
 
       - name: Test live reload
+        id: test-live-reload
         run: |
           echo "Testing live reload..."
 
@@ -150,12 +155,12 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "# 🧑‍💻 Dev UI Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Quarkus Dev Mode started successfully" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Dev UI is accessible at /q/dev-ui" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Health endpoint is working" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Live reload is functional" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Dev Services (PostgreSQL) is running" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "# 🧑‍💻 Dev UI Test Summary"
+            echo ""
+            echo "## Step outcomes"
+            echo ""
+            echo "- Quarkus startup: ${{ steps.start-quarkus.outcome }}"
+            echo "- Health and Dev UI verification: ${{ steps.verify-dev-ui.outcome }}"
+            echo "- Live reload: ${{ steps.test-live-reload.outcome }}"
+          } >> "$GITHUB_STEP_SUMMARY"
