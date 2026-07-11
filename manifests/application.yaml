@@ -48,15 +48,20 @@ vagina:
   openai-base: https://vagina-prod.services.ai.azure.com/openai/v1
   auth:
     oidc:
+      providers:
+        google:
+          display-name: Google
+          configuration-url: https://accounts.google.com/.well-known/openid-configuration
+          client-id: "704305705393-v10tqd74ldua1j18km3id7dom3ipk73i.apps.googleusercontent.com"
+        github:
+          display-name: GitHub
+          configuration-url: https://github.com/login/oauth/.well-known/openid-configuration
+          client-id: Ov23li65vfwKe2OOj9Xs
+
       redirect-uri:
         web: https://vagina.app/callback
         mobile: https://vagina.app/callback
         desktop: https://vagina.app/callback
-
-      harigata: null # harigata must be explicitly disabled
-
-      github:
-        client-id: Ov23li65vfwKe2OOj9Xs
 
   realtime:
     default-model: realtime

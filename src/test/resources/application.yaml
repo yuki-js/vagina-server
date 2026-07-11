@@ -45,15 +45,17 @@ vagina:
 
   auth:
     oidc:
-      harigata:
-        issuer: http://localhost:${quarkus.wiremock.devservices.port}
-        configuration-url: http://localhost:${quarkus.wiremock.devservices.port}/.well-known/openid-configuration
-        client-id: harigata-client-id
-        client-secret: harigata-client-secret
-        authorization-endpoint: http://localhost:${quarkus.wiremock.devservices.port}/authorize
-        token-endpoint: http://localhost:${quarkus.wiremock.devservices.port}/token
-        userinfo-endpoint: http://localhost:${quarkus.wiremock.devservices.port}/userinfo
-        jwks-url: http://localhost:${quarkus.wiremock.devservices.port}/jwks
+      providers:
+        harigata:
+          display-name: Harigata
+          issuer: http://localhost:${quarkus.wiremock.devservices.port}
+          configuration-url: http://localhost:${quarkus.wiremock.devservices.port}/.well-known/openid-configuration
+          client-id: harigata-client-id
+          client-secret: harigata-client-secret
+          authorization-endpoint: http://localhost:${quarkus.wiremock.devservices.port}/authorize
+          token-endpoint: http://localhost:${quarkus.wiremock.devservices.port}/token
+          userinfo-endpoint: http://localhost:${quarkus.wiremock.devservices.port}/userinfo
+          jwks-url: http://localhost:${quarkus.wiremock.devservices.port}/jwks
       redirect-uri:
         web: https://example.test/callback
         mobile: https://example.test/callback

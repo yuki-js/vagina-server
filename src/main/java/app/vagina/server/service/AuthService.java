@@ -1,5 +1,6 @@
 package app.vagina.server.service;
 
+import app.vagina.server.config.OidcConfig;
 import app.vagina.server.domain.error.AuthenticationException;
 import app.vagina.server.domain.error.ProviderNotImplementedException;
 import app.vagina.server.domain.error.ValidationException;
@@ -15,13 +16,13 @@ import app.vagina.server.mapper.RefreshTokenMapper;
 import app.vagina.server.service.oidcprovider.OidcProviderBase;
 import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcTokenSet;
 import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcUserInfo;
+import app.vagina.server.service.oidcprovider.OidcProviderRegistry;
 import app.vagina.server.support.Util;
 import io.smallrye.jwt.algorithm.SignatureAlgorithm;
 import io.smallrye.jwt.auth.principal.JWTParser;
 import io.smallrye.jwt.auth.principal.ParseException;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
@@ -29,7 +30,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -40,7 +40,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 @ApplicationScoped
 public class AuthService {
   private static final Set<String> DECLARED_BUT_NOT_IMPLEMENTED_PROVIDERS =
-      Set.of("google", "apple", "twitter");
+      Set.of("apple", "twitter");
   private static final char OIDC_STATE_SEPARATOR = '.';
 
   public record CreatedOidcState(
@@ -65,19 +65,11 @@ public class AuthService {
   @ConfigProperty(name = "vagina.auth.oauth.state.lifespan")
   Long stateLifespan;
 
-  @ConfigProperty(name = "vagina.auth.oidc.redirect-uri.web", defaultValue = "")
-  String webRedirectUri;
-
-  @ConfigProperty(name = "vagina.auth.oidc.redirect-uri.mobile", defaultValue = "")
-  String mobileRedirectUri;
-
-  @ConfigProperty(name = "vagina.auth.oidc.redirect-uri.desktop", defaultValue = "")
-  String desktopRedirectUri;
-
   @ConfigProperty(name = "smallrye.jwt.new-token.issuer")
   String jwtIssuer;
 
-  @Inject Instance<OidcProviderBase> oidcProviders;
+  @Inject OidcConfig oidcConfig;
+  @Inject OidcProviderRegistry oidcProviderRegistry;
   @Inject OAuthLoginAttemptMapper oauthLoginAttemptMapper;
   @Inject RefreshTokenMapper refreshTokenMapper;
   @Inject AuthnProviderMapper authnProviderMapper;
@@ -88,10 +80,10 @@ public class AuthService {
     if (providerKey == null || providerKey.isBlank()) {
       throw new ValidationException("OIDC provider is required");
     }
-    for (OidcProviderBase provider : oidcProviders) {
-      if (providerKey.equals(provider.getProviderKey()) && provider.isConfigured()) {
-        return provider;
-      }
+    OidcProviderRegistry.RegisteredProvider provider =
+        oidcProviderRegistry.resolveConfigured(providerKey);
+    if (provider != null) {
+      return provider.implementation();
     }
     if (DECLARED_BUT_NOT_IMPLEMENTED_PROVIDERS.contains(providerKey)) {
       throw new ProviderNotImplementedException("OIDC provider not implemented: " + providerKey);
@@ -119,22 +111,9 @@ public class AuthService {
   }
 
   public List<ConfiguredOidcProvider> listConfiguredOidcProviders() {
-    return oidcProviders.stream()
-        .filter(OidcProviderBase::isConfigured)
-        .map(
-            provider ->
-                new ConfiguredOidcProvider(
-                    provider.getProviderKey(), providerDisplayName(provider)))
-        .sorted(Comparator.comparing(ConfiguredOidcProvider::displayName))
+    return oidcProviderRegistry.listConfigured().stream()
+        .map(provider -> new ConfiguredOidcProvider(provider.id(), provider.displayName()))
         .toList();
-  }
-
-  private String providerDisplayName(OidcProviderBase provider) {
-    return switch (provider.getProviderKey()) {
-      case "github" -> "GitHub";
-      case "harigata" -> "Harigata";
-      default -> provider.getProviderKey();
-    };
   }
 
   @Transactional
@@ -220,16 +199,17 @@ public class AuthService {
 
   public String resolveRedirectUri(ClientType clientType) {
     ClientType effectiveClientType = clientType == null ? ClientType.WEB : clientType;
+    OidcConfig.RedirectUriConfig redirectUri = oidcConfig.redirectUri();
     return switch (effectiveClientType) {
-      case WEB -> requiredRedirectUri(webRedirectUri, "web");
+      case WEB -> requiredRedirectUri(redirectUri.web(), "web");
       case MOBILE ->
-          (mobileRedirectUri != null && !mobileRedirectUri.isBlank())
-              ? mobileRedirectUri
-              : requiredRedirectUri(webRedirectUri, "web");
+          !redirectUri.mobile().isBlank()
+              ? redirectUri.mobile()
+              : requiredRedirectUri(redirectUri.web(), "web");
       case DESKTOP ->
-          (desktopRedirectUri != null && !desktopRedirectUri.isBlank())
-              ? desktopRedirectUri
-              : requiredRedirectUri(webRedirectUri, "web");
+          !redirectUri.desktop().isBlank()
+              ? redirectUri.desktop()
+              : requiredRedirectUri(redirectUri.web(), "web");
     };
   }
 

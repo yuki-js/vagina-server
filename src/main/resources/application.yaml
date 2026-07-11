@@ -91,6 +91,7 @@ vagina:
       pkce:
         secret: null
     oidc:
+      providers: {}
       redirect-uri:
         web: ""
         mobile: ""

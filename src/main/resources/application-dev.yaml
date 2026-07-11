@@ -78,18 +78,22 @@ smallrye:
 vagina:
   auth:
     oidc:
-      harigata:
-        issuer: http://localhost:18080
-        configuration-url: http://localhost:18080/.well-known/openid-configuration
-        client-id: harigata-client-id
-        client-secret: harigata-client-secret
-        authorization-endpoint: http://localhost:18080/authorize
-        token-endpoint: http://localhost:18080/token
-        userinfo-endpoint: http://localhost:18080/userinfo
-        jwks-url: http://localhost:18080/jwks
-      github:
-        client-id: Ov23liGr3A2QB5vQfz7l
-        client-secret: ${VAGINA_AUTH_OIDC_GITHUB_CLIENT_SECRET}
+      providers:
+        harigata:
+          display-name: Harigata
+          issuer: http://localhost:18080
+          configuration-url: http://localhost:18080/.well-known/openid-configuration
+          client-id: harigata-client-id
+          client-secret: harigata-client-secret
+          authorization-endpoint: http://localhost:18080/authorize
+          token-endpoint: http://localhost:18080/token
+          userinfo-endpoint: http://localhost:18080/userinfo
+          jwks-url: http://localhost:18080/jwks
+        github:
+          display-name: GitHub
+          configuration-url: https://github.com/login/oauth/.well-known/openid-configuration
+          client-id: Ov23liGr3A2QB5vQfz7l
+          client-secret: ${VAGINA_AUTH_OIDC_GITHUB_CLIENT_SECRET}
       redirect-uri:
         web: http://localhost:3000/callback
         mobile: http://localhost:3000/callback

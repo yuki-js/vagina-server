@@ -1,43 +1,27 @@
 package app.vagina.server.service.oidcprovider;
 
+import app.vagina.server.config.OidcConfig;
 import app.vagina.server.domain.error.ExternalServiceException;
 import app.vagina.server.support.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import io.smallrye.config.ConfigMapping;
-import io.smallrye.config.WithDefault;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.ext.web.client.HttpResponse;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.Iterator;
 import java.util.Optional;
 
-@ApplicationScoped
-public class GitHubOidcProvider extends OidcProviderBase {
-  @ConfigMapping(prefix = "vagina.auth.oidc.github")
-  public interface GitHubOidcProviderInfo extends OidcProviderInfo {
-    @Override
-    @WithDefault("https://github.com/login/oauth/.well-known/openid-configuration")
-    Optional<String> configurationUrl();
+public final class GitHubOidcProvider extends OidcProviderBase {
+  private final OidcConfig.ProviderConfig providerConfiguration;
 
-    @Override
-    Optional<String> authorizationEndpoint();
-
-    @Override
-    Optional<String> tokenEndpoint();
-
-    @Override
-    Optional<String> userinfoEndpoint();
-
-    @WithDefault("https://api.github.com/user")
-    String userApiEndpoint();
-
-    @WithDefault("https://api.github.com/user/emails")
-    Optional<String> userEmailsEndpoint();
+  public GitHubOidcProvider(
+      OidcConfig.ProviderConfig providerConfiguration, Vertx vertx, ObjectMapper objectMapper) {
+    this.providerConfiguration = providerConfiguration;
+    this.vertx = vertx;
+    this.objectMapper = objectMapper;
+    init();
   }
-
-  @Inject GitHubOidcProviderInfo gitHubOidcProviderInfo;
 
   @Override
   public String getProviderKey() {
@@ -46,7 +30,7 @@ public class GitHubOidcProvider extends OidcProviderBase {
 
   @Override
   public OidcProviderInfo getProviderConfiguration() {
-    return gitHubOidcProviderInfo;
+    return providerConfiguration;
   }
 
   @Override
@@ -63,7 +47,7 @@ public class GitHubOidcProvider extends OidcProviderBase {
     try {
       response =
           getWebClient()
-              .getAbs(gitHubOidcProviderInfo.userApiEndpoint())
+              .getAbs(providerConfiguration.userApiEndpoint())
               .putHeader("Authorization", "Bearer " + accessToken)
               .putHeader("Accept", "application/json")
               .send()
@@ -102,7 +86,7 @@ public class GitHubOidcProvider extends OidcProviderBase {
   }
 
   private Optional<EmailInfo> fetchPrimaryVerifiedEmail(String accessToken) {
-    if (gitHubOidcProviderInfo.userEmailsEndpoint().isEmpty()) {
+    if (providerConfiguration.userEmailsEndpoint().isEmpty()) {
       return Optional.empty();
     }
 
@@ -110,7 +94,7 @@ public class GitHubOidcProvider extends OidcProviderBase {
     try {
       response =
           getWebClient()
-              .getAbs(gitHubOidcProviderInfo.userEmailsEndpoint().get())
+              .getAbs(providerConfiguration.userEmailsEndpoint().get())
               .putHeader("Authorization", "Bearer " + accessToken)
               .putHeader("Accept", "application/json")
               .send()
