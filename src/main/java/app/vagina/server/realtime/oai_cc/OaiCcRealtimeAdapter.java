@@ -345,21 +345,13 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     activeResponseFunctionItemIds.clear();
     activeResponseFunctionCallIds.clear();
 
-    RealtimeThread.Item previousUserItem = lastVisibleUserMessage();
     String assistantItemId = nextLocalId("cc_asst");
     RealtimeThread.Item assistantItem =
-        previousUserItem == null
-            ? patch.addItem(
-                assistantItemId,
-                RealtimeThread.ItemType.MESSAGE,
-                RealtimeThread.ItemRole.ASSISTANT,
-                RealtimeThread.ItemStatus.IN_PROGRESS)
-            : patch.addItemAfter(
-                previousUserItem.id(),
-                assistantItemId,
-                RealtimeThread.ItemType.MESSAGE,
-                RealtimeThread.ItemRole.ASSISTANT,
-                RealtimeThread.ItemStatus.IN_PROGRESS);
+        patch.addItem(
+            assistantItemId,
+            RealtimeThread.ItemType.MESSAGE,
+            RealtimeThread.ItemRole.ASSISTANT,
+            RealtimeThread.ItemStatus.IN_PROGRESS);
     RealtimeThread.TextPart textPart = patch.ensureTextPart(assistantItem, null);
     flush();
 
@@ -503,25 +495,17 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
         }
       }
     }
-    RealtimeThread.Item previousAssistantItem = lastVisibleAssistantMessage();
     String itemId = nextLocalId("cc_call");
     activeToolCallIndexToItemId.put(event.index(), itemId);
     if (event.id() != null) {
       toolCallIdToItemId.put(event.id(), itemId);
     }
     RealtimeThread.Item item =
-        previousAssistantItem == null
-            ? patch.addItem(
-                itemId,
-                RealtimeThread.ItemType.FUNCTION_CALL,
-                RealtimeThread.ItemRole.ASSISTANT,
-                RealtimeThread.ItemStatus.IN_PROGRESS)
-            : patch.addItemAfter(
-                previousAssistantItem.id(),
-                itemId,
-                RealtimeThread.ItemType.FUNCTION_CALL,
-                RealtimeThread.ItemRole.ASSISTANT,
-                RealtimeThread.ItemStatus.IN_PROGRESS);
+        patch.addItem(
+            itemId,
+            RealtimeThread.ItemType.FUNCTION_CALL,
+            RealtimeThread.ItemRole.ASSISTANT,
+            RealtimeThread.ItemStatus.IN_PROGRESS);
     if (event.id() != null) {
       patch.setCallId(item, event.id());
     }
@@ -532,30 +516,6 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       patch.setArguments(item, sanitizeToolArguments(event.arguments()));
     }
     return item;
-  }
-
-  private RealtimeThread.Item lastVisibleUserMessage() {
-    for (int index = thread.items().size() - 1; index >= 0; index--) {
-      RealtimeThread.Item item = thread.items().get(index);
-      if (item.type() == RealtimeThread.ItemType.MESSAGE
-          && item.role() == RealtimeThread.ItemRole.USER
-          && item.displayState() == RealtimeThread.ItemDisplayState.VISIBLE) {
-        return item;
-      }
-    }
-    return null;
-  }
-
-  private RealtimeThread.Item lastVisibleAssistantMessage() {
-    for (int index = thread.items().size() - 1; index >= 0; index--) {
-      RealtimeThread.Item item = thread.items().get(index);
-      if (item.type() == RealtimeThread.ItemType.MESSAGE
-          && item.role() == RealtimeThread.ItemRole.ASSISTANT
-          && item.displayState() == RealtimeThread.ItemDisplayState.VISIBLE) {
-        return item;
-      }
-    }
-    return null;
   }
 
   private static String sanitizeToolArguments(String arguments) {

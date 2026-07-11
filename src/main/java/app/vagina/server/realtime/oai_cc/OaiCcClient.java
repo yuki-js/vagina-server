@@ -147,8 +147,7 @@ public final class OaiCcClient {
 
     @Override
     public void onNext(String line) {
-      OaiCcEvent event = parser.parseLine(line);
-      if (event != null) {
+      for (OaiCcEvent event : parser.parseLine(line)) {
         emitter.emit(event);
       }
       subscription.request(1);
