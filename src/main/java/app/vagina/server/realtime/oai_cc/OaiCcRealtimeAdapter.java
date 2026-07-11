@@ -395,8 +395,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
             .streamCompletions(config, request)
             .subscribe()
             .with(
-                event ->
-                    onEvent(event, config, attempt, assistantItem, textPart, generation),
+                event -> onEvent(event, config, attempt, assistantItem, textPart, generation),
                 error -> {
                   if (generation == completionGeneration) {
                     onStreamFailure(error);
@@ -692,7 +691,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     }
     for (int index = units.size() - 1; index >= 0; index--) {
       MessageUnit unit = units.get(index);
-      if (unit.removable() && unit.messages().stream().anyMatch(OaiCcRealtimeAdapter::isUserMessage)) {
+      if (unit.removable()
+          && unit.messages().stream().anyMatch(OaiCcRealtimeAdapter::isUserMessage)) {
         units.set(index, new MessageUnit(unit.messages(), false, "current_input"));
         break;
       }
@@ -922,8 +922,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
 
   private record ResolvedEndpoint(URI baseUri, String model) {}
 
-  private record MessageUnit(
-      List<Map<String, Object>> messages, boolean removable, String kind) {}
+  private record MessageUnit(List<Map<String, Object>> messages, boolean removable, String kind) {}
 
   private static final class CompletionAttempt {
     private final List<MessageUnit> units;

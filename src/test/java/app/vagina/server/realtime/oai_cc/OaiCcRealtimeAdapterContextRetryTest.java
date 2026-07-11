@@ -41,21 +41,23 @@ class OaiCcRealtimeAdapterContextRetryTest {
   @Test
   void retriesByRemovingOneOldestMessageWhilePinningSystemAndCurrentInput() throws Exception {
     List<JsonNode> requests = new ArrayList<>();
-    server = startServer(exchange -> {
-      JsonNode request = readRequest(exchange);
-      requests.add(request);
-      if (containsMessageContent(request, "current-user")) {
-        if (textContextWeight(request) > 53) {
-          respond(exchange, 400, "application/json", CONTEXT_ERROR);
-        } else {
-          respondWithText(exchange, "final-answer");
-        }
-      } else if (containsMessageContent(request, "middle-user")) {
-        respondWithText(exchange, "answer-2");
-      } else {
-        respondWithText(exchange, "answer-1");
-      }
-    });
+    server =
+        startServer(
+            exchange -> {
+              JsonNode request = readRequest(exchange);
+              requests.add(request);
+              if (containsMessageContent(request, "current-user")) {
+                if (textContextWeight(request) > 53) {
+                  respond(exchange, 400, "application/json", CONTEXT_ERROR);
+                } else {
+                  respondWithText(exchange, "final-answer");
+                }
+              } else if (containsMessageContent(request, "middle-user")) {
+                respondWithText(exchange, "answer-2");
+              } else {
+                respondWithText(exchange, "answer-1");
+              }
+            });
 
     OaiCcRealtimeAdapter adapter = adapter("Keep this instruction.");
     adapter.sendText("oldest-user").await().indefinitely();
@@ -95,7 +97,8 @@ class OaiCcRealtimeAdapterContextRetryTest {
     assertTrue(textContextWeight(requests.get(2)) > 53);
     assertTrue(textContextWeight(requests.get(3)) > 53);
     assertTrue(textContextWeight(requests.get(4)) <= 53);
-    assertEquals("Keep this instruction.", requests.get(4).path("messages").get(0).path("content").asText());
+    assertEquals(
+        "Keep this instruction.", requests.get(4).path("messages").get(0).path("content").asText());
     assertEquals("current-user", lastMessage(requests.get(4)).path("content").asText());
     assertTrue(containsText(adapter.thread().items(), "oldest-user"));
     assertTrue(containsText(adapter.thread().items(), "answer-1"));
@@ -106,21 +109,23 @@ class OaiCcRealtimeAdapterContextRetryTest {
   @Test
   void removesToolCallAndAllOutputsAsOneRetryUnit() throws Exception {
     List<JsonNode> requests = new ArrayList<>();
-    server = startServer(exchange -> {
-      JsonNode request = readRequest(exchange);
-      requests.add(request);
-      if (containsMessageContent(request, "current-user")) {
-        if (textContextWeight(request) > 30) {
-          respond(exchange, 400, "application/json", CONTEXT_ERROR);
-        } else {
-          respondWithText(exchange, "after-trim");
-        }
-      } else if (request.toString().contains("tool-output")) {
-        respondWithText(exchange, "after-tool");
-      } else {
-        respondWithToolCall(exchange);
-      }
-    });
+    server =
+        startServer(
+            exchange -> {
+              JsonNode request = readRequest(exchange);
+              requests.add(request);
+              if (containsMessageContent(request, "current-user")) {
+                if (textContextWeight(request) > 30) {
+                  respond(exchange, 400, "application/json", CONTEXT_ERROR);
+                } else {
+                  respondWithText(exchange, "after-trim");
+                }
+              } else if (request.toString().contains("tool-output")) {
+                respondWithText(exchange, "after-tool");
+              } else {
+                respondWithToolCall(exchange);
+              }
+            });
 
     OaiCcRealtimeAdapter adapter = adapter("Pinned.");
     adapter
@@ -174,10 +179,12 @@ class OaiCcRealtimeAdapterContextRetryTest {
   @Test
   void forwardsContextErrorAfterHistoryIsExhausted() throws Exception {
     AtomicInteger requestCount = new AtomicInteger();
-    server = startServer(exchange -> {
-      requestCount.incrementAndGet();
-      respond(exchange, 400, "application/json", CONTEXT_ERROR);
-    });
+    server =
+        startServer(
+            exchange -> {
+              requestCount.incrementAndGet();
+              respond(exchange, 400, "application/json", CONTEXT_ERROR);
+            });
 
     OaiCcRealtimeAdapter adapter = adapter("Pinned.");
     List<RealtimeAdapterModels.Error> errors = new ArrayList<>();
@@ -189,22 +196,23 @@ class OaiCcRealtimeAdapterContextRetryTest {
     assertEquals(1, requestCount.get());
     assertEquals("chat_completions_error", errors.getFirst().code());
     assertTrue(errors.getFirst().cause() instanceof OaiCcHttpError);
-    assertEquals(
-        RealtimeThread.ItemStatus.INCOMPLETE, adapter.thread().items().getLast().status());
+    assertEquals(RealtimeThread.ItemStatus.INCOMPLETE, adapter.thread().items().getLast().status());
     adapter.dispose().await().indefinitely();
   }
 
   @Test
   void doesNotRetryUnrelatedHttpError() throws Exception {
     AtomicInteger requestCount = new AtomicInteger();
-    server = startServer(exchange -> {
-      requestCount.incrementAndGet();
-      respond(
-          exchange,
-          400,
-          "application/json",
-          "{\"error\":{\"code\":\"invalid_request_error\"}}");
-    });
+    server =
+        startServer(
+            exchange -> {
+              requestCount.incrementAndGet();
+              respond(
+                  exchange,
+                  400,
+                  "application/json",
+                  "{\"error\":{\"code\":\"invalid_request_error\"}}");
+            });
 
     OaiCcRealtimeAdapter adapter = adapter("Pinned.");
     List<RealtimeAdapterModels.Error> errors = new ArrayList<>();
@@ -251,7 +259,9 @@ class OaiCcRealtimeAdapterContextRetryTest {
         exchange,
         200,
         "text/event-stream",
-        "data: {\"choices\":[{\"delta\":{\"content\":\"" + text + "\"}}]}\n\n"
+        "data: {\"choices\":[{\"delta\":{\"content\":\""
+            + text
+            + "\"}}]}\n\n"
             + "data: {\"choices\":[{\"finish_reason\":\"stop\",\"delta\":{}}]}\n\n"
             + "data: [DONE]\n\n");
   }
@@ -266,8 +276,8 @@ class OaiCcRealtimeAdapterContextRetryTest {
             + "data: [DONE]\n\n");
   }
 
-  private static void respond(
-      HttpExchange exchange, int status, String contentType, String body) throws IOException {
+  private static void respond(HttpExchange exchange, int status, String contentType, String body)
+      throws IOException {
     byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
     exchange.getResponseHeaders().set("Content-Type", contentType);
     exchange.sendResponseHeaders(status, bytes.length);
@@ -277,16 +287,18 @@ class OaiCcRealtimeAdapterContextRetryTest {
 
   private static List<String> messageSignatures(JsonNode request) {
     List<String> signatures = new ArrayList<>();
-    request.path("messages").forEach(
-        message -> {
-          String role = message.path("role").asText();
-          if (message.has("tool_calls")) {
-            signatures.add(
-                "assistant-tool:" + message.path("tool_calls").get(0).path("id").asText());
-          } else {
-            signatures.add(role + ":" + message.path("content").asText());
-          }
-        });
+    request
+        .path("messages")
+        .forEach(
+            message -> {
+              String role = message.path("role").asText();
+              if (message.has("tool_calls")) {
+                signatures.add(
+                    "assistant-tool:" + message.path("tool_calls").get(0).path("id").asText());
+              } else {
+                signatures.add(role + ":" + message.path("content").asText());
+              }
+            });
     return signatures;
   }
 
@@ -337,7 +349,8 @@ class OaiCcRealtimeAdapterContextRetryTest {
       }
       Thread.sleep(10);
     }
-    assertTrue(condition.test(adapter.thread().items()), "Timed out waiting for adapter thread state");
+    assertTrue(
+        condition.test(adapter.thread().items()), "Timed out waiting for adapter thread state");
   }
 
   private static void awaitCondition(Condition condition) throws InterruptedException {

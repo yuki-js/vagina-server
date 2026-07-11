@@ -119,14 +119,7 @@ public class TextAgentUsecase {
 
   private void validateAndStartPromptRequest(
       QueryCommand command, ProviderSessionState sessionState) {
-    if (!sessionState.hasActiveRequest()) {
-      sessionState.startRequest(command.requestId());
-      return;
-    }
-    String activeRequestId = sessionState.activeRequestId().orElse("<unknown>");
-    throw new ConflictException(
-        "Text agent request is waiting for pending tool results for request id: "
-            + activeRequestId);
+    sessionState.startRequest(command.requestId());
   }
 
   private QueryResult validateAndRecordToolResult(

@@ -5,8 +5,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.vagina.server.realtime.VhrpTestClient;
@@ -65,8 +63,7 @@ class VhrpContextWindowRetryE2ETest {
   }
 
   @Test
-  void contextRejectionTrimsOnlyProviderProjectionAndStillCompletesTheVhrpTurn()
-      throws Exception {
+  void contextRejectionTrimsOnlyProviderProjectionAndStillCompletesTheVhrpTurn() throws Exception {
     stubSemanticContextBudget();
     String token = VhrpAuthTestSupport.obtainValidJwt();
     client.connect(testServerUrl.getPort(), "vhrp.cbor.v1");
@@ -95,10 +92,12 @@ class VhrpContextWindowRetryE2ETest {
     assertTrue(containsText(items, FIRST_ANSWER), "canonical snapshot must retain its answer");
     assertTrue(containsText(items, CURRENT), "canonical snapshot must retain current input");
     assertTrue(containsText(items, FINAL_ANSWER), "canonical snapshot must contain retry answer");
-    assertEquals(1, countItemsContaining(items, FINAL_ANSWER), "retry must create one visible answer");
+    assertEquals(
+        1, countItemsContaining(items, FINAL_ANSWER), "retry must create one visible answer");
 
     List<JsonNode> requests = chatCompletionRequests();
-    assertEquals(3, requests.size(), "first turn plus rejected and successful current-turn attempts");
+    assertEquals(
+        3, requests.size(), "first turn plus rejected and successful current-turn attempts");
     assertEquals(
         List.of("system:" + combinedSystemInstruction(), "user:" + OLDEST),
         messageSignatures(requests.get(0)));
@@ -201,8 +200,8 @@ class VhrpContextWindowRetryE2ETest {
     waitForPatchTextAfter(expected, 0, timeout, unit);
   }
 
-  private void waitForPatchTextAfter(
-      String expected, int boundary, long timeout, TimeUnit unit) throws InterruptedException {
+  private void waitForPatchTextAfter(String expected, int boundary, long timeout, TimeUnit unit)
+      throws InterruptedException {
     long deadline = System.nanoTime() + unit.toNanos(timeout);
     while (System.nanoTime() < deadline) {
       List<JsonNode> frames = client.allReceived();

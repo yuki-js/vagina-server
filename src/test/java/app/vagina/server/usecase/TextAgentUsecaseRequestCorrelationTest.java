@@ -1,6 +1,7 @@
 package app.vagina.server.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -47,39 +48,71 @@ class TextAgentUsecaseRequestCorrelationTest {
   }
 
   @Test
-  void promptWithSameRequestIdWhilePendingConflicts() {
+  void promptWithSameRequestIdSupersedesPendingRequest() {
     RecordingAdapter adapter =
-        new RecordingAdapter(QueryResult.requiresTool(List.of(toolCall("tc_1"))));
+        new RecordingAdapter(
+            QueryResult.requiresTool(List.of(toolCall("tc_old"))),
+            QueryResult.requiresTool(List.of(toolCall("tc_new"))));
     Fixture fixture = fixture(adapter);
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_1"));
+    QueryResult replacement =
+        fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_1"));
 
-    ConflictException error =
-        assertThrows(
-            ConflictException.class,
-            () -> fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_1")));
-    assertTrue(error.getMessage().contains("pending tool result"));
-    assertEquals(1, adapter.executionCount());
+    assertEquals(QueryResult.requiresTool(List.of(toolCall("tc_new"))), replacement);
+    assertEquals(Optional.of("req_1"), fixture.sessionState.activeRequestId());
+    assertFalse(fixture.sessionState.hasPendingToolCall("tc_old"));
+    assertTrue(fixture.sessionState.hasPendingToolCall("tc_new"));
+    assertTrue(fixture.sessionState.acceptedToolResults().isEmpty());
+    assertEquals(List.of("req_1", "req_1"), adapter.requestIds());
+    assertEquals(2, adapter.executionCount());
   }
 
   @Test
-  void promptWithDifferentRequestIdWhilePendingConflictsAndDoesNotMutateProviderState() {
+  void promptWithDifferentRequestIdSupersedesPendingRequest() {
     RecordingAdapter adapter =
-        new RecordingAdapter(QueryResult.requiresTool(List.of(toolCall("tc_old"))));
+        new RecordingAdapter(
+            QueryResult.requiresTool(List.of(toolCall("tc_old"))),
+            QueryResult.requiresTool(List.of(toolCall("tc_new"))));
     Fixture fixture = fixture(adapter);
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_old"));
+    QueryResult replacement =
+        fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_new"));
+
+    assertEquals(QueryResult.requiresTool(List.of(toolCall("tc_new"))), replacement);
+    assertEquals(Optional.of("req_new"), fixture.sessionState.activeRequestId());
+    assertFalse(fixture.sessionState.hasPendingToolCall("tc_old"));
+    assertTrue(fixture.sessionState.hasPendingToolCall("tc_new"));
+    assertTrue(fixture.sessionState.acceptedToolResults().isEmpty());
+    assertEquals(List.of("req_old", "req_new"), adapter.requestIds());
+    assertEquals(2, adapter.executionCount());
+  }
+
+  @Test
+  void lateToolResultFromSupersededRequestCannotMutateReplacementRequest() {
+    RecordingAdapter adapter =
+        new RecordingAdapter(
+            QueryResult.requiresTool(List.of(toolCall("tc_old"))),
+            QueryResult.requiresTool(List.of(toolCall("tc_new"))));
+    Fixture fixture = fixture(adapter);
+
+    fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_old"));
+    fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_new"));
 
     ConflictException error =
         assertThrows(
             ConflictException.class,
-            () -> fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_new")));
+            () ->
+                fixture.usecase.queryTextAgent(
+                    7L, "ta_contract", toolResultCommand("req_old", "tc_old")));
 
-    assertTrue(error.getMessage().contains("pending tool results"));
-    assertEquals(Optional.of("req_old"), fixture.sessionState.activeRequestId());
-    assertTrue(fixture.sessionState.hasPendingToolCall("tc_old"));
-    assertEquals(List.of("req_old"), adapter.requestIds());
-    assertEquals(1, adapter.executionCount());
+    assertTrue(error.getMessage().contains("request id"));
+    assertEquals(Optional.of("req_new"), fixture.sessionState.activeRequestId());
+    assertFalse(fixture.sessionState.hasPendingToolCall("tc_old"));
+    assertTrue(fixture.sessionState.hasPendingToolCall("tc_new"));
+    assertTrue(fixture.sessionState.acceptedToolResults().isEmpty());
+    assertEquals(2, adapter.executionCount());
   }
 
   @Test

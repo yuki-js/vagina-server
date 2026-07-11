@@ -19,7 +19,8 @@ public record OaiCcHttpError(
       type = text(error, "type");
       param = text(error, "param");
     } catch (Exception ignored) {
-      // Preserve the status and raw body; malformed provider errors are not retryable context errors.
+      // Preserve the status and raw body; malformed provider errors are not retryable context
+      // errors.
     }
     return new OaiCcHttpError(statusCode, body, code, type, param);
   }

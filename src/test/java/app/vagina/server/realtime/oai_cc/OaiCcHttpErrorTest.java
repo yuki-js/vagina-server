@@ -27,8 +27,7 @@ class OaiCcHttpErrorTest {
   @Test
   void doesNotClassifyWrongStatusMalformedBodyOrUnrelatedCode() {
     assertFalse(
-        OaiCcHttpError.parse(
-                429, "{\"error\":{\"code\":\"context_length_exceeded\"}}", json)
+        OaiCcHttpError.parse(429, "{\"error\":{\"code\":\"context_length_exceeded\"}}", json)
             .isContextLengthExceeded());
     assertFalse(OaiCcHttpError.parse(400, "not-json", json).isContextLengthExceeded());
     assertFalse(
