@@ -27,7 +27,7 @@ import java.util.List;
 
 @ApplicationScoped
 public class TextAgentUsecase {
-  private static final String QUERY_TEXT_AGENT_TOOL_NAME = "query_text_agent";
+  private static final String SAY_HELLO_TO_AGENT_TOOL_NAME = "say_hello_to_agent";
   private static final String END_CALL_TOOL_NAME = "end_call";
   private static final Duration PENDING_REQUEST_TTL = Duration.ofMinutes(5);
 
@@ -166,7 +166,7 @@ public class TextAgentUsecase {
     }
 
     return command.toolCatalog().stream()
-        .filter(tool -> !QUERY_TEXT_AGENT_TOOL_NAME.equals(tool.name()))
+        .filter(tool -> !SAY_HELLO_TO_AGENT_TOOL_NAME.equals(tool.name()))
         .filter(tool -> !END_CALL_TOOL_NAME.equals(tool.name()))
         .filter(tool -> enabledTools.overrides().getOrDefault(tool.name(), true))
         .toList();

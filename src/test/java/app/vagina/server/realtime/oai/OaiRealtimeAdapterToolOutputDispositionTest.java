@@ -30,23 +30,23 @@ class OaiRealtimeAdapterToolOutputDispositionTest {
         adapter
             .sendFunctionOutput(
                 "call_1",
-                "{\"success\":false,\"error\":\"query_text_agent is disabled\"}",
+                "{\"success\":false,\"error\":\"say_hello_to_agent is disabled\"}",
                 RealtimeAdapterModels.ToolOutputDisposition.ERROR,
-                "query_text_agent is disabled")
+                "say_hello_to_agent is disabled")
             .await()
             .indefinitely();
 
     transport.emitConversationItemCreated(
-        itemId, "call_1", "{\"success\":false,\"error\":\"query_text_agent is disabled\"}");
+        itemId, "call_1", "{\"success\":false,\"error\":\"say_hello_to_agent is disabled\"}");
 
     RealtimeThread.Item output = adapter.thread().findItem(itemId);
     assertNotNull(output);
     assertEquals(RealtimeThread.ItemType.FUNCTION_CALL_OUTPUT, output.type());
     assertEquals(RealtimeAdapterModels.ToolOutputDisposition.ERROR, output.toolOutputDisposition());
-    assertEquals("query_text_agent is disabled", output.toolErrorMessage());
+    assertEquals("say_hello_to_agent is disabled", output.toolErrorMessage());
     assertEquals("error", patchFieldValue(patches, itemId, "toolOutputDisposition"));
     assertEquals(
-        "query_text_agent is disabled", patchFieldValue(patches, itemId, "toolErrorMessage"));
+        "say_hello_to_agent is disabled", patchFieldValue(patches, itemId, "toolErrorMessage"));
   }
 
   @Test
@@ -57,7 +57,7 @@ class OaiRealtimeAdapterToolOutputDispositionTest {
         adapter.threadPatches().subscribe().withSubscriber(AssertSubscriber.create(10));
     transport.emitResponseCreated("response_1");
     transport.emitFunctionCallOutputItemAdded(
-        "call_item_1", "call_interrupted", "query_text_agent", "{\"question\":\"hello\"}");
+        "call_item_1", "call_interrupted", "say_hello_to_agent", "{\"question\":\"hello\"}");
 
     adapter.interrupt().await().indefinitely();
     String itemId = transport.lastFunctionCallOutputItemId();

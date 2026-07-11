@@ -98,8 +98,8 @@ class TextAgentUsecaseToolCatalogTest {
   }
 
   @Test
-  void queryTextAgentIsExcludedFromProviderCatalogForRecursionSafety() {
-    Fixture fixture = fixture("{\"query_text_agent\":true}", List.of());
+  void sayHelloToAgentIsExcludedFromProviderCatalogForRecursionSafety() {
+    Fixture fixture = fixture("{\"say_hello_to_agent\":true}", List.of());
 
     fixture.usecase.queryTextAgent(7L, "ta_contract", command());
 
@@ -209,7 +209,7 @@ class TextAgentUsecaseToolCatalogTest {
                 "calculator",
                 "end_call",
                 "list_available_agents",
-                "query_text_agent")));
+                "say_hello_to_agent")));
   }
 
   private record Fixture(
