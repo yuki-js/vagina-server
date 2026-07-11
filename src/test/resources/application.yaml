@@ -90,11 +90,12 @@ vagina:
         model: test-oai-cc-model
         required-entitlement: premium.voice.public
       test-voice-agent-fail-connect:
-        provider: oai_cc
+        provider: oai
         display-name: Test Voice Agent Fail Connect
         base-url: ${vagina.test.oai-cc.base-url}
-        api-key: test-oai-cc-api-key
-        model: test-oai-cc-model
+        api-key: test-oai-realtime-api-key
+        model: test-oai-realtime-model
+        transcription-model: test-transcription-model
 
   text-agent:
     default-model: text-agent-prod

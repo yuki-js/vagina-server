@@ -143,7 +143,6 @@ class VhrpCompositeE2ETest {
    */
   @Test
   void freshOpenConnectFailure() throws Exception {
-    VhrpLifecycleTestSupport.installFailingConnectAdapterFactory();
     String token = VhrpAuthTestSupport.obtainValidJwt();
     String failingSpeedDialId = createFailingSpeedDial(token);
 
