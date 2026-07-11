@@ -91,7 +91,7 @@ public final class OaiCcClient {
             emitter.emit(
                 new OaiCcEvent.ErrorEvent(
                     "Chat Completions API returned HTTP " + statusCode,
-                    new HttpError(statusCode, body)));
+                    OaiCcHttpError.parse(statusCode, body, json)));
             return null;
           });
     };
@@ -113,8 +113,6 @@ public final class OaiCcClient {
     }
     return builder.build();
   }
-
-  private record HttpError(int statusCode, String body) {}
 
   private static final class ActiveRequest {
     private final AtomicBoolean cancelled = new AtomicBoolean(false);

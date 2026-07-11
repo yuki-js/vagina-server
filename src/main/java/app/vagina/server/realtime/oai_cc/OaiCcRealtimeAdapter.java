@@ -6,6 +6,7 @@ import app.vagina.server.realtime.ThreadPatchBuilder;
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.realtime.model.RealtimeThread;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.operators.multi.processors.BroadcastProcessor;
@@ -24,7 +25,16 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-/** OpenAI Chat Completions implementation of the hosted realtime adapter contract. */
+/**
+ * OpenAI Chat Completions implementation of the hosted realtime adapter contract.
+ *
+ * <p>Conversation history remains complete in the canonical thread. If the provider rejects a
+ * request with {@code context_length_exceeded}, only that completion's outbound projection is
+ * reduced: one oldest historical message is removed per retry, while a tool-call message and all of
+ * its tool outputs form one atomic removal unit. System instructions and the current input are
+ * always retained. A non-context error, or a context error after removable history is exhausted, is
+ * forwarded through the adapter error stream.
+ */
 public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
   private static final String EXT_INPUT_NOISE_REDUCTION = "session.input_noise_reduction_selection";
   private static final String EXT_REASONING_EFFORT = "session.reasoning_effort_selection";
@@ -77,6 +87,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       RealtimeAdapterModels.ConnectionState.idle();
   private long localIdCounter = 0;
   private boolean disposed = false;
+  private long completionGeneration = 0;
 
   public OaiCcRealtimeAdapter(
       String modelId, RealtimeModelsConfig.ModelConfig modelConfig, ObjectMapper json) {
@@ -355,10 +366,25 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     RealtimeThread.TextPart textPart = patch.ensureTextPart(assistantItem, null);
     flush();
 
+    long generation = completionGeneration;
+    CompletionAttempt attempt = new CompletionAttempt(messageUnits(messages));
+    startCompletionAttempt(config, attempt, assistantItem, textPart, generation);
+    return Uni.createFrom().voidItem();
+  }
+
+  private void startCompletionAttempt(
+      OaiCcConnectConfig config,
+      CompletionAttempt attempt,
+      RealtimeThread.Item assistantItem,
+      RealtimeThread.TextPart textPart,
+      long generation) {
+    if (disposed || generation != completionGeneration) {
+      return;
+    }
     OaiCcRequest request =
         new OaiCcRequest(
             config.model(),
-            messages,
+            attempt.messages(),
             true,
             sessionVoice,
             tools,
@@ -368,12 +394,26 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
         client
             .streamCompletions(config, request)
             .subscribe()
-            .with(event -> onEvent(event, assistantItem, textPart), this::onStreamFailure);
-    return Uni.createFrom().voidItem();
+            .with(
+                event ->
+                    onEvent(event, config, attempt, assistantItem, textPart, generation),
+                error -> {
+                  if (generation == completionGeneration) {
+                    onStreamFailure(error);
+                  }
+                });
   }
 
   private void onEvent(
-      OaiCcEvent event, RealtimeThread.Item assistantItem, RealtimeThread.TextPart textPart) {
+      OaiCcEvent event,
+      OaiCcConnectConfig config,
+      CompletionAttempt attempt,
+      RealtimeThread.Item assistantItem,
+      RealtimeThread.TextPart textPart,
+      long generation) {
+    if (generation != completionGeneration) {
+      return;
+    }
     switch (event) {
       case OaiCcEvent.ContentDelta content -> {
         patch.appendText(
@@ -383,7 +423,8 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       case OaiCcEvent.AudioDelta audio -> onAudioDelta(assistantItem, textPart, audio);
       case OaiCcEvent.ToolCallDelta tool -> onToolCallDelta(tool);
       case OaiCcEvent.Finished ignored -> onFinished(assistantItem, textPart);
-      case OaiCcEvent.ErrorEvent error -> onProviderError(assistantItem, error);
+      case OaiCcEvent.ErrorEvent error ->
+          onProviderError(config, attempt, assistantItem, textPart, generation, error);
     }
   }
 
@@ -465,7 +506,27 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     responseSubscription = null;
   }
 
-  private void onProviderError(RealtimeThread.Item assistantItem, OaiCcEvent.ErrorEvent error) {
+  private void onProviderError(
+      OaiCcConnectConfig config,
+      CompletionAttempt attempt,
+      RealtimeThread.Item assistantItem,
+      RealtimeThread.TextPart textPart,
+      long generation,
+      OaiCcEvent.ErrorEvent error) {
+    if (error.upstreamError() instanceof OaiCcHttpError httpError
+        && httpError.isContextLengthExceeded()
+        && attempt.removeOldestHistoryUnit()) {
+      responseSubscription = null;
+      Log.warnf(
+          "Retrying Chat Completions after context rejection: modelId=%s attempt=%d removedUnitKind=%s removedUnits=%d remainingMessages=%d",
+          modelId,
+          attempt.attemptNumber(),
+          attempt.lastRemovedKind(),
+          attempt.removedUnitCount(),
+          attempt.messages().size());
+      startCompletionAttempt(config, attempt, assistantItem, textPart, generation);
+      return;
+    }
     patch.setStatus(assistantItem, RealtimeThread.ItemStatus.INCOMPLETE);
     flush();
     emitError("chat_completions_error", error.message(), error.upstreamError());
@@ -608,6 +669,48 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     return index - 1;
   }
 
+  private static List<MessageUnit> messageUnits(List<Map<String, Object>> messages) {
+    List<MessageUnit> units = new ArrayList<>();
+    for (int index = 0; index < messages.size(); index++) {
+      Map<String, Object> message = messages.get(index);
+      String role = Objects.toString(message.get("role"), "");
+      if ("system".equals(role)) {
+        units.add(new MessageUnit(List.of(message), false, "system"));
+        continue;
+      }
+      if (message.containsKey("tool_calls")) {
+        List<Map<String, Object>> exchange = new ArrayList<>();
+        exchange.add(message);
+        while (index + 1 < messages.size()
+            && "tool".equals(Objects.toString(messages.get(index + 1).get("role"), ""))) {
+          exchange.add(messages.get(++index));
+        }
+        units.add(new MessageUnit(List.copyOf(exchange), true, "tool_exchange"));
+        continue;
+      }
+      units.add(new MessageUnit(List.of(message), true, "message"));
+    }
+    for (int index = units.size() - 1; index >= 0; index--) {
+      MessageUnit unit = units.get(index);
+      if (unit.removable() && unit.messages().stream().anyMatch(OaiCcRealtimeAdapter::isUserMessage)) {
+        units.set(index, new MessageUnit(unit.messages(), false, "current_input"));
+        break;
+      }
+    }
+    if (!units.isEmpty()) {
+      int lastIndex = units.size() - 1;
+      MessageUnit last = units.get(lastIndex);
+      if (last.removable()) {
+        units.set(lastIndex, new MessageUnit(last.messages(), false, "current_input"));
+      }
+    }
+    return List.copyOf(units);
+  }
+
+  private static boolean isUserMessage(Map<String, Object> message) {
+    return "user".equals(Objects.toString(message.get("role"), ""));
+  }
+
   private Map<String, Object> messageForItem(RealtimeThread.Item item) {
     String role = roleToWire(item.role());
     if (role == null) {
@@ -659,6 +762,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
   }
 
   private void cleanupActiveCompletion() {
+    completionGeneration += 1;
     Cancellable subscription = responseSubscription;
     if (subscription != null) {
       subscription.cancel();
@@ -817,6 +921,52 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
   }
 
   private record ResolvedEndpoint(URI baseUri, String model) {}
+
+  private record MessageUnit(
+      List<Map<String, Object>> messages, boolean removable, String kind) {}
+
+  private static final class CompletionAttempt {
+    private final List<MessageUnit> units;
+    private int removedUnitCount;
+    private String lastRemovedKind;
+
+    private CompletionAttempt(List<MessageUnit> units) {
+      this.units = new ArrayList<>(units);
+    }
+
+    private List<Map<String, Object>> messages() {
+      List<Map<String, Object>> messages = new ArrayList<>();
+      for (MessageUnit unit : units) {
+        messages.addAll(unit.messages());
+      }
+      return List.copyOf(messages);
+    }
+
+    private boolean removeOldestHistoryUnit() {
+      for (int index = 0; index < units.size(); index++) {
+        MessageUnit unit = units.get(index);
+        if (unit.removable()) {
+          units.remove(index);
+          removedUnitCount += 1;
+          lastRemovedKind = unit.kind();
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private int attemptNumber() {
+      return removedUnitCount + 1;
+    }
+
+    private int removedUnitCount() {
+      return removedUnitCount;
+    }
+
+    private String lastRemovedKind() {
+      return lastRemovedKind;
+    }
+  }
 
   private static String normalizeReasoningEffort(String selection) {
     if (selection == null || selection.isBlank() || "off".equals(selection)) {
