@@ -151,6 +151,7 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
         "Failed to encode Chat Completions text agent request");
   }
 
+  @RegisterForReflection
   @JsonInclude(JsonInclude.Include.NON_NULL)
   private record ChatCompletionRequest(
       String model,
@@ -159,6 +160,7 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
       List<OpenAiTextAgentToolSchemas.ChatCompletionsTool> tools,
       @JsonProperty("tool_choice") String toolChoice) {}
 
+  @RegisterForReflection
   @JsonInclude(JsonInclude.Include.NON_NULL)
   private record ChatCompletionMessage(
       String role,
@@ -210,8 +212,10 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
     }
   }
 
+  @RegisterForReflection
   private record ChatCompletionToolCall(String id, String type, ChatCompletionFunction function) {}
 
+  @RegisterForReflection
   private record ChatCompletionFunction(String name, String arguments) {}
 
   @RegisterForReflection

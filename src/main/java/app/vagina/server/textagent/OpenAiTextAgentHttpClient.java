@@ -41,7 +41,7 @@ final class OpenAiTextAgentHttpClient {
       applyApiKeyHeaders(context, builder);
       HttpResponse<String> response =
           httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-      return classifyResponse(context, uri, requestBody, response, responseType, failureMessage);
+      return classifyResponse(context, uri, response, responseType, failureMessage);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       LOG.warnf(
@@ -69,7 +69,6 @@ final class OpenAiTextAgentHttpClient {
   private <T> PostJsonResult<T> classifyResponse(
       ProviderContext context,
       URI uri,
-      String requestBody,
       HttpResponse<String> response,
       Class<T> responseType,
       String failureMessage) {
@@ -78,7 +77,6 @@ final class OpenAiTextAgentHttpClient {
       return PostJsonResult.success(
           readSuccessResponse(context, uri, response, responseType, failureMessage));
     }
-    logRequestShape(context, uri, requestBody);
     if (status >= 400 && status < 500) {
       return PostJsonResult.providerFailure(
           readProviderFailure(context, uri, response, failureMessage));
@@ -143,30 +141,6 @@ final class OpenAiTextAgentHttpClient {
       default ->
           new ProviderFailure("provider_request_error", "The AI provider rejected this request.");
     };
-  }
-
-  private void logRequestShape(ProviderContext context, URI uri, String requestBody) {
-    boolean hasModel = false;
-    String model = "<missing>";
-    try {
-      JsonNode root = objectMapper.readTree(requestBody);
-      JsonNode modelNode = root == null ? null : root.get("model");
-      hasModel = modelNode != null && !modelNode.isNull();
-      if (hasModel) {
-        model = modelNode.isTextual() ? modelNode.asText() : "<non-text>";
-      }
-    } catch (Exception e) {
-      model = "<unreadable>";
-    }
-    LOG.infof(
-        "Text agent upstream HTTP request shape: provider=%s textModelId=%s providerModel=%s uri=%s requestHasModel=%s requestModel=%s requestBodyLength=%d",
-        context.binding().provider(),
-        context.binding().textModelId(),
-        context.binding().providerModelName(),
-        uri,
-        hasModel,
-        model,
-        responseBodyLength(requestBody));
   }
 
   private String text(JsonNode node, String field) {

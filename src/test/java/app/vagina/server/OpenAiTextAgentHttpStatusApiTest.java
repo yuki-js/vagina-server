@@ -1,6 +1,8 @@
 package app.vagina.server;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.matching;
+import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static io.restassured.RestAssured.given;
@@ -167,6 +169,7 @@ class OpenAiTextAgentHttpStatusApiTest {
   private void stubChatCompletions(int status, String body) {
     wireMock.register(
         post(urlPathEqualTo("/v1/chat/completions"))
+            .withRequestBody(matchingJsonPath("$.model", matching("gpt-5\\.5")))
             .atPriority(1)
             .willReturn(
                 aResponse()

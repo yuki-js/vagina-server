@@ -162,6 +162,7 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
         "function_call_output", toolResult.toolCallId(), toolResult.output());
   }
 
+  @RegisterForReflection
   @JsonInclude(JsonInclude.Include.NON_NULL)
   private record ResponsesRequest(
       String model,
@@ -171,11 +172,14 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
       List<OpenAiTextAgentToolSchemas.ResponsesTool> tools,
       @JsonProperty("tool_choice") String toolChoice) {}
 
+  @RegisterForReflection
   private record FunctionCallOutputInput(
       String type, @JsonProperty("call_id") String callId, String output) {}
 
+  @RegisterForReflection
   private record ResponsesMessageInput(String type, String role, List<Object> content) {}
 
+  @RegisterForReflection
   @JsonInclude(JsonInclude.Include.NON_NULL)
   private record ResponsesInputContentPart(
       String type, String text, @JsonProperty("image_url") String imageUrl, String detail) {}

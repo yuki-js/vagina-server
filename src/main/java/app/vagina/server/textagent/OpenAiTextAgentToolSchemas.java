@@ -3,6 +3,7 @@ package app.vagina.server.textagent;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCatalogEntry;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import java.util.List;
 import java.util.Map;
 
@@ -31,12 +32,15 @@ final class OpenAiTextAgentToolSchemas {
         .toList();
   }
 
+  @RegisterForReflection
   @JsonInclude(JsonInclude.Include.NON_NULL)
   record ChatCompletionsTool(String type, ChatCompletionsFunction function) {}
 
+  @RegisterForReflection
   @JsonInclude(JsonInclude.Include.NON_NULL)
   record ChatCompletionsFunction(String name, String description, Map<String, Object> parameters) {}
 
+  @RegisterForReflection
   @JsonInclude(JsonInclude.Include.NON_NULL)
   record ResponsesTool(
       String type,
