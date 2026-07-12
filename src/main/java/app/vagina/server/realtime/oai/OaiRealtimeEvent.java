@@ -3,13 +3,11 @@ package app.vagina.server.realtime.oai;
 import java.util.List;
 
 /**
- * Inbound OpenAI Realtime events as a sealed type set, plus the value types they carry. Aggregated
- * into one file (judgment 8); mirrors the consumed subset of the Dart {@code realtime_event.dart}.
+ * Inbound OpenAI Realtime events and their value types.
  *
- * <p>Only the events {@link OaiRealtimeAdapter} actually projects are modelled here — the same set
- * the Dart adapter subscribes to. {@link OaiRealtimeEventParser} maps a raw OpenAI JSON frame onto
- * one of these; an unmodelled {@code type} is dropped by the parser rather than represented,
- * exactly as the Dart binding ignores events it has no typed stream for.
+ * <p>Only events consumed by {@link OaiRealtimeEventProjector} are modelled. {@link
+ * OaiRealtimeEventParser} maps raw provider frames onto this sealed protocol boundary; unknown
+ * event types are deliberately ignored.
  */
 public sealed interface OaiRealtimeEvent {
 
@@ -28,8 +26,14 @@ public sealed interface OaiRealtimeEvent {
    */
   record Session(String id, String model, String voice, String instructions) {}
 
-  /** OpenAI error detail; {@code code} falls back to {@code type} when absent. */
-  record ErrorDetail(String type, String code, String message, String param) {}
+  /**
+   * OpenAI error detail.
+   *
+   * <p>{@code eventId} is the client command ID echoed as {@code error.event_id}. Keeping it is
+   * essential: an active-response conflict is recoverable only when it can be matched to the exact
+   * queued generation whose {@code response.create} failed.
+   */
+  record ErrorDetail(String type, String code, String message, String param, String eventId) {}
 
   /**
    * One content part of a conversation item. {@code type} is the OpenAI part token ({@code
@@ -264,10 +268,7 @@ public sealed interface OaiRealtimeEvent {
   // Response lifecycle
   // ---------------------------------------------------------------------------
 
-  /**
-   * {@code response.created}: OpenAI started a new response. Marks the beginning of an active
-   * response; used by {@code OaiRealtimeAdapter} to guard {@code interrupt()} calls.
-   */
+  /** {@code response.created}: establishes provider response identity and active ownership. */
   record ResponseCreated(String responseId) implements OaiRealtimeEvent {
     @Override
     public String type() {
@@ -275,10 +276,7 @@ public sealed interface OaiRealtimeEvent {
     }
   }
 
-  /**
-   * {@code response.done}: the in-flight response finished (status may be {@code completed}, {@code
-   * cancelled}, or {@code failed}). Clears the active-response flag.
-   */
+  /** {@code response.done}: terminal boundary for a completed, cancelled, or failed response. */
   record ResponseDone(String responseId, String status) implements OaiRealtimeEvent {
     @Override
     public String type() {

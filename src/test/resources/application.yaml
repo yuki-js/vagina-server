@@ -76,6 +76,15 @@ vagina:
         base-url: ${vagina.test.oai-cc.base-url}
         api-key: test-oai-cc-api-key
         model: test-oai-cc-model
+      # Opt-in real-provider tests only. Non-routable defaults keep normal CI configuration valid and
+      # hermetic; the real test rejects these sentinels unless explicit credentials are supplied.
+      voice-agent-prod-realtime:
+        provider: oai
+        display-name: Test Voice Agent Realtime
+        base-url: ${OAI_REALTIME_BASE_URL:https://realtime.invalid/openai/v1}
+        api-key: ${OAI_REALTIME_API_KEY:__NO_AUTH__}
+        model: ${OAI_REALTIME_MODEL:gpt-realtime-2}
+        transcription-model: ${OAI_REALTIME_TRANSCRIPTION_MODEL:gpt-4o-transcribe}
       test-voice-agent-entitled:
         provider: oai_cc
         display-name: test-voice-agent-entitled

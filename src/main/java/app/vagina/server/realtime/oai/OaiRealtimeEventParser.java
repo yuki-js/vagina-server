@@ -147,14 +147,15 @@ public final class OaiRealtimeEventParser {
 
   private OaiRealtimeEvent.ErrorDetail errorDetail(JsonNode node) {
     if (node == null) {
-      return new OaiRealtimeEvent.ErrorDetail("unknown", null, "Unknown error", null);
+      return new OaiRealtimeEvent.ErrorDetail("unknown", null, "Unknown error", null, null);
     }
     String t = text(node, "type");
     return new OaiRealtimeEvent.ErrorDetail(
         t == null ? "unknown" : t,
         text(node, "code"),
         Objects.requireNonNullElse(text(node, "message"), "Unknown error"),
-        text(node, "param"));
+        text(node, "param"),
+        text(node, "event_id"));
   }
 
   private OaiRealtimeEvent.ContentPart contentPart(JsonNode node) {

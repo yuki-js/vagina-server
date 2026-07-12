@@ -819,10 +819,18 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     return changed;
   }
 
+  /**
+   * Returns whether every function call from the current provider response has an output.
+   *
+   * <p>Historical calls are intentionally excluded. An interrupted response leaves incomplete calls
+   * in the canonical thread for truthful history, but those calls no longer own continuation
+   * authority. Including them here permanently blocked every later tool batch after one interrupt.
+   */
   private boolean allToolCallsHaveOutputs() {
     Set<String> outputs = outputCallIds();
     for (RealtimeThread.Item item : thread.items()) {
       if (item.type() == RealtimeThread.ItemType.FUNCTION_CALL
+          && isActiveResponseFunctionCall(item)
           && item.callId() != null
           && !outputs.contains(item.callId())) {
         return false;

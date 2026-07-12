@@ -107,6 +107,71 @@ class OaiCcRealtimeAdapterOrderingTest {
     adapter.dispose().await().indefinitely();
   }
 
+  /**
+   * An interrupted partial tool call remains in canonical history without an output. It must not
+   * participate in a later response's tool-output barrier; otherwise the new tool result is
+   * accepted but its continuation HTTP request is never started, leaving the call silently
+   * unresponsive.
+   */
+  @Test
+  void interruptedHistoricalToolCallDoesNotBlockLaterToolContinuation() throws Exception {
+    AtomicInteger requestCount = new AtomicInteger();
+    server = HttpServer.create(new InetSocketAddress(0), 0);
+    server.createContext(
+        "/v1/chat/completions",
+        exchange -> {
+          int currentRequest = requestCount.incrementAndGet();
+          if (currentRequest == 1) {
+            respondWithSse(
+                exchange,
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_old\",\"function\":{\"name\":\"first\",\"arguments\":\"{\"}}]}}]}\n\n");
+          } else if (currentRequest == 2) {
+            respondWithSse(
+                exchange,
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_new\",\"function\":{\"name\":\"second\",\"arguments\":\"{}\"}}]}}]}\n\n"
+                    + "data: {\"choices\":[{\"finish_reason\":\"tool_calls\",\"delta\":{}}]}\n\n"
+                    + "data: [DONE]\n\n");
+          } else {
+            respondWithSse(
+                exchange,
+                "data: {\"choices\":[{\"delta\":{\"content\":\"Recovered.\"}}]}\n\n"
+                    + "data: {\"choices\":[{\"finish_reason\":\"stop\",\"delta\":{}}]}\n\n"
+                    + "data: [DONE]\n\n");
+          }
+        });
+    server.start();
+
+    OaiCcRealtimeAdapter adapter =
+        new OaiCcRealtimeAdapter(
+            "test-cc", modelConfig(server.getAddress().getPort()), new ObjectMapper());
+    adapter.connect(null, null).await().indefinitely();
+    adapter
+        .registerTools(
+            List.of(
+                new RealtimeAdapterModels.ToolDefinition("first", "first", Map.of()),
+                new RealtimeAdapterModels.ToolDefinition("second", "second", Map.of())))
+        .await()
+        .indefinitely();
+
+    adapter.sendText("Start the old tool.").await().indefinitely();
+    awaitThread(
+        adapter, items -> items.stream().anyMatch(item -> "call_old".equals(item.callId())));
+    adapter.interrupt().await().indefinitely();
+
+    adapter.sendText("Start the new tool.").await().indefinitely();
+    awaitThread(
+        adapter, items -> items.stream().anyMatch(item -> "call_new".equals(item.callId())));
+    adapter
+        .sendFunctionOutput(
+            "call_new", "new-output", RealtimeAdapterModels.ToolOutputDisposition.SUCCESS, null)
+        .await()
+        .indefinitely();
+    awaitThread(adapter, items -> items.stream().anyMatch(item -> "Recovered.".equals(text(item))));
+
+    assertEquals(3, requestCount.get());
+    adapter.dispose().await().indefinitely();
+  }
+
   private static void awaitThread(
       OaiCcRealtimeAdapter adapter, Predicate<List<RealtimeThread.Item>> condition)
       throws InterruptedException {

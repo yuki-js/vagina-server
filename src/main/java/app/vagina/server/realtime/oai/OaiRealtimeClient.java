@@ -23,10 +23,9 @@ import java.util.Map;
  *   <li>encode and send outbound {@link OaiRealtimeCommand}s.
  * </ul>
  *
- * <p>It holds no business logic, no thread projection, and no provider-agnostic mapping — that is
- * the {@link OaiRealtimeAdapter}'s job. A single {@link BroadcastProcessor} fans every parsed event
- * out; {@link #events(Class)} filters by concrete type, matching the Dart {@code
- * _typedStream<T>()}.
+ * <p>It holds no business logic, response coordination, or canonical-thread projection. A single
+ * {@link BroadcastProcessor} fans every parsed event out; {@link #events(Class)} filters by
+ * concrete type for the event projector.
  */
 public final class OaiRealtimeClient {
 
@@ -118,12 +117,19 @@ public final class OaiRealtimeClient {
     return send(new OaiRealtimeCommand.ConversationItemCreate(previousItemId, item));
   }
 
-  public Uni<Void> createResponse(Map<String, Object> response) {
-    return send(new OaiRealtimeCommand.ResponseCreate(response));
+  /**
+   * Starts one default-conversation response correlated by a caller-owned event ID.
+   *
+   * <p>The provider echoes this ID inside {@code error.event_id}; the adapter uses that correlation
+   * to retry only the generation whose create was rejected.
+   */
+  public Uni<Void> createResponse(String eventId, Map<String, Object> response) {
+    return send(new OaiRealtimeCommand.ResponseCreate(eventId, response));
   }
 
-  public Uni<Void> cancelResponse() {
-    return send(new OaiRealtimeCommand.ResponseCancel());
+  /** Cancels the active or create-pending default-conversation response. */
+  public Uni<Void> cancelResponse(String eventId) {
+    return send(new OaiRealtimeCommand.ResponseCancel(eventId));
   }
 
   // ---------------------------------------------------------------------------

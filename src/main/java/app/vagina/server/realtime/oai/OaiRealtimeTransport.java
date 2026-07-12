@@ -11,11 +11,10 @@ import io.smallrye.mutiny.Uni;
  * realtime_transport.dart}.
  *
  * <p>This layer owns only connection lifecycle and JSON frame I/O over the downstream
- * (Quarkus→OpenAI) link. It performs no event accumulation, no business interpretation, and no
- * provider-agnostic mapping; those live in {@link OaiRealtimeClient} and {@link
- * OaiRealtimeAdapter}. Connection state is surfaced as the VHRP-agnostic {@link
- * RealtimeAdapterModels.ConnectionState} so the adapter can map it onto its own contract without an
- * OAI-specific phase type leaking upward.
+ * (Quarkus→OpenAI) link. It performs no parsing, response coordination, or thread projection; those
+ * belong to the client and adapter collaborators. Connection state is surfaced as the VHRP-agnostic
+ * {@link RealtimeAdapterModels.ConnectionState} so the adapter can map it onto its own contract
+ * without an OAI-specific phase type leaking upward.
  */
 public interface OaiRealtimeTransport {
 
