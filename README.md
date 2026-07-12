@@ -1,10 +1,10 @@
-# Vagina Server
+# VAGINA Server
 
 ![Build](https://img.shields.io/badge/gradle-8.x-02303a?logo=gradle&labelColor=0b1724)
 ![Quarkus](https://img.shields.io/badge/quarkus-3.x-b326ff?logo=quarkus&labelColor=111)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 
-Opinionated Quarkus 3 backend for Vagina Server. Schema-first OpenAPI, PostgreSQL, MyBatis, JWT, observability, generated clients. Clone the repo, run `./gradlew quarkusDev`, and you get a working stack.
+Opinionated Quarkus 3 backend for VAGINA Server. Schema-first OpenAPI, PostgreSQL, MyBatis, JWT, observability, generated clients. Clone the repo, run `./gradlew quarkusDev`, and you get a working stack.
 
 ## Features
 

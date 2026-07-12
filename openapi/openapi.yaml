@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: Vagina Server API
-  description: REST API for the Vagina application backend
+  title: VAGINA Server API
+  description: REST API for the VAGINA application backend
   version: 0.0.1
 servers:
   - url: /api

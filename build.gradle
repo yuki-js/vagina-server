@@ -176,7 +176,7 @@ jib {
             // Labels for native image
             labels = [
                 'org.opencontainers.image.title': 'vagina-server-native',
-                'org.opencontainers.image.description': 'Vagina Server application (native)',
+                'org.opencontainers.image.description': 'VAGINA Server application (native)',
                 'org.opencontainers.image.version': "${version}",
                 'org.opencontainers.image.source': 'https://github.com/vagina-ai/server'
             ]
@@ -193,7 +193,7 @@ jib {
             // Labels for JVM image
             labels = [
                 'org.opencontainers.image.title': 'vagina-server-jvm',
-                'org.opencontainers.image.description': 'Vagina Server application (JVM)',
+                'org.opencontainers.image.description': 'VAGINA Server application (JVM)',
                 'org.opencontainers.image.version': "${version}",
                 'org.opencontainers.image.source': 'https://github.com/vagina-ai/server'
             ]

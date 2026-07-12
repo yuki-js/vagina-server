@@ -1,6 +1,6 @@
 # Building Maintainable Backend: A Workbook
 
-Welcome to this hands-on workshop for learning how to build maintainable backend applications using Vagina Server.
+Welcome to this hands-on workshop for learning how to build maintainable backend applications using VAGINA Server.
 
 ## What You Will Learn
 

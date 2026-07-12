@@ -120,7 +120,7 @@ paths:
         - auth
       operationId: exchangeOidcLogin
       summary: Exchange OIDC authorization code
-      description: Exchange an OIDC authorization code for Vagina server tokens.
+      description: Exchange an OIDC authorization code for VAGINA server tokens.
       security: []
       requestBody:
         required: true
@@ -144,7 +144,7 @@ paths:
                   minLength: 1
       responses:
         "200":
-          description: OIDC login exchanged for Vagina server tokens.
+          description: OIDC login exchanged for VAGINA server tokens.
           content:
             application/json:
               schema:

@@ -47,7 +47,7 @@ quarkus:
     clean-at-start: true
 
   smallrye-openapi:
-    info-title: Vagina Server API (Dev Mode)
+    info-title: VAGINA Server API (Dev Mode)
     info-version: 0.0.1-SNAPSHOT
 
   swagger-ui:
