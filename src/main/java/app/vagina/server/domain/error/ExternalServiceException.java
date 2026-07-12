@@ -1,6 +1,6 @@
 package app.vagina.server.domain.error;
 
-public final class ExternalServiceException extends DomainException {
+public class ExternalServiceException extends DomainException {
 
   public ExternalServiceException(String message) {
     super(message);

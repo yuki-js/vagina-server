@@ -22,6 +22,8 @@ import java.util.Optional;
 
 public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAdapter {
   static final String PROVIDER_STATE_MESSAGES = "messages";
+  private static final String SYNTHETIC_TOOL_FAILURE_OUTPUT =
+      "{\"success\":false,\"error\":\"Tool continuation was rejected by the AI provider.\"}";
 
   private final OpenAiTextAgentHttpClient http;
 
@@ -41,16 +43,10 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
 
   @Override
   public QueryResult execute(ProviderContext context) {
-    List<ChatCompletionMessage> messages = mutableMessages(context);
+    List<ChatCompletionMessage> messages = new ArrayList<>(mutableMessages(context));
     ensureSystemMessage(context, messages);
     appendCurrentInput(context, messages);
-    PostJsonResult<ChatCompletionResponse> httpResult =
-        http.postJson(
-            context,
-            chatCompletionsUri(context),
-            requestBody(context, messages),
-            ChatCompletionResponse.class,
-            "Chat Completions text agent request failed");
+    PostJsonResult<ChatCompletionResponse> httpResult = postMessages(context, messages);
     if (httpResult.rejectedByProvider()) {
       ProviderFailure failure = httpResult.providerFailure();
       return QueryResult.failed(failure.code(), failure.message());
@@ -58,10 +54,50 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
     QueryResult result = parseResponse(httpResult.body());
     if (result.status() == TextAgentRuntimeModels.QueryStatus.REQUIRES_TOOL) {
       messages.add(ChatCompletionMessage.assistantToolCalls(result.toolCalls()));
+      commitMessages(context, messages);
     } else if (result.status() == TextAgentRuntimeModels.QueryStatus.COMPLETED) {
       messages.add(ChatCompletionMessage.assistantText(result.text()));
+      commitMessages(context, messages);
     }
     return result;
+  }
+
+  @Override
+  public boolean recoverTerminalToolFailure(ProviderContext context) {
+    List<ChatCompletionMessage> messages = new ArrayList<>(mutableMessages(context));
+    for (ToolResultSubmission toolResult : context.sessionState().acceptedToolResults()) {
+      messages.add(
+          ChatCompletionMessage.toolOutput(toolResult.toolCallId(), SYNTHETIC_TOOL_FAILURE_OUTPUT));
+    }
+    try {
+      PostJsonResult<ChatCompletionResponse> httpResult = postMessages(context, messages);
+      if (httpResult.rejectedByProvider()) {
+        return false;
+      }
+      QueryResult result = parseResponse(httpResult.body());
+      if (result.status() != TextAgentRuntimeModels.QueryStatus.COMPLETED) {
+        return false;
+      }
+      messages.add(ChatCompletionMessage.assistantText(result.text()));
+      commitMessages(context, messages);
+      return true;
+    } catch (RuntimeException e) {
+      return false;
+    }
+  }
+
+  private PostJsonResult<ChatCompletionResponse> postMessages(
+      ProviderContext context, List<ChatCompletionMessage> messages) {
+    return http.postJson(
+        context,
+        chatCompletionsUri(context),
+        requestBody(context, messages),
+        ChatCompletionResponse.class,
+        "Chat Completions text agent request failed");
+  }
+
+  private void commitMessages(ProviderContext context, List<ChatCompletionMessage> messages) {
+    providerState(context).put(PROVIDER_STATE_MESSAGES, messages);
   }
 
   private void ensureSystemMessage(ProviderContext context, List<ChatCompletionMessage> messages) {

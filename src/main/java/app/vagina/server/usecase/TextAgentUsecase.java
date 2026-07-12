@@ -9,12 +9,14 @@ import app.vagina.server.service.TextAgentModelRegistryService;
 import app.vagina.server.service.TextAgentService;
 import app.vagina.server.support.EnabledToolsJson;
 import app.vagina.server.support.EnabledToolsJson.ParseResult;
+import app.vagina.server.textagent.RetryableTextAgentProviderException;
 import app.vagina.server.textagent.TextAgentAdapter;
 import app.vagina.server.textagent.TextAgentAdapterFactory;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderSessionState;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
+import app.vagina.server.textagent.TextAgentRuntimeModels.QueryStatus;
 import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCatalogEntry;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -83,11 +85,28 @@ public class TextAgentUsecase {
             allowedToolCatalog(textAgent, command));
     try {
       QueryResult result = adapter.execute(context);
+      if (result.status() == QueryStatus.FAILED && command.isToolResultStep()) {
+        recoverOrResetConversation(adapter, context);
+      }
       adapter.applyResultToSessionState(context, result);
       return result;
+    } catch (RetryableTextAgentProviderException e) {
+      if (command.isPromptStep()) {
+        sessionState.clearRequestState();
+      }
+      throw e;
     } catch (RuntimeException | Error e) {
+      if (command.isToolResultStep()) {
+        recoverOrResetConversation(adapter, context);
+      }
       sessionState.clearRequestState();
       throw e;
+    }
+  }
+
+  private void recoverOrResetConversation(TextAgentAdapter adapter, ProviderContext context) {
+    if (!adapter.recoverTerminalToolFailure(context)) {
+      adapter.resetConversation(context);
     }
   }
 
@@ -140,8 +159,15 @@ public class TextAgentUsecase {
               + activeRequestId);
     }
     if (sessionState.hasAcceptedToolResult(toolCallId)) {
-      throw new ConflictException(
-          "Submitted duplicate tool result for tool call id: " + toolCallId);
+      if (sessionState.hasPendingToolCalls()
+          || !sessionState
+              .acceptedToolResult(toolCallId)
+              .orElseThrow()
+              .equals(command.toolResult())) {
+        throw new ConflictException(
+            "Submitted duplicate tool result for tool call id: " + toolCallId);
+      }
+      return null;
     }
     if (!sessionState.hasPendingToolCall(toolCallId)) {
       throw new ConflictException(

@@ -112,20 +112,20 @@ vagina:
     default-model: text-agent-prod
     models:
       text-agent-prod:
-        provider: oai_chat
+        provider: oai_responses
         display-name: text-agent-prod
         base-url: https://text-agent.invalid/v1
         api-key: __NO_AUTH__
         model: gpt-5.5
       test-text-agent-wiremock:
-        provider: oai_chat
+        provider: oai_responses
         display-name: Test Text Agent WireMock
         base-url: http://localhost:${quarkus.wiremock.devservices.port}/v1
         api-key: test-text-agent-api-key
         model: gpt-5.5
         is-stealth: true
       test-text-agent-entitled:
-        provider: oai_chat
+        provider: oai_responses
         display-name: test-text-agent-entitled
         base-url: https://text-agent.invalid/v1
         api-key: __NO_AUTH__
@@ -133,7 +133,7 @@ vagina:
         required-entitlement: premium.text
         is-stealth: true
       test-text-agent-public-entitled:
-        provider: oai_chat
+        provider: oai_responses
         display-name: Test Locked Text Agent
         base-url: https://text-agent.invalid/v1
         api-key: __NO_AUTH__

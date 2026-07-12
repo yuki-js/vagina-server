@@ -31,8 +31,8 @@ final class OpenAiTextAgentHttpClient {
 
   <T> PostJsonResult<T> postJson(
       ProviderContext context, URI uri, Object body, Class<T> responseType, String failureMessage) {
+    String requestBody = writeJson(body, failureMessage);
     try {
-      String requestBody = objectMapper.writeValueAsString(body);
       HttpRequest.Builder builder =
           HttpRequest.newBuilder(uri)
               .header("Content-Type", "application/json")
@@ -51,7 +51,9 @@ final class OpenAiTextAgentHttpClient {
           context.binding().textModelId(),
           context.binding().providerModelName(),
           uri);
-      throw new ExternalServiceException(failureMessage, e);
+      throw new RetryableTextAgentProviderException(failureMessage, e);
+    } catch (RetryableTextAgentProviderException e) {
+      throw e;
     } catch (ExternalServiceException e) {
       throw e;
     } catch (Exception e) {
@@ -62,7 +64,7 @@ final class OpenAiTextAgentHttpClient {
           context.binding().textModelId(),
           context.binding().providerModelName(),
           uri);
-      throw new ExternalServiceException(failureMessage, e);
+      throw new RetryableTextAgentProviderException(failureMessage, e);
     }
   }
 
@@ -77,11 +79,18 @@ final class OpenAiTextAgentHttpClient {
       return PostJsonResult.success(
           readSuccessResponse(context, uri, response, responseType, failureMessage));
     }
+    if (status == 429) {
+      warnNonSuccessStatus(context, uri, response);
+      throw new RetryableTextAgentProviderException(failureMessage);
+    }
     if (status >= 400 && status < 500) {
       return PostJsonResult.providerFailure(
           readProviderFailure(context, uri, response, failureMessage));
     }
     warnNonSuccessStatus(context, uri, response);
+    if (status >= 500 && status < 600) {
+      throw new RetryableTextAgentProviderException(failureMessage);
+    }
     throw new ExternalServiceException(failureMessage);
   }
 

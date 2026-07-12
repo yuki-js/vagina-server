@@ -60,14 +60,14 @@ class OpenAiTextAgentHttpStatusApiTest {
 
   @Test
   void successfulProviderResponseIsDeserializedAcrossApplicationBoundary() throws Exception {
-    stubChatCompletions(
+    stubResponses(
         200,
         """
         {
-          "choices": [{
-            "finish_reason": "stop",
-            "index": 0,
-            "message": {"role": "assistant", "content": "native parse ok"}
+          "id": "resp_native_parse",
+          "output": [{
+            "type": "message",
+            "content": [{"type": "output_text", "text": "native parse ok"}]
           }]
         }
         """);
@@ -82,7 +82,7 @@ class OpenAiTextAgentHttpStatusApiTest {
 
   @Test
   void providerAuthenticationFailureReturnsSanitizedFailedQuery() throws Exception {
-    stubChatCompletions(
+    stubResponses(
         401,
         """
         {
@@ -105,7 +105,7 @@ class OpenAiTextAgentHttpStatusApiTest {
 
   @Test
   void providerServerFailureReturnsBadGateway() throws Exception {
-    stubChatCompletions(
+    stubResponses(
         503,
         """
         {"error":{"message":"Temporary failure","type":"server_error","code":"server_error"}}
@@ -166,9 +166,9 @@ class OpenAiTextAgentHttpStatusApiTest {
         .post("/api/text-agents/{textAgentId}/query", fixture.textAgentId());
   }
 
-  private void stubChatCompletions(int status, String body) {
+  private void stubResponses(int status, String body) {
     wireMock.register(
-        post(urlPathEqualTo("/v1/chat/completions"))
+        post(urlPathEqualTo("/v1/responses"))
             .withRequestBody(matchingJsonPath("$.model", matching("gpt-5\\.5")))
             .atPriority(1)
             .willReturn(

@@ -13,6 +13,7 @@ import app.vagina.server.realtime.VhrpSession;
 import app.vagina.server.realtime.VhrpSessionRegistry;
 import app.vagina.server.service.TextAgentModelRegistryService;
 import app.vagina.server.service.TextAgentService;
+import app.vagina.server.textagent.RetryableTextAgentProviderException;
 import app.vagina.server.textagent.TextAgentAdapter;
 import app.vagina.server.textagent.TextAgentAdapterFactory;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
@@ -20,6 +21,7 @@ import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderSessionState;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderStateMode;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryResult;
+import app.vagina.server.textagent.TextAgentRuntimeModels.QueryStatus;
 import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolCall;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ToolResultSubmission;
@@ -319,6 +321,84 @@ class TextAgentUsecaseRequestCorrelationTest {
     assertEquals(3, adapter.executionCount());
   }
 
+  @Test
+  void retryableFinalToolContinuationKeepsStateAndExactDuplicateRetriesProviderOnly() {
+    RecordingAdapter adapter =
+        new RecordingAdapter(
+            QueryResult.requiresTool(List.of(toolCall("tc_1"))),
+            new RetryableTextAgentProviderException("temporarily unavailable"),
+            QueryResult.completed("retried"));
+    Fixture fixture = fixture(adapter);
+
+    fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_1"));
+    assertThrows(
+        RetryableTextAgentProviderException.class,
+        () ->
+            fixture.usecase.queryTextAgent(7L, "ta_contract", toolResultCommand("req_1", "tc_1")));
+
+    assertEquals(Optional.of("req_1"), fixture.sessionState.activeRequestId());
+    assertFalse(fixture.sessionState.hasPendingToolCalls());
+    assertEquals(List.of("tc_1"), acceptedToolResultIds(fixture.sessionState));
+
+    QueryResult retried =
+        fixture.usecase.queryTextAgent(7L, "ta_contract", toolResultCommand("req_1", "tc_1"));
+
+    assertEquals(QueryResult.completed("retried"), retried);
+    assertEquals(3, adapter.executionCount());
+    assertEquals(Optional.empty(), fixture.sessionState.activeRequestId());
+  }
+
+  @Test
+  void retryableFinalToolContinuationRejectsDuplicateWithDifferentOutput() {
+    RecordingAdapter adapter =
+        new RecordingAdapter(
+            QueryResult.requiresTool(List.of(toolCall("tc_1"))),
+            new RetryableTextAgentProviderException("temporarily unavailable"));
+    Fixture fixture = fixture(adapter);
+
+    fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_1"));
+    assertThrows(
+        RetryableTextAgentProviderException.class,
+        () ->
+            fixture.usecase.queryTextAgent(7L, "ta_contract", toolResultCommand("req_1", "tc_1")));
+
+    QueryCommand changedOutput =
+        new QueryCommand(
+            "s_voice",
+            "req_1",
+            null,
+            List.of(),
+            new ToolResultSubmission("tc_1", "changed", false),
+            List.of());
+    assertThrows(
+        ConflictException.class,
+        () -> fixture.usecase.queryTextAgent(7L, "ta_contract", changedOutput));
+    assertEquals(2, adapter.executionCount());
+  }
+
+  @Test
+  void terminalToolFailureAttemptsRecoveryBeforeClearingRequestState() {
+    RecordingAdapter adapter =
+        new RecordingAdapter(
+            QueryResult.requiresTool(List.of(toolCall("tc_1"))),
+            QueryResult.failed("provider_request_error", "rejected"));
+    adapter.recoveryResult = true;
+    Fixture fixture = fixture(adapter);
+
+    fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_1"));
+    QueryResult failed =
+        fixture.usecase.queryTextAgent(7L, "ta_contract", toolResultCommand("req_1", "tc_1"));
+
+    assertEquals(QueryStatus.FAILED, failed.status());
+    assertEquals(1, adapter.recoveryCount);
+    assertEquals(List.of("tc_1"), adapter.acceptedToolResultIdsAtRecovery);
+    assertEquals(Optional.empty(), fixture.sessionState.activeRequestId());
+  }
+
+  private List<String> acceptedToolResultIds(ProviderSessionState state) {
+    return state.acceptedToolResults().stream().map(ToolResultSubmission::toolCallId).toList();
+  }
+
   private Fixture fixture(RecordingAdapter adapter) {
     TextAgentDefinition definition =
         new TextAgentDefinition(
@@ -398,6 +478,9 @@ class TextAgentUsecaseRequestCorrelationTest {
     private final Queue<Object> results = new ArrayDeque<>();
     private final List<ProviderContext> contexts = new ArrayList<>();
     private final List<List<String>> acceptedToolResultIdsByExecution = new ArrayList<>();
+    private boolean recoveryResult;
+    private int recoveryCount;
+    private List<String> acceptedToolResultIdsAtRecovery = List.of();
 
     RecordingAdapter(Object... results) {
       this.results.addAll(List.of(results));
@@ -431,6 +514,16 @@ class TextAgentUsecaseRequestCorrelationTest {
         throw error;
       }
       return (QueryResult) result;
+    }
+
+    @Override
+    public boolean recoverTerminalToolFailure(ProviderContext context) {
+      recoveryCount++;
+      acceptedToolResultIdsAtRecovery =
+          context.sessionState().acceptedToolResults().stream()
+              .map(ToolResultSubmission::toolCallId)
+              .toList();
+      return recoveryResult;
     }
 
     int executionCount() {

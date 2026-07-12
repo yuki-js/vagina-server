@@ -14,6 +14,14 @@ public interface TextAgentAdapter {
 
   QueryResult execute(ProviderContext context);
 
+  default boolean recoverTerminalToolFailure(ProviderContext context) {
+    return false;
+  }
+
+  default void resetConversation(ProviderContext context) {
+    providerState(context).clear();
+  }
+
   default void applyResultToSessionState(ProviderContext context, QueryResult result) {
     switch (result.status()) {
       case COMPLETED, FAILED -> context.sessionState().clearRequestState();

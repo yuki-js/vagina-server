@@ -757,6 +757,77 @@ class OpenAiTextAgentAdapterContractTest {
   }
 
   @Test
+  void chatCompletionsTerminalRecoveryCommitsSanitizedSyntheticToolOutput() throws Exception {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .atPriority(1)
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.messages[3].content",
+                    equalTo(
+                        "{\"success\":false,\"error\":\"Tool continuation was rejected by the AI provider.\"}")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(CHAT_TOOL_CONTINUATION_RESPONSE)));
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+    ProviderContext promptContext =
+        promptContext(
+            TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS,
+            "Use the document_read tool for /contract.md.");
+    seedPendingToolContinuation(adapter, promptContext, "call_wtIGCW9WMkDpULFW5or9izIa");
+    ProviderContext continuationContext =
+        toolResultContext(promptContext.sessionState(), "call_wtIGCW9WMkDpULFW5or9izIa");
+
+    assertTrue(adapter.recoverTerminalToolFailure(continuationContext));
+    assertEquals(5, providerMessages(continuationContext).size());
+  }
+
+  @Test
+  void responsesTerminalRecoveryCommitsSanitizedSyntheticToolOutput() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/responses"))
+            .withRequestBody(matchingJsonPath("$.previous_response_id", equalTo("resp_tool_call")))
+            .withRequestBody(
+                matchingJsonPath(
+                    "$.input[0].output",
+                    equalTo(
+                        "{\"success\":false,\"error\":\"Tool continuation was rejected by the AI provider.\"}")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(RESPONSES_TOOL_CONTINUATION_RESPONSE)));
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+    ProviderContext promptContext =
+        promptContext(
+            TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
+            "Use the document_read tool for /contract.md.");
+    adapter.rememberPreviousResponseId(promptContext, "resp_tool_call");
+    ProviderContext continuationContext =
+        toolResultContext(promptContext.sessionState(), "call_mAH7OHpzsnpQQ8DfBhdS3L6J");
+
+    assertTrue(adapter.recoverTerminalToolFailure(continuationContext));
+    assertEquals(
+        "resp_05c749160a4fb710006a44b38846d08193b4246c9d0b1a56ef",
+        adapter.previousResponseId(continuationContext));
+  }
+
+  private void seedPendingToolContinuation(
+      OpenAiChatCompletionsTextAgentAdapter adapter, ProviderContext context, String toolCallId) {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .withRequestBody(matchingJsonPath("$.messages[1].role", equalTo("user")))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(CHAT_TOOL_CALL_RESPONSE)));
+    QueryResult result = adapter.execute(context);
+    adapter.applyResultToSessionState(context, result);
+    assertTrue(context.sessionState().hasPendingToolCall(toolCallId));
+  }
+
+  @Test
   void responsesRequestOmitsToolsWhenCatalogEmpty() throws Exception {
     OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
     ProviderContext context =
@@ -809,6 +880,90 @@ class OpenAiTextAgentAdapterContractTest {
     assertEquals(QueryStatus.FAILED, result.status());
     assertEquals("provider_authentication_error", result.error().code());
     assertFalse(result.error().message().contains("secret-value"));
+  }
+
+  @Test
+  void chatCompletionsRejectedPromptDoesNotCommitInputHistory() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .willReturn(
+                aResponse()
+                    .withStatus(401)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(providerError("invalid_api_key", "Invalid API key"))));
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+    ProviderContext context =
+        promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS, "Do not commit");
+
+    QueryResult result = adapter.execute(context);
+
+    assertEquals(QueryStatus.FAILED, result.status());
+    assertTrue(providerMessages(context).isEmpty());
+  }
+
+  @Test
+  void chatCompletionsRateLimitIsRetryableAndDoesNotCommitInputHistory() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/chat/completions"))
+            .willReturn(
+                aResponse()
+                    .withStatus(429)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(providerError("rate_limit_exceeded", "Busy"))));
+    OpenAiChatCompletionsTextAgentAdapter adapter =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
+    ProviderContext context =
+        promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS, "Do not commit");
+
+    assertThrows(RetryableTextAgentProviderException.class, () -> adapter.execute(context));
+    assertTrue(providerMessages(context).isEmpty());
+  }
+
+  @Test
+  void responsesSemanticFailureDoesNotAdvancePreviousResponseId() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/responses"))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"id\":\"resp_rejected\",\"output\":[]}")));
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+    ProviderContext context =
+        promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES, "Do not commit");
+    adapter.rememberPreviousResponseId(context, "resp_committed");
+
+    QueryResult result = adapter.execute(context);
+
+    assertEquals(QueryStatus.FAILED, result.status());
+    assertEquals("resp_committed", adapter.previousResponseId(context));
+  }
+
+  @Test
+  void responsesRateLimitIsRetryableAndDoesNotAdvancePreviousResponseId() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/responses"))
+            .willReturn(
+                aResponse()
+                    .withStatus(429)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(providerError("rate_limit_exceeded", "Busy"))));
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+    ProviderContext context =
+        promptContext(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES, "Do not commit");
+    adapter.rememberPreviousResponseId(context, "resp_committed");
+
+    assertThrows(RetryableTextAgentProviderException.class, () -> adapter.execute(context));
+    assertEquals("resp_committed", adapter.previousResponseId(context));
+  }
+
+  @SuppressWarnings("unchecked")
+  private List<Object> providerMessages(ProviderContext context) {
+    return (List<Object>)
+        context
+            .sessionState()
+            .providerState()
+            .get(OpenAiChatCompletionsTextAgentAdapter.PROVIDER_STATE_MESSAGES);
   }
 
   @Test

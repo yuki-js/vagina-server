@@ -160,7 +160,7 @@ jobs:
             -e VAGINA_REALTIME_DEFAULT_MODEL=verifyrealtime \
             -e VAGINA_REALTIME_MODELS_VERIFYREALTIME_PROVIDER=oai \
             -e VAGINA_TEXT_AGENT_DEFAULT_MODEL=verifytextagent \
-            -e VAGINA_TEXT_AGENT_MODELS_VERIFYTEXTAGENT_PROVIDER=oai_chat \
+            -e VAGINA_TEXT_AGENT_MODELS_VERIFYTEXTAGENT_PROVIDER=oai_responses \
             -e VAGINA_OBJECT_STORAGE_ENDPOINT=https://object-storage.invalid \
             -e VAGINA_OBJECT_STORAGE_BUCKET=verify-placeholder-bucket \
             -e VAGINA_OBJECT_STORAGE_ACCESS_KEY=verify-placeholder-access-key \
@@ -185,7 +185,7 @@ jobs:
             -e VAGINA_REALTIME_DEFAULT_MODEL=verifyrealtime \
             -e VAGINA_REALTIME_MODELS_VERIFYREALTIME_PROVIDER=oai \
             -e VAGINA_TEXT_AGENT_DEFAULT_MODEL=verifytextagent \
-            -e VAGINA_TEXT_AGENT_MODELS_VERIFYTEXTAGENT_PROVIDER=oai_chat \
+            -e VAGINA_TEXT_AGENT_MODELS_VERIFYTEXTAGENT_PROVIDER=oai_responses \
             -e VAGINA_OBJECT_STORAGE_ENDPOINT=https://object-storage.invalid \
             -e VAGINA_OBJECT_STORAGE_BUCKET=verify-placeholder-bucket \
             -e VAGINA_OBJECT_STORAGE_ACCESS_KEY=verify-placeholder-access-key \

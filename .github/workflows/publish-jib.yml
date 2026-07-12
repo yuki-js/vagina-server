@@ -285,7 +285,7 @@ jobs:
               default-model: verifytextagent
               models:
                 verifytextagent:
-                  provider: oai_chat
+                  provider: oai_responses
                   display-name: Verify Text Agent
                   base-url: https://text-agent.invalid
                   api-key: verify-placeholder-api-key

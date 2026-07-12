@@ -317,6 +317,10 @@ public final class TextAgentRuntimeModels {
       return acceptedToolResults.containsKey(toolCallId);
     }
 
+    public Optional<ToolResultSubmission> acceptedToolResult(String toolCallId) {
+      return Optional.ofNullable(acceptedToolResults.get(toolCallId));
+    }
+
     public boolean acceptPendingToolResult(ToolResultSubmission toolResult) {
       if (toolResult == null) {
         throw new IllegalArgumentException("Tool result is required");

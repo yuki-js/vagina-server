@@ -22,6 +22,8 @@ import java.util.Optional;
 public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   static final String PROVIDER_STATE_PREVIOUS_RESPONSE_ID = "previous_response_id";
   static final String PROVIDER_STATE_LAST_REQUEST_ID = "last_request_id";
+  private static final String SYNTHETIC_TOOL_FAILURE_OUTPUT =
+      "{\"success\":false,\"error\":\"Tool continuation was rejected by the AI provider.\"}";
 
   private final OpenAiTextAgentHttpClient http;
 
@@ -41,21 +43,65 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
 
   @Override
   public QueryResult execute(ProviderContext context) {
-    providerState(context).put(PROVIDER_STATE_LAST_REQUEST_ID, context.command().requestId());
-    PostJsonResult<ResponsesResponse> httpResult =
-        http.postJson(
-            context,
-            responsesUri(context),
-            requestBody(context),
-            ResponsesResponse.class,
-            "Responses text agent request failed");
+    PostJsonResult<ResponsesResponse> httpResult = postRequest(context, requestBody(context));
     if (httpResult.rejectedByProvider()) {
       ProviderFailure failure = httpResult.providerFailure();
       return QueryResult.failed(failure.code(), failure.message());
     }
     ResponsesResponse response = httpResult.body();
-    rememberPreviousResponseId(context, response.id());
-    return parseResponse(response);
+    QueryResult result = parseResponse(response);
+    if (result.status() == TextAgentRuntimeModels.QueryStatus.COMPLETED
+        || result.status() == TextAgentRuntimeModels.QueryStatus.REQUIRES_TOOL) {
+      rememberPreviousResponseId(context, response.id());
+      providerState(context).put(PROVIDER_STATE_LAST_REQUEST_ID, context.command().requestId());
+    }
+    return result;
+  }
+
+  @Override
+  public boolean recoverTerminalToolFailure(ProviderContext context) {
+    List<FunctionCallOutputInput> syntheticOutputs =
+        context.sessionState().acceptedToolResults().stream()
+            .map(
+                toolResult ->
+                    new FunctionCallOutputInput(
+                        "function_call_output",
+                        toolResult.toolCallId(),
+                        SYNTHETIC_TOOL_FAILURE_OUTPUT))
+            .toList();
+    ResponsesRequest recoveryRequest =
+        new ResponsesRequest(
+            boundModelName(context),
+            null,
+            previousResponseId(context),
+            syntheticOutputs,
+            null,
+            null);
+    try {
+      PostJsonResult<ResponsesResponse> httpResult = postRequest(context, recoveryRequest);
+      if (httpResult.rejectedByProvider()) {
+        return false;
+      }
+      ResponsesResponse response = httpResult.body();
+      QueryResult result = parseResponse(response);
+      if (result.status() != TextAgentRuntimeModels.QueryStatus.COMPLETED) {
+        return false;
+      }
+      rememberPreviousResponseId(context, response.id());
+      return true;
+    } catch (RuntimeException e) {
+      return false;
+    }
+  }
+
+  private PostJsonResult<ResponsesResponse> postRequest(
+      ProviderContext context, ResponsesRequest request) {
+    return http.postJson(
+        context,
+        responsesUri(context),
+        request,
+        ResponsesResponse.class,
+        "Responses text agent request failed");
   }
 
   private ResponsesRequest requestBody(ProviderContext context) {
