@@ -191,13 +191,18 @@ class OpenAiRealRealtimeVhrpSequenceTest {
         .contentType(ContentType.JSON)
         .body(
             Map.of(
-                "name", "Real OAI Realtime Regression",
-                "systemPrompt", "You are a deterministic Realtime integration-test agent.",
-                "voice", "alloy",
-                "voiceAgentId", MODEL_ID,
-                "enabledTools", enabledTools,
-                "reasoningEffort", "off",
-                "toolChoiceRequired", toolChoiceRequired))
+                "name",
+                "Real OAI Realtime Regression",
+                "systemPrompt",
+                "You are a deterministic Realtime integration-test agent.",
+                "voice",
+                "alloy",
+                "voiceAgentId",
+                MODEL_ID,
+                "enabledTools",
+                enabledTools,
+                "toolChoiceRequired",
+                toolChoiceRequired))
         .when()
         .post("/api/speed-dials")
         .then()

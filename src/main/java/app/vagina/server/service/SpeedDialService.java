@@ -51,7 +51,6 @@ public class SpeedDialService {
             null,
             DEFAULT_VOICE,
             voiceAgentService.defaultModelId(),
-            "off",
             false,
             DEFAULT_ENABLED_TOOLS,
             now,
@@ -76,7 +75,6 @@ public class SpeedDialService {
             command.iconEmoji(),
             command.voice(),
             command.voiceAgentId(),
-            command.reasoningEffort(),
             command.toolChoiceRequired(),
             command.enabledTools(),
             now,
@@ -102,7 +100,6 @@ public class SpeedDialService {
         command.iconEmoji(),
         command.voice(),
         command.voiceAgentId(),
-        command.reasoningEffort(),
         command.toolChoiceRequired(),
         command.enabledTools(),
         LocalDateTime.now());
@@ -126,7 +123,6 @@ public class SpeedDialService {
         row.getIconEmoji(),
         row.getVoice(),
         row.getVoiceAgentId(),
-        row.getReasoningEffort(),
         row.isToolChoiceRequired(),
         row.getEnabledTools(),
         row.getCreatedAt(),
@@ -144,7 +140,6 @@ public class SpeedDialService {
     row.setIconEmoji(preset.getIconEmoji());
     row.setVoice(preset.getVoice());
     row.setVoiceAgentId(preset.getVoiceAgentId());
-    row.setReasoningEffort(preset.getReasoningEffort());
     row.setToolChoiceRequired(preset.isToolChoiceRequired());
     row.setEnabledTools(preset.getEnabledTools());
     row.setCreatedAt(preset.getCreatedAt());
@@ -163,7 +158,6 @@ public class SpeedDialService {
       String iconEmoji,
       String voice,
       String voiceAgentId,
-      String reasoningEffort,
       boolean toolChoiceRequired,
       String enabledTools) {}
 
@@ -174,7 +168,6 @@ public class SpeedDialService {
       String iconEmoji,
       String voice,
       String voiceAgentId,
-      String reasoningEffort,
       boolean toolChoiceRequired,
       String enabledTools) {}
 }

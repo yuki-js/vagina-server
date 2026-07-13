@@ -241,6 +241,11 @@ class OaiCcRealtimeAdapterOrderingTest {
       }
 
       @Override
+      public Optional<String> reasoningEffort() {
+        return Optional.empty();
+      }
+
+      @Override
       public Optional<String> transcriptionModel() {
         return Optional.empty();
       }

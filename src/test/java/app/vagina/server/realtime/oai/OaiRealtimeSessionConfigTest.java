@@ -36,6 +36,19 @@ class OaiRealtimeSessionConfigTest {
   }
 
   @Test
+  void rendersServerOwnedReasoningEffortOnlyWhenConfigured() {
+    OaiRealtimeSessionConfig config = new OaiRealtimeSessionConfig();
+    config.initialize("alloy", "server", "gpt-4o-transcribe");
+
+    assertFalse(config.toWireMap().containsKey("reasoning"));
+
+    config.setReasoningEffort("high");
+
+    assertEquals(Map.of("effort", "high"), config.toWireMap().get("reasoning"));
+    assertFalse(config.supportedExtensions().contains("session.reasoning_effort_selection"));
+  }
+
+  @Test
   void extensionResultSeparatesUnsupportedUnchangedAndChangedMutations() {
     OaiRealtimeSessionConfig config = new OaiRealtimeSessionConfig();
 

@@ -8,19 +8,39 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 @ApplicationScoped
 public class VoiceAgentService {
+  private static final Set<String> REASONING_EFFORTS =
+      Set.of("none", "minimal", "low", "medium", "high", "xhigh", "max");
 
   @Inject RealtimeModelsConfig modelsConfig;
   @Inject EntitlementService entitlementService;
 
   @PostConstruct
-  void validateDefaultModel() {
+  void validateConfiguration() {
     if (!modelsConfig.models().containsKey(modelsConfig.defaultModel())) {
       throw new IllegalStateException(
           "Default voice agent is not registered: " + modelsConfig.defaultModel());
     }
+    modelsConfig.models().forEach(this::validateReasoningConfiguration);
+  }
+
+  private void validateReasoningConfiguration(
+      String modelId, RealtimeModelsConfig.ModelConfig model) {
+    model
+        .reasoningEffort()
+        .ifPresent(
+            configured -> {
+              if (!REASONING_EFFORTS.contains(configured)) {
+                throw new IllegalStateException(
+                    "Voice agent model "
+                        + modelId
+                        + " has invalid reasoning-effort: "
+                        + configured);
+              }
+            });
   }
 
   public List<ModelCatalogItem> listVoiceAgents(Long userId) {

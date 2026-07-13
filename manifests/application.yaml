@@ -64,15 +64,32 @@ vagina:
         desktop: https://vagina.app/callback
 
   realtime:
-    default-model: realtime
+    default-model: realtime-2.1
     models:
       realtime-2.1:
         provider: oai
-        display-name: Realtime 2.1
+        display-name: Realtime 2.1 (Reasoning Off)
         base-url: "${vagina.openai-base}"
         transcription-model: gpt-4o-transcribe
         api-key: ${vagina.openai-default-apikey}
         model: gpt-realtime-2.1
+        reasoning-effort: none
+      realtime-2.1-high:
+        provider: oai
+        display-name: Realtime 2.1 (Reasoning High)
+        base-url: "${vagina.openai-base}"
+        transcription-model: gpt-4o-transcribe
+        api-key: ${vagina.openai-default-apikey}
+        model: gpt-realtime-2.1
+        reasoning-effort: high
+      realtime-2.1-mini:
+        provider: oai
+        display-name: Realtime 2.1 mini
+        base-url: "${vagina.openai-base}"
+        transcription-model: gpt-4o-transcribe
+        api-key: ${vagina.openai-default-apikey}
+        model: gpt-realtime-2.1-mini
+        reasoning-effort: none
       realtime-1.5:
         provider: oai
         display-name: Realtime 1.5

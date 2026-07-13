@@ -29,7 +29,6 @@ class SpeedDialsApiTest {
             "voice", "alloy",
             "voiceAgentId", "voice-agent-prod-cc",
             "enabledTools", Map.of(),
-            "reasoningEffort", "off",
             "toolChoiceRequired", false);
 
     Response createResponse =
@@ -45,7 +44,6 @@ class SpeedDialsApiTest {
             .statusCode(201)
             .body("id", matchesPattern("sd_[0-9a-f]{32}"))
             .body("voiceAgentId", equalTo("voice-agent-prod-cc"))
-            .body("reasoningEffort", equalTo("off"))
             .extract()
             .response();
 
@@ -58,7 +56,6 @@ class SpeedDialsApiTest {
             "voice", "alloy",
             "voiceAgentId", "voice-agent-prod-cc",
             "enabledTools", Map.of(),
-            "reasoningEffort", "off",
             "toolChoiceRequired", false);
 
     given()
@@ -73,8 +70,7 @@ class SpeedDialsApiTest {
         .statusCode(200)
         .body("id", equalTo(generatedId))
         .body("name", equalTo("Custom Step2 Updated"))
-        .body("voiceAgentId", equalTo("voice-agent-prod-cc"))
-        .body("reasoningEffort", equalTo("off"));
+        .body("voiceAgentId", equalTo("voice-agent-prod-cc"));
 
     given()
         .auth()
@@ -84,34 +80,7 @@ class SpeedDialsApiTest {
         .get("/api/speed-dials")
         .then()
         .statusCode(200)
-        .body("voiceAgentId", hasItem("voice-agent-prod-cc"))
-        .body("reasoningEffort", hasItem("off"));
-  }
-
-  @Test
-  void createSpeedDialRejectsNonCanonicalReasoningEffort() {
-    String token = VhrpAuthTestSupport.obtainValidJwt();
-
-    Map<String, Object> body =
-        Map.of(
-            "name", "Bad Reasoning Effort",
-            "systemPrompt", "You should not be saved.",
-            "voice", "alloy",
-            "voiceAgentId", "voice-agent-prod",
-            "enabledTools", Map.of(),
-            "reasoningEffort", "OFF",
-            "toolChoiceRequired", false);
-
-    given()
-        .auth()
-        .oauth2(token)
-        .contentType(ContentType.JSON)
-        .accept(ContentType.JSON)
-        .body(body)
-        .when()
-        .post("/api/speed-dials")
-        .then()
-        .statusCode(400);
+        .body("voiceAgentId", hasItem("voice-agent-prod-cc"));
   }
 
   @Test
@@ -125,7 +94,6 @@ class SpeedDialsApiTest {
             "voice", "alloy",
             "voiceAgentId", "missing-agent",
             "enabledTools", Map.of(),
-            "reasoningEffort", "off",
             "toolChoiceRequired", false);
 
     given()
@@ -175,7 +143,6 @@ class SpeedDialsApiTest {
             "voice", "alloy",
             "voiceAgentId", "test-voice-agent-entitled",
             "enabledTools", Map.of(),
-            "reasoningEffort", "off",
             "toolChoiceRequired", false);
 
     given()
@@ -205,7 +172,6 @@ class SpeedDialsApiTest {
             "voice", "alloy",
             "voiceAgentId", "test-voice-agent-public-entitled",
             "enabledTools", Map.of(),
-            "reasoningEffort", "off",
             "toolChoiceRequired", false);
 
     given()
@@ -235,7 +201,6 @@ class SpeedDialsApiTest {
             "voice", "alloy",
             "voiceAgentId", "voice-agent-prod",
             "enabledTools", Map.of(),
-            "reasoningEffort", "off",
             "toolChoiceRequired", false);
 
     given()

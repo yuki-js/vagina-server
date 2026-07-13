@@ -264,13 +264,18 @@ class VhrpCompositeE2ETest {
   private String createFailingSpeedDial(String token) {
     Map<String, Object> body =
         Map.of(
-            "name", "Failing native-capable adapter",
-            "systemPrompt", "Exercise failed adapter bootstrap.",
-            "voice", "alloy",
-            "voiceAgentId", FAIL_CONNECT_VOICE_AGENT_ID,
-            "enabledTools", Map.of(),
-            "reasoningEffort", "off",
-            "toolChoiceRequired", false);
+            "name",
+            "Failing native-capable adapter",
+            "systemPrompt",
+            "Exercise failed adapter bootstrap.",
+            "voice",
+            "alloy",
+            "voiceAgentId",
+            FAIL_CONNECT_VOICE_AGENT_ID,
+            "enabledTools",
+            Map.of(),
+            "toolChoiceRequired",
+            false);
 
     Response response =
         given()

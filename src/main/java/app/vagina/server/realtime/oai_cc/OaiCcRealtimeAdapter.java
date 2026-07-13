@@ -37,7 +37,6 @@ import java.util.UUID;
  */
 public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
   private static final String EXT_INPUT_NOISE_REDUCTION = "session.input_noise_reduction_selection";
-  private static final String EXT_REASONING_EFFORT = "session.reasoning_effort_selection";
   private static final String EXT_TOOL_CHOICE_REQUIRED = "session.tool_choice_required";
   private static final String EXT_SELECTION_KEY = "selection";
   private static final String EXT_REQUIRED_KEY = "required";
@@ -93,6 +92,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
       String modelId, RealtimeModelsConfig.ModelConfig modelConfig, ObjectMapper json) {
     this.modelId = modelId;
     this.modelConfig = modelConfig;
+    this.reasoningEffort = modelConfig.reasoningEffort().orElse(null);
     this.json = json;
     this.client = new OaiCcClient(json);
     this.thread = new RealtimeThread("thread_cc_" + UUID.randomUUID());
@@ -181,7 +181,7 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
 
   @Override
   public Set<String> supportedExtensions() {
-    return Set.of(EXT_REASONING_EFFORT, EXT_TOOL_CHOICE_REQUIRED);
+    return Set.of(EXT_TOOL_CHOICE_REQUIRED);
   }
 
   @Override
@@ -239,17 +239,6 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
         // Chat Completions has no equivalent for Realtime input noise reduction.
         // Do not advertise this capability, but accept-and-ignore if an older/eager client sends
         // it.
-        return Uni.createFrom().item(true);
-      }
-      case EXT_REASONING_EFFORT -> {
-        Object selection = payload.get(EXT_SELECTION_KEY);
-        if (selection != null && !(selection instanceof String)) {
-          return Uni.createFrom()
-              .failure(
-                  new IllegalArgumentException(
-                      "Reasoning effort selection must be a string or null"));
-        }
-        reasoningEffort = normalizeReasoningEffort((String) selection);
         return Uni.createFrom().item(true);
       }
       case EXT_TOOL_CHOICE_REQUIRED -> {
@@ -973,21 +962,6 @@ public final class OaiCcRealtimeAdapter implements RealtimeAdapter {
     private String lastRemovedKind() {
       return lastRemovedKind;
     }
-  }
-
-  private static String normalizeReasoningEffort(String selection) {
-    if (selection == null || selection.isBlank() || "off".equals(selection)) {
-      return null;
-    }
-    return switch (selection) {
-      case "none" -> "none";
-      case "minimal" -> "minimal";
-      case "low" -> "low";
-      case "medium" -> "medium";
-      case "high" -> "high";
-      case "xhigh" -> "xhigh";
-      default -> throw new IllegalArgumentException("Unsupported reasoning effort selection");
-    };
   }
 
   private void ensureNotDisposed() {

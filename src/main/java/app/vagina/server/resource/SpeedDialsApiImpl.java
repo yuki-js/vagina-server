@@ -2,7 +2,6 @@ package app.vagina.server.resource;
 
 import app.vagina.server.entity.SpeedDialPreset;
 import app.vagina.server.generated.api.SpeedDialsApi;
-import app.vagina.server.generated.model.SpeedDial;
 import app.vagina.server.generated.model.SpeedDialCreateRequest;
 import app.vagina.server.generated.model.SpeedDialUpdateRequest;
 import app.vagina.server.support.Authenticated;
@@ -17,7 +16,6 @@ import jakarta.ws.rs.core.Response;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @ApplicationScoped
@@ -80,7 +78,6 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
     body.put("iconEmoji", preset.getIconEmoji());
     body.put("voice", preset.getVoice());
     body.put("voiceAgentId", preset.getVoiceAgentId());
-    body.put("reasoningEffort", toCanonicalReasoningEffort(preset.getReasoningEffort()));
     body.put("toolChoiceRequired", preset.isToolChoiceRequired());
     body.put(
         "enabledTools",
@@ -99,7 +96,6 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
         model.getIconEmoji(),
         model.getVoice(),
         model.getVoiceAgentId(),
-        toEntityReasoningEffort(model.getReasoningEffort()),
         Boolean.TRUE.equals(model.getToolChoiceRequired()),
         serializeEnabledTools(model.getEnabledTools()));
   }
@@ -112,7 +108,6 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
         model.getIconEmoji(),
         model.getVoice(),
         model.getVoiceAgentId(),
-        toEntityReasoningEffort(model.getReasoningEffort()),
         Boolean.TRUE.equals(model.getToolChoiceRequired()),
         serializeEnabledTools(model.getEnabledTools()));
   }
@@ -120,27 +115,5 @@ public class SpeedDialsApiImpl implements SpeedDialsApi {
   private String serializeEnabledTools(Object enabledTools) {
     return EnabledToolsJson.serialize(
         objectMapper, enabledTools, ENABLED_TOOL_LABEL, ENABLED_TOOLS_LABEL);
-  }
-
-  private String toCanonicalReasoningEffort(String reasoningEffort) {
-    if (reasoningEffort == null || reasoningEffort.isBlank()) {
-      return defaultReasoningEffort();
-    }
-    return SpeedDial.ReasoningEffortEnum.fromValue(reasoningEffort.toLowerCase(Locale.ROOT))
-        .value();
-  }
-
-  private String toEntityReasoningEffort(
-      SpeedDialCreateRequest.ReasoningEffortEnum reasoningEffort) {
-    return reasoningEffort == null ? defaultReasoningEffort() : reasoningEffort.value();
-  }
-
-  private String toEntityReasoningEffort(
-      SpeedDialUpdateRequest.ReasoningEffortEnum reasoningEffort) {
-    return reasoningEffort == null ? defaultReasoningEffort() : reasoningEffort.value();
-  }
-
-  private String defaultReasoningEffort() {
-    return SpeedDialCreateRequest.ReasoningEffortEnum.OFF.value();
   }
 }

@@ -72,7 +72,6 @@ public class SpeedDialUsecase {
       String iconEmoji,
       String voice,
       String voiceAgentId,
-      String reasoningEffort,
       boolean toolChoiceRequired,
       String enabledTools) {
     SpeedDialService.CreateCommand toServiceCommand() {
@@ -83,7 +82,6 @@ public class SpeedDialUsecase {
           iconEmoji,
           voice,
           voiceAgentId,
-          reasoningEffort,
           toolChoiceRequired,
           enabledTools);
     }
@@ -96,7 +94,6 @@ public class SpeedDialUsecase {
       String iconEmoji,
       String voice,
       String voiceAgentId,
-      String reasoningEffort,
       boolean toolChoiceRequired,
       String enabledTools) {
     SpeedDialService.UpdateCommand toServiceCommand() {
@@ -107,7 +104,6 @@ public class SpeedDialUsecase {
           iconEmoji,
           voice,
           voiceAgentId,
-          reasoningEffort,
           toolChoiceRequired,
           enabledTools);
     }

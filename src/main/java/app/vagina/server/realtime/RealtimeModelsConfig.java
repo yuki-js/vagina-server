@@ -66,6 +66,9 @@ public interface RealtimeModelsConfig {
     /** Provider model name; use a documented sentinel only when a provider does not consume it. */
     String model();
 
+    /** Optional provider reasoning effort fixed by this server-side model preset. */
+    Optional<String> reasoningEffort();
+
     /** ASR model name for providers that transcribe input audio. */
     Optional<String> transcriptionModel();
 

@@ -262,28 +262,10 @@ public class VhrpSessionRegistry {
 
   private Uni<Void> applyServerOwnedExtensions(
       RealtimeAdapter adapter, SpeedDialPreset.VoiceSessionConfig speedDial) {
-    Uni<Void> chain = Uni.createFrom().voidItem();
-    if (speedDial.reasoningEffort() != null
-        && !speedDial.reasoningEffort().isBlank()
-        && !"off".equals(speedDial.reasoningEffort())) {
-      chain =
-          chain.chain(
-              () ->
-                  adapter
-                      .applyProviderExtension(
-                          "session.reasoning_effort_selection",
-                          Map.of("selection", speedDial.reasoningEffort()))
-                      .replaceWithVoid());
-    }
-    chain =
-        chain.chain(
-            () ->
-                adapter
-                    .applyProviderExtension(
-                        "session.tool_choice_required",
-                        Map.of("required", speedDial.toolChoiceRequired()))
-                    .replaceWithVoid());
-    return chain;
+    return adapter
+        .applyProviderExtension(
+            "session.tool_choice_required", Map.of("required", speedDial.toolChoiceRequired()))
+        .replaceWithVoid();
   }
 
   private Uni<Void> terminalClose(Entry entry, LocalDateTime endedAt) {

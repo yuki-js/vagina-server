@@ -17,7 +17,6 @@ import java.util.Set;
  */
 final class OaiRealtimeSessionConfig {
   static final String EXT_INPUT_NOISE_REDUCTION = "session.input_noise_reduction_selection";
-  static final String EXT_REASONING_EFFORT = "session.reasoning_effort_selection";
   static final String EXT_TOOL_CHOICE_REQUIRED = "session.tool_choice_required";
 
   private static final String EXT_SELECTION_KEY = "selection";
@@ -53,7 +52,11 @@ final class OaiRealtimeSessionConfig {
       RealtimeAdapterModels.AudioTurnMode.VOICE_ACTIVITY;
 
   Set<String> supportedExtensions() {
-    return Set.of(EXT_INPUT_NOISE_REDUCTION, EXT_REASONING_EFFORT, EXT_TOOL_CHOICE_REQUIRED);
+    return Set.of(EXT_INPUT_NOISE_REDUCTION, EXT_TOOL_CHOICE_REQUIRED);
+  }
+
+  void setReasoningEffort(String effort) {
+    reasoningEffort = effort;
   }
 
   void initialize(String voice, String instructions, String transcriptionModel) {
@@ -102,16 +105,6 @@ final class OaiRealtimeSessionConfig {
         }
         boolean changed = noiseReduction != selection;
         noiseReduction = selection;
-        yield new ExtensionResult(true, changed);
-      }
-      case EXT_REASONING_EFFORT -> {
-        Object selection = payload.get(EXT_SELECTION_KEY);
-        if (selection != null && !(selection instanceof String)) {
-          throw new IllegalArgumentException("Reasoning effort selection must be a string or null");
-        }
-        String value = (String) selection;
-        boolean changed = !Objects.equals(reasoningEffort, value);
-        reasoningEffort = value;
         yield new ExtensionResult(true, changed);
       }
       case EXT_TOOL_CHOICE_REQUIRED -> {

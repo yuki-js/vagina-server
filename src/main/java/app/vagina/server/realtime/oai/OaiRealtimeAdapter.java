@@ -71,6 +71,9 @@ public final class OaiRealtimeAdapter implements RealtimeAdapter {
     this.modelId = modelId;
     this.modelConfig = modelConfig;
     this.client = client;
+    if (modelConfig != null) {
+      modelConfig.reasoningEffort().ifPresent(sessionConfig::setReasoningEffort);
+    }
     this.responseCoordinator =
         new OaiRealtimeResponseCoordinator(
             new OaiRealtimeResponseCoordinator.Commands() {

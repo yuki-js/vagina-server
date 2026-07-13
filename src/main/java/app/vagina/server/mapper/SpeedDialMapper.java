@@ -18,13 +18,13 @@ import org.apache.ibatis.annotations.Update;
 public interface SpeedDialMapper {
 
   @Insert(
-      "INSERT INTO speed_dials (user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, voice_agent_id, reasoning_effort, tool_choice_required, enabled_tools, created_at, updated_at) "
-          + "VALUES (#{userId}, #{speedDialId}, #{name}, #{systemPrompt}, #{description}, #{iconEmoji}, #{voice}, #{voiceAgentId}, #{reasoningEffort}, #{toolChoiceRequired}, #{enabledTools}::jsonb, #{createdAt}, #{updatedAt})")
+      "INSERT INTO speed_dials (user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, voice_agent_id, tool_choice_required, enabled_tools, created_at, updated_at) "
+          + "VALUES (#{userId}, #{speedDialId}, #{name}, #{systemPrompt}, #{description}, #{iconEmoji}, #{voice}, #{voiceAgentId}, #{toolChoiceRequired}, #{enabledTools}::jsonb, #{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
   void insert(Row row);
 
   @Select(
-      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, voice_agent_id, reasoning_effort, tool_choice_required, enabled_tools::text as enabled_tools, created_at, updated_at "
+      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, voice_agent_id, tool_choice_required, enabled_tools::text as enabled_tools, created_at, updated_at "
           + "FROM speed_dials WHERE id = #{id}")
   @Results(
       id = "speedDialRowResultMap",
@@ -38,7 +38,6 @@ public interface SpeedDialMapper {
         @Result(property = "iconEmoji", column = "icon_emoji"),
         @Result(property = "voice", column = "voice"),
         @Result(property = "voiceAgentId", column = "voice_agent_id"),
-        @Result(property = "reasoningEffort", column = "reasoning_effort"),
         @Result(property = "toolChoiceRequired", column = "tool_choice_required"),
         @Result(property = "enabledTools", column = "enabled_tools"),
         @Result(property = "createdAt", column = "created_at"),
@@ -47,13 +46,13 @@ public interface SpeedDialMapper {
   Optional<Row> findById(@Param("id") Long id);
 
   @Select(
-      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, voice_agent_id, reasoning_effort, tool_choice_required, enabled_tools::text as enabled_tools, created_at, updated_at "
+      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, voice_agent_id, tool_choice_required, enabled_tools::text as enabled_tools, created_at, updated_at "
           + "FROM speed_dials WHERE user_id = #{userId} ORDER BY created_at ASC, id ASC")
   @ResultMap("speedDialRowResultMap")
   List<Row> findByUserId(@Param("userId") Long userId);
 
   @Select(
-      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, voice_agent_id, reasoning_effort, tool_choice_required, enabled_tools::text as enabled_tools, created_at, updated_at "
+      "SELECT id, user_id, speed_dial_id, name, system_prompt, description, icon_emoji, voice, voice_agent_id, tool_choice_required, enabled_tools::text as enabled_tools, created_at, updated_at "
           + "FROM speed_dials WHERE user_id = #{userId} AND speed_dial_id = #{speedDialId}")
   @ResultMap("speedDialRowResultMap")
   Optional<Row> findByUserIdAndSpeedDialId(
@@ -61,7 +60,7 @@ public interface SpeedDialMapper {
 
   @Update(
       "UPDATE speed_dials SET name = #{name}, system_prompt = #{systemPrompt}, description = #{description}, "
-          + "icon_emoji = #{iconEmoji}, voice = #{voice}, voice_agent_id = #{voiceAgentId}, reasoning_effort = #{reasoningEffort}, tool_choice_required = #{toolChoiceRequired}, enabled_tools = #{enabledTools}::jsonb, updated_at = #{updatedAt} "
+          + "icon_emoji = #{iconEmoji}, voice = #{voice}, voice_agent_id = #{voiceAgentId}, tool_choice_required = #{toolChoiceRequired}, enabled_tools = #{enabledTools}::jsonb, updated_at = #{updatedAt} "
           + "WHERE id = #{id}")
   void update(Row row);
 
@@ -79,7 +78,6 @@ public interface SpeedDialMapper {
     private String iconEmoji;
     private String voice;
     private String voiceAgentId;
-    private String reasoningEffort;
     private boolean toolChoiceRequired;
     private String enabledTools;
     private LocalDateTime createdAt;
@@ -155,14 +153,6 @@ public interface SpeedDialMapper {
 
     public void setVoiceAgentId(String voiceAgentId) {
       this.voiceAgentId = voiceAgentId;
-    }
-
-    public String getReasoningEffort() {
-      return reasoningEffort;
-    }
-
-    public void setReasoningEffort(String reasoningEffort) {
-      this.reasoningEffort = reasoningEffort;
     }
 
     public boolean isToolChoiceRequired() {

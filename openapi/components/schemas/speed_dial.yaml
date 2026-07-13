@@ -8,7 +8,6 @@ SpeedDial:
     - voice
     - voiceAgentId
     - enabledTools
-    - reasoningEffort
     - toolChoiceRequired
   properties:
     id:
@@ -47,17 +46,6 @@ SpeedDial:
       maxLength: 128
       description: Server registry voice-agent id selected for this speed dial.
       example: voice-agent-prod
-    reasoningEffort:
-      type: string
-      enum:
-        - "off"
-        - minimal
-        - low
-        - medium
-        - high
-        - xhigh
-      default: "off"
-      example: "off"
     toolChoiceRequired:
       type: boolean
       default: false
@@ -86,7 +74,6 @@ SpeedDialCreateRequest:
     - voice
     - voiceAgentId
     - enabledTools
-    - reasoningEffort
     - toolChoiceRequired
   properties:
     name:
@@ -120,17 +107,6 @@ SpeedDialCreateRequest:
       maxLength: 128
       description: Server registry voice-agent id selected for this speed dial.
       example: voice-agent-prod
-    reasoningEffort:
-      type: string
-      enum:
-        - "off"
-        - minimal
-        - low
-        - medium
-        - high
-        - xhigh
-      default: "off"
-      example: "off"
     toolChoiceRequired:
       type: boolean
       default: false
@@ -155,7 +131,6 @@ SpeedDialUpdateRequest:
     - voice
     - voiceAgentId
     - enabledTools
-    - reasoningEffort
     - toolChoiceRequired
   properties:
     name:
@@ -189,17 +164,6 @@ SpeedDialUpdateRequest:
       maxLength: 128
       description: Server registry voice-agent id selected for this speed dial.
       example: voice-agent-prod
-    reasoningEffort:
-      type: string
-      enum:
-        - "off"
-        - minimal
-        - low
-        - medium
-        - high
-        - xhigh
-      default: "off"
-      example: "off"
     toolChoiceRequired:
       type: boolean
       default: false

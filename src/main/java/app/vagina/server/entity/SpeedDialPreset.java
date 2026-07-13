@@ -14,7 +14,6 @@ public class SpeedDialPreset {
   private String iconEmoji;
   private String voice;
   private String voiceAgentId;
-  private String reasoningEffort;
   private boolean toolChoiceRequired;
   private String enabledTools;
   private LocalDateTime createdAt;
@@ -30,7 +29,6 @@ public class SpeedDialPreset {
       String iconEmoji,
       String voice,
       String voiceAgentId,
-      String reasoningEffort,
       boolean toolChoiceRequired,
       String enabledTools,
       LocalDateTime createdAt,
@@ -44,7 +42,6 @@ public class SpeedDialPreset {
     this.iconEmoji = iconEmoji;
     this.voice = voice;
     this.voiceAgentId = voiceAgentId;
-    this.reasoningEffort = reasoningEffort;
     this.toolChoiceRequired = toolChoiceRequired;
     this.enabledTools = enabledTools;
     this.createdAt = createdAt;
@@ -65,7 +62,6 @@ public class SpeedDialPreset {
       String iconEmoji,
       String voice,
       String voiceAgentId,
-      String reasoningEffort,
       boolean toolChoiceRequired,
       String enabledTools,
       LocalDateTime updatedAt) {
@@ -75,7 +71,6 @@ public class SpeedDialPreset {
     this.iconEmoji = iconEmoji;
     this.voice = voice;
     this.voiceAgentId = voiceAgentId;
-    this.reasoningEffort = reasoningEffort;
     this.toolChoiceRequired = toolChoiceRequired;
     this.enabledTools = enabledTools;
     this.updatedAt = updatedAt;
@@ -87,13 +82,7 @@ public class SpeedDialPreset {
 
   public VoiceSessionConfig toVoiceSessionConfig() {
     return new VoiceSessionConfig(
-        speedDialId,
-        systemPrompt,
-        voice,
-        voiceAgentId,
-        reasoningEffort,
-        toolChoiceRequired,
-        enabledTools);
+        speedDialId, systemPrompt, voice, voiceAgentId, toolChoiceRequired, enabledTools);
   }
 
   public Long getId() {
@@ -132,10 +121,6 @@ public class SpeedDialPreset {
     return voiceAgentId;
   }
 
-  public String getReasoningEffort() {
-    return reasoningEffort;
-  }
-
   public boolean isToolChoiceRequired() {
     return toolChoiceRequired;
   }
@@ -157,7 +142,6 @@ public class SpeedDialPreset {
       String systemPrompt,
       String voice,
       String voiceAgentId,
-      String reasoningEffort,
       boolean toolChoiceRequired,
       String enabledTools) {}
 }

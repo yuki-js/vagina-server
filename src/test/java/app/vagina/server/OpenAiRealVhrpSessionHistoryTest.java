@@ -631,8 +631,6 @@ class OpenAiRealVhrpSessionHistoryTest {
                     MODEL_ID,
                     "enabledTools",
                     enabledTools,
-                    "reasoningEffort",
-                    "off",
                     "toolChoiceRequired",
                     toolChoiceRequired))
             .when()
