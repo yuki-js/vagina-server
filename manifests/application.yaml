@@ -66,18 +66,32 @@ vagina:
   realtime:
     default-model: realtime
     models:
-      realtime:
+      realtime-2.1:
         provider: oai
-        display-name: Realtime
+        display-name: Realtime 2.1
         base-url: "${vagina.openai-base}"
         transcription-model: gpt-4o-transcribe
         api-key: ${vagina.openai-default-apikey}
         model: gpt-realtime-2.1
-      chat-completion:
+      realtime-1.5:
+        provider: oai
+        display-name: Realtime 1.5
+        base-url: "${vagina.openai-base}"
+        transcription-model: gpt-4o-transcribe
+        api-key: ${vagina.openai-default-apikey}
+        model: gpt-realtime-1.5
+      audio-1.5:
         provider: oai_cc
-        display-name: Chat Completion
+        display-name: Audio 1.5
         base-url: "${vagina.openai-base}"
         api-key: ${vagina.openai-default-apikey}
+        model: gpt-audio-1.5
+      placeholder-paid:
+        provider: oai_cc
+        display-name: Coming Soon... (有料アーリーアクセス)
+        base-url: "${vagina.openai-base}"
+        api-key: ${vagina.openai-default-apikey}
+        required-entitlement: placeholder-paid
         model: gpt-audio-1.5
 
   text-agent:
