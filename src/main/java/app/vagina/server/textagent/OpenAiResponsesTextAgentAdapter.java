@@ -76,7 +76,8 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
             previousResponseId(context),
             syntheticOutputs,
             null,
-            null);
+            null,
+            reasoning(context));
     try {
       PostJsonResult<ResponsesResponse> httpResult = postRequest(context, recoveryRequest);
       if (httpResult.rejectedByProvider()) {
@@ -121,7 +122,14 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
         previousResponseId,
         input,
         tools.isEmpty() ? null : tools,
-        tools.isEmpty() ? null : "auto");
+        tools.isEmpty() ? null : "auto",
+        reasoning(context));
+  }
+
+  private ResponsesReasoning reasoning(ProviderContext context) {
+    String effort = context.binding().reasoningEffort();
+    String mode = context.binding().reasoningMode();
+    return effort == null && mode == null ? null : new ResponsesReasoning(effort, mode);
   }
 
   private QueryResult parseResponse(ResponsesResponse response) {
@@ -216,7 +224,12 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
       @JsonProperty("previous_response_id") String previousResponseId,
       Object input,
       List<OpenAiTextAgentToolSchemas.ResponsesTool> tools,
-      @JsonProperty("tool_choice") String toolChoice) {}
+      @JsonProperty("tool_choice") String toolChoice,
+      ResponsesReasoning reasoning) {}
+
+  @RegisterForReflection
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private record ResponsesReasoning(String effort, String mode) {}
 
   @RegisterForReflection
   private record FunctionCallOutputInput(

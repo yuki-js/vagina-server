@@ -119,7 +119,13 @@ class TextAgentAdapterFactoryTest {
 
   private TextAgentModelBinding binding(String provider) {
     return new TextAgentModelBinding(
-        "text-agent-test", provider, "https://api.openai.test/v1", "test-key", "gpt-test");
+        "text-agent-test",
+        provider,
+        "https://api.openai.test/v1",
+        "test-key",
+        "gpt-test",
+        null,
+        null);
   }
 
   @SuppressWarnings("unused")

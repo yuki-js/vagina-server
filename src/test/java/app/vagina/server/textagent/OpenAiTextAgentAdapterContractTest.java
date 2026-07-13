@@ -611,6 +611,69 @@ class OpenAiTextAgentAdapterContractTest {
   }
 
   @Test
+  void endpointSpecificReasoningSettingsUseExactProviderJsonShapes() throws Exception {
+    ProviderContext chatContext =
+        promptContext(
+            binding(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS, "high", null));
+    ProviderContext responsesContext =
+        promptContext(binding(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES, "xhigh", "pro"));
+
+    String chatBody =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper).previewRequestBody(chatContext);
+    String responsesBody =
+        new OpenAiResponsesTextAgentAdapter(objectMapper).previewRequestBody(responsesContext);
+
+    assertEquals("high", objectMapper.readTree(chatBody).path("reasoning_effort").asText());
+    assertFalse(objectMapper.readTree(chatBody).has("reasoning"));
+    assertEquals(
+        "xhigh", objectMapper.readTree(responsesBody).path("reasoning").path("effort").asText());
+    assertEquals(
+        "pro", objectMapper.readTree(responsesBody).path("reasoning").path("mode").asText());
+    assertFalse(objectMapper.readTree(responsesBody).has("reasoning_effort"));
+  }
+
+  @Test
+  void endpointSpecificReasoningSettingsAreOmittedWhenPresetDoesNotConfigureThem()
+      throws Exception {
+    ProviderContext chatContext =
+        promptContext(binding(TextAgentAdapterFactory.PROVIDER_OPENAI_CHAT_COMPLETIONS));
+    ProviderContext responsesContext =
+        promptContext(binding(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES));
+
+    String chatBody =
+        new OpenAiChatCompletionsTextAgentAdapter(objectMapper).previewRequestBody(chatContext);
+    String responsesBody =
+        new OpenAiResponsesTextAgentAdapter(objectMapper).previewRequestBody(responsesContext);
+
+    assertFalse(objectMapper.readTree(chatBody).has("reasoning_effort"));
+    assertFalse(objectMapper.readTree(responsesBody).has("reasoning"));
+  }
+
+  @Test
+  void responsesReasoningOmitsUnsetNestedField() throws Exception {
+    ProviderContext effortContext =
+        promptContext(binding(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES, "minimal", null));
+    ProviderContext modeContext =
+        promptContext(binding(TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES, null, "standard"));
+
+    var effortReasoning =
+        objectMapper
+            .readTree(
+                new OpenAiResponsesTextAgentAdapter(objectMapper).previewRequestBody(effortContext))
+            .path("reasoning");
+    var modeReasoning =
+        objectMapper
+            .readTree(
+                new OpenAiResponsesTextAgentAdapter(objectMapper).previewRequestBody(modeContext))
+            .path("reasoning");
+
+    assertEquals("minimal", effortReasoning.path("effort").asText());
+    assertFalse(effortReasoning.has("mode"));
+    assertEquals("standard", modeReasoning.path("mode").asText());
+    assertFalse(modeReasoning.has("effort"));
+  }
+
+  @Test
   void chatCompletionsRequestOmitsToolsWhenCatalogEmpty() throws Exception {
     OpenAiChatCompletionsTextAgentAdapter adapter =
         new OpenAiChatCompletionsTextAgentAdapter(objectMapper);
@@ -1034,6 +1097,16 @@ class OpenAiTextAgentAdapterContractTest {
     return promptContext(providerKey, prompt, state, List.of());
   }
 
+  private ProviderContext promptContext(TextAgentModelBinding modelBinding) {
+    ProviderSessionState state = new ProviderSessionState("ta_contract", modelBinding);
+    TextAgentDefinition definition = testTextAgentDefinition();
+    return new ProviderContext(
+        definition.toTextAgentProviderView(),
+        new QueryCommand("s_voice", "req_prompt", "Hello", List.of(), null, List.of()),
+        state,
+        List.of());
+  }
+
   private ProviderContext promptContext(
       String providerKey, String prompt, List<ToolCatalogEntry> toolCatalog) {
     ProviderSessionState state = new ProviderSessionState("ta_contract", binding(providerKey));
@@ -1115,12 +1188,19 @@ class OpenAiTextAgentAdapterContractTest {
   }
 
   private TextAgentModelBinding binding(String providerKey) {
+    return binding(providerKey, null, null);
+  }
+
+  private TextAgentModelBinding binding(
+      String providerKey, String reasoningEffort, String reasoningMode) {
     return new TextAgentModelBinding(
         "text-agent-test",
         providerKey,
         ConfigProvider.getConfig().getValue("vagina.test.oai-cc.base-url", String.class),
         "test-key",
-        "gpt-5.5");
+        "gpt-5.5",
+        reasoningEffort,
+        reasoningMode);
   }
 
   @Test

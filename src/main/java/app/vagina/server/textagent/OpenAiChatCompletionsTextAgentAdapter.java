@@ -126,7 +126,8 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
         messages,
         false,
         tools.isEmpty() ? null : tools,
-        tools.isEmpty() ? null : "auto");
+        tools.isEmpty() ? null : "auto",
+        context.binding().reasoningEffort());
   }
 
   private QueryResult parseResponse(ChatCompletionResponse response) {
@@ -194,7 +195,8 @@ public final class OpenAiChatCompletionsTextAgentAdapter implements TextAgentAda
       List<ChatCompletionMessage> messages,
       boolean stream,
       List<OpenAiTextAgentToolSchemas.ChatCompletionsTool> tools,
-      @JsonProperty("tool_choice") String toolChoice) {}
+      @JsonProperty("tool_choice") String toolChoice,
+      @JsonProperty("reasoning_effort") String reasoningEffort) {}
 
   @RegisterForReflection
   @JsonInclude(JsonInclude.Include.NON_NULL)

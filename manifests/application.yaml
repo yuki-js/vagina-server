@@ -89,12 +89,51 @@ vagina:
         base-url: "${vagina.openai-base}"
         api-key: ${vagina.openai-default-apikey}
         model: gpt-5.5
+        # Optional schema-wide values: none, minimal, low, medium, high, xhigh, max.
+        # Responses serializes this as reasoning.effort; oai_chat uses reasoning_effort.
+        # reasoning-effort: high
+        # Optional Responses-only execution mode: standard or pro.
+        # reasoning-mode: standard
+      gpt-5.6-sol-pro-max:
+        provider: oai_responses
+        display-name: GPT-5.6 Sol Pro Max
+        base-url: "${vagina.openai-base}"
+        api-key: ${vagina.openai-default-apikey}
+        model: gpt-5.5
+        reasoning-effort: max
+        reasoning-mode: pro
+      gpt-5.6-sol-xhigh:
+        provider: oai_responses
+        display-name: GPT-5.6 Sol Extra High
+        base-url: "${vagina.openai-base}"
+        api-key: ${vagina.openai-default-apikey}
+        model: gpt-5.5
+        reasoning-effort: xhigh
+        reasoning-mode: standard
+      gpt-5.6-sol-high:
+        provider: oai_responses
+        display-name: GPT-5.6 Sol High
+        base-url: "${vagina.openai-base}"
+        api-key: ${vagina.openai-default-apikey}
+        model: gpt-5.5
+        reasoning-effort: high
+        reasoning-mode: standard
+      gpt-5.6-sol-low:
+        provider: oai_responses
+        display-name: GPT-5.6 Sol Low
+        base-url: "${vagina.openai-base}"
+        api-key: ${vagina.openai-default-apikey}
+        model: gpt-5.5
+        reasoning-effort: low
+        reasoning-mode: standard
       aok:
         provider: oai_responses
         display-name: Aok (Hermes Agent)
         base-url: http://10.1.0.10:8642/v1
         api-key: ${vagina.openai-default-apikey}
         model: aok
+        required-entitlement: aok-owner
+        is-stealth: true
 
   object-storage:
     endpoint: https://9cacada6061eed702d20f32c61fe7755.r2.cloudflarestorage.com

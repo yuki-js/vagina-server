@@ -160,7 +160,9 @@ class TextAgentUsecaseToolCatalogTest {
             TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
             "https://provider.test/v1",
             "test-key",
-            "gpt-test");
+            "gpt-test",
+            null,
+            null);
     ProviderSessionState sessionState = new ProviderSessionState("ta_contract", binding);
 
     TextAgentService textAgentService = mock(TextAgentService.class);
@@ -175,7 +177,9 @@ class TextAgentUsecaseToolCatalogTest {
                 TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
                 "https://provider.test/v1",
                 "test-key",
-                "gpt-test"));
+                "gpt-test",
+                null,
+                null));
 
     VhrpSession session = mock(VhrpSession.class);
     when(session.textAgentProviderState("ta_contract", binding)).thenReturn(sessionState);

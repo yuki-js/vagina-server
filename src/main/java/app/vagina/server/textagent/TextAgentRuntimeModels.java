@@ -30,7 +30,13 @@ public final class TextAgentRuntimeModels {
   }
 
   public record TextAgentModelBinding(
-      String textModelId, String provider, String baseUrl, String apiKey, String model) {
+      String textModelId,
+      String provider,
+      String baseUrl,
+      String apiKey,
+      String model,
+      String reasoningEffort,
+      String reasoningMode) {
     public TextAgentModelBinding {
       if (textModelId == null || textModelId.isBlank()) {
         throw new IllegalArgumentException("Text model id is required");

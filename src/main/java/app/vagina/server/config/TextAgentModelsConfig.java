@@ -24,6 +24,10 @@ public interface TextAgentModelsConfig {
 
     String model();
 
+    Optional<String> reasoningEffort();
+
+    Optional<String> reasoningMode();
+
     Optional<String> requiredEntitlement();
 
     @WithName("is-stealth")

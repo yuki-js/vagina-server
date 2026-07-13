@@ -118,7 +118,9 @@ public class TextAgentUsecase {
         modelConfig.provider(),
         modelConfig.baseUrl(),
         modelConfig.apiKey(),
-        modelConfig.model());
+        modelConfig.model(),
+        modelConfig.reasoningEffort(),
+        modelConfig.reasoningMode());
   }
 
   private QueryResult validateAndApplyRequestState(
