@@ -20,16 +20,16 @@ public interface AuthnProviderMapper {
 
   @Insert(
       "INSERT INTO authn_providers (user_id, auth_method, provider_key, auth_identifier, external_subject, "
-          + "provider_login, display_name, avatar_url, email, email_verified, usermeta, sysmeta, created_at, updated_at) "
+          + "provider_login, display_name, avatar_url, email, email_verified, created_at, updated_at) "
           + "VALUES (#{userId}, #{authMethod, typeHandler=app.vagina.server.mapper.type.AuthMethodTypeHandler}, "
           + "#{providerKey}, #{authIdentifier}, #{externalSubject}, #{providerLogin}, #{displayName}, #{avatarUrl}, #{email}, #{emailVerified}, "
-          + "#{usermeta}::jsonb, #{sysmeta}::jsonb, #{createdAt}, #{updatedAt})")
+          + "#{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
   void insert(Row row);
 
   @Select(
       "SELECT id, user_id, auth_method, provider_key, auth_identifier, external_subject, provider_login, display_name, "
-          + "avatar_url, email, email_verified, usermeta::text as usermeta, sysmeta::text as sysmeta, "
+          + "avatar_url, email, email_verified, "
           + "created_at, updated_at FROM authn_providers WHERE id = #{id}")
   @Results(
       id = "authnProviderRowResultMap",
@@ -49,8 +49,6 @@ public interface AuthnProviderMapper {
         @Result(property = "avatarUrl", column = "avatar_url"),
         @Result(property = "email", column = "email"),
         @Result(property = "emailVerified", column = "email_verified"),
-        @Result(property = "usermeta", column = "usermeta"),
-        @Result(property = "sysmeta", column = "sysmeta"),
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
@@ -58,14 +56,14 @@ public interface AuthnProviderMapper {
 
   @Select(
       "SELECT id, user_id, auth_method, provider_key, auth_identifier, external_subject, provider_login, display_name, "
-          + "avatar_url, email, email_verified, usermeta::text as usermeta, sysmeta::text as sysmeta, "
+          + "avatar_url, email, email_verified, "
           + "created_at, updated_at FROM authn_providers WHERE user_id = #{userId} ORDER BY created_at ASC")
   @ResultMap("authnProviderRowResultMap")
   List<Row> findByUserId(@Param("userId") Long userId);
 
   @Select(
       "SELECT id, user_id, auth_method, provider_key, auth_identifier, external_subject, provider_login, display_name, "
-          + "avatar_url, email, email_verified, usermeta::text as usermeta, sysmeta::text as sysmeta, "
+          + "avatar_url, email, email_verified, "
           + "created_at, updated_at FROM authn_providers WHERE provider_key = #{providerKey} AND external_subject = #{externalSubject}")
   @ResultMap("authnProviderRowResultMap")
   Optional<Row> findByProviderKeyAndExternalSubject(
@@ -76,7 +74,7 @@ public interface AuthnProviderMapper {
           + "#{authMethod, typeHandler=app.vagina.server.mapper.type.AuthMethodTypeHandler}, provider_key = #{providerKey}, "
           + "auth_identifier = #{authIdentifier}, external_subject = #{externalSubject}, provider_login = #{providerLogin}, "
           + "display_name = #{displayName}, avatar_url = #{avatarUrl}, email = #{email}, email_verified = #{emailVerified}, "
-          + "usermeta = #{usermeta}::jsonb, sysmeta = #{sysmeta}::jsonb, updated_at = #{updatedAt} WHERE id = #{id}")
+          + "updated_at = #{updatedAt} WHERE id = #{id}")
   void update(Row row);
 
   final class Row {
@@ -91,8 +89,6 @@ public interface AuthnProviderMapper {
     private String avatarUrl;
     private String email;
     private Boolean emailVerified;
-    private String usermeta;
-    private String sysmeta;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -118,10 +114,6 @@ public interface AuthnProviderMapper {
     public void setEmail(String email) { this.email = email; }
     public Boolean getEmailVerified() { return emailVerified; }
     public void setEmailVerified(Boolean emailVerified) { this.emailVerified = emailVerified; }
-    public String getUsermeta() { return usermeta; }
-    public void setUsermeta(String usermeta) { this.usermeta = usermeta; }
-    public String getSysmeta() { return sysmeta; }
-    public void setSysmeta(String sysmeta) { this.sysmeta = sysmeta; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

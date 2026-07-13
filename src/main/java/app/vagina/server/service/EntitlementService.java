@@ -57,7 +57,6 @@ public class EntitlementService {
             normalizeDisplayName(displayName, normalizedKey),
             description,
             true,
-            null,
             now,
             now);
     EntitlementMapper.DefinitionRow row = toDefinitionRow(definition);
@@ -114,7 +113,6 @@ public class EntitlementService {
             null,
             grantReason,
             null,
-            null,
             now,
             now);
     EntitlementMapper.GrantRow row = toGrantRow(grant);
@@ -163,7 +161,6 @@ public class EntitlementService {
         row.getDisplayName(),
         row.getDescription(),
         row.isEnabled(),
-        row.getSysmeta(),
         row.getCreatedAt(),
         row.getUpdatedAt());
   }
@@ -175,7 +172,6 @@ public class EntitlementService {
     row.setDisplayName(definition.getDisplayName());
     row.setDescription(definition.getDescription());
     row.setEnabled(definition.isEnabled());
-    row.setSysmeta(definition.getSysmeta());
     row.setCreatedAt(definition.getCreatedAt());
     row.setUpdatedAt(definition.getUpdatedAt());
     return row;
@@ -192,7 +188,6 @@ public class EntitlementService {
     row.setRevokedAt(grant.getRevokedAt());
     row.setGrantReason(grant.getGrantReason());
     row.setRevokeReason(grant.getRevokeReason());
-    row.setSysmeta(grant.getSysmeta());
     row.setCreatedAt(grant.getCreatedAt());
     row.setUpdatedAt(grant.getUpdatedAt());
     return row;

@@ -50,8 +50,7 @@ public abstract class OidcProviderBase {
       String displayName,
       String avatarUrl,
       String email,
-      boolean emailVerified,
-      String rawProfileJson) {}
+      boolean emailVerified) {}
 
   public interface OidcProviderInfo {
     Optional<String> clientId();
@@ -309,8 +308,7 @@ public abstract class OidcProviderBase {
           Util.optionalText(json, "name"),
           Util.optionalText(json, "picture"),
           Util.optionalText(json, "email"),
-          json.path("email_verified").asBoolean(false),
-          rawProfile);
+          json.path("email_verified").asBoolean(false));
     } catch (Exception e) {
       throw new ExternalServiceException("Failed to parse OIDC userinfo response", e);
     }

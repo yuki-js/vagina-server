@@ -78,8 +78,7 @@ public final class GitHubOidcProvider extends OidcProviderBase {
         emailVerified = emailInfo.get().verified();
       }
 
-      return new OidcUserInfo(
-          subject, providerLogin, displayName, avatarUrl, email, emailVerified, rawProfile);
+      return new OidcUserInfo(subject, providerLogin, displayName, avatarUrl, email, emailVerified);
     } catch (Exception e) {
       throw new ExternalServiceException("Failed to parse GitHub user API response", e);
     }

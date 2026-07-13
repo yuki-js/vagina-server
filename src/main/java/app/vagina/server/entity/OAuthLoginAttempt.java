@@ -15,7 +15,6 @@ public class OAuthLoginAttempt {
   private String codeChallengeMethod;
   private LocalDateTime expiresAt;
   private LocalDateTime consumedAt;
-  private String sysmeta;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 
@@ -30,7 +29,6 @@ public class OAuthLoginAttempt {
       String codeChallengeMethod,
       LocalDateTime expiresAt,
       LocalDateTime consumedAt,
-      String sysmeta,
       LocalDateTime createdAt,
       LocalDateTime updatedAt) {
     this.id = id;
@@ -43,7 +41,6 @@ public class OAuthLoginAttempt {
     this.codeChallengeMethod = codeChallengeMethod;
     this.expiresAt = expiresAt;
     this.consumedAt = consumedAt;
-    this.sysmeta = sysmeta;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -106,10 +103,6 @@ public class OAuthLoginAttempt {
 
   public LocalDateTime getConsumedAt() {
     return consumedAt;
-  }
-
-  public String getSysmeta() {
-    return sysmeta;
   }
 
   public LocalDateTime getCreatedAt() {

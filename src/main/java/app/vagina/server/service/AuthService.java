@@ -141,7 +141,6 @@ public class AuthService {
             normalizedCodeChallengeMethod,
             now.plusSeconds(stateLifespan),
             null,
-            null,
             now,
             now);
     OAuthLoginAttemptMapper.Row row = toOAuthLoginAttemptRow(attempt);
@@ -289,7 +288,6 @@ public class AuthService {
             null,
             null,
             null,
-            null,
             now,
             now);
     RefreshTokenMapper.Row row = toRefreshTokenRow(refreshToken);
@@ -313,7 +311,7 @@ public class AuthService {
     LocalDateTime now = LocalDateTime.now();
 
     if (current.isRevoked()) {
-      revokeTokenFamily(current.getTokenFamily(), now, "rotated_token_reuse_detected");
+      revokeTokenFamily(current.getTokenFamily(), now);
       return Optional.empty();
     }
 
@@ -322,13 +320,13 @@ public class AuthService {
     }
 
     if (current.isRotated()) {
-      revokeTokenFamily(current.getTokenFamily(), now, "rotated_token_reuse_detected");
+      revokeTokenFamily(current.getTokenFamily(), now);
       return Optional.empty();
     }
 
     int updated = refreshTokenMapper.markRotatedIfActive(current.getId(), now, now, now);
     if (updated != 1) {
-      revokeTokenFamily(current.getTokenFamily(), now, "rotated_token_reuse_detected");
+      revokeTokenFamily(current.getTokenFamily(), now);
       return Optional.empty();
     }
     current.markRotated(now);
@@ -414,13 +412,13 @@ public class AuthService {
     return redirectUri;
   }
 
-  private void revokeTokenFamily(String tokenFamily, LocalDateTime now, String reason) {
+  private void revokeTokenFamily(String tokenFamily, LocalDateTime now) {
     List<RefreshToken> familyTokens =
         refreshTokenMapper.findByTokenFamily(tokenFamily).stream()
             .map(this::toRefreshTokenDomain)
             .toList();
     for (RefreshToken familyToken : familyTokens) {
-      familyToken.revokeWithReason(now, reason);
+      familyToken.revoke(now);
       refreshTokenMapper.update(toRefreshTokenRow(familyToken));
     }
   }
@@ -471,8 +469,6 @@ public class AuthService {
         row.getAvatarUrl(),
         row.getEmail(),
         row.getEmailVerified(),
-        row.getUsermeta(),
-        row.getSysmeta(),
         row.getCreatedAt(),
         row.getUpdatedAt());
   }
@@ -488,7 +484,6 @@ public class AuthService {
         row.getRotatedAt(),
         row.getRevokedAt(),
         row.getLastUsedAt(),
-        row.getSysmeta(),
         row.getCreatedAt(),
         row.getUpdatedAt());
   }
@@ -504,7 +499,6 @@ public class AuthService {
     row.setRotatedAt(refreshToken.getRotatedAt());
     row.setRevokedAt(refreshToken.getRevokedAt());
     row.setLastUsedAt(refreshToken.getLastUsedAt());
-    row.setSysmeta(refreshToken.getSysmeta());
     row.setCreatedAt(refreshToken.getCreatedAt());
     row.setUpdatedAt(refreshToken.getUpdatedAt());
     return row;
@@ -522,7 +516,6 @@ public class AuthService {
         row.getCodeChallengeMethod(),
         row.getExpiresAt(),
         row.getConsumedAt(),
-        row.getSysmeta(),
         row.getCreatedAt(),
         row.getUpdatedAt());
   }
@@ -539,7 +532,6 @@ public class AuthService {
     row.setCodeChallengeMethod(attempt.getCodeChallengeMethod());
     row.setExpiresAt(attempt.getExpiresAt());
     row.setConsumedAt(attempt.getConsumedAt());
-    row.setSysmeta(attempt.getSysmeta());
     row.setCreatedAt(attempt.getCreatedAt());
     row.setUpdatedAt(attempt.getUpdatedAt());
     return row;

@@ -18,14 +18,14 @@ import org.apache.ibatis.annotations.Update;
 public interface UserMapper {
 
   @Insert(
-      "INSERT INTO users (account_lifecycle, usermeta, sysmeta, created_at, updated_at) "
+      "INSERT INTO users (account_lifecycle, created_at, updated_at) "
           + "VALUES (#{accountLifecycle, typeHandler=app.vagina.server.mapper.type.AccountLifecycleTypeHandler}, "
-          + "#{usermeta}::jsonb, #{sysmeta}::jsonb, #{createdAt}, #{updatedAt})")
+          + "#{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
   void insert(Row row);
 
   @Select(
-      "SELECT id, account_lifecycle, usermeta::text as usermeta, sysmeta::text as sysmeta, "
+      "SELECT id, account_lifecycle, "
           + "created_at, updated_at FROM users WHERE id = #{id}")
   @Results(
       id = "userRowResultMap",
@@ -36,8 +36,6 @@ public interface UserMapper {
             column = "account_lifecycle",
             javaType = AccountLifecycle.class,
             typeHandler = AccountLifecycleTypeHandler.class),
-        @Result(property = "usermeta", column = "usermeta"),
-        @Result(property = "sysmeta", column = "sysmeta"),
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
@@ -46,7 +44,7 @@ public interface UserMapper {
   @Update(
       "UPDATE users SET account_lifecycle = "
           + "#{accountLifecycle, typeHandler=app.vagina.server.mapper.type.AccountLifecycleTypeHandler}, "
-          + "usermeta = #{usermeta}::jsonb, sysmeta = #{sysmeta}::jsonb, updated_at = #{updatedAt} "
+          + "updated_at = #{updatedAt} "
           + "WHERE id = #{id}")
   void update(Row row);
 
@@ -56,8 +54,6 @@ public interface UserMapper {
   final class Row {
     private Long id;
     private AccountLifecycle accountLifecycle;
-    private String usermeta;
-    private String sysmeta;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -75,22 +71,6 @@ public interface UserMapper {
 
     public void setAccountLifecycle(AccountLifecycle accountLifecycle) {
       this.accountLifecycle = accountLifecycle;
-    }
-
-    public String getUsermeta() {
-      return usermeta;
-    }
-
-    public void setUsermeta(String usermeta) {
-      this.usermeta = usermeta;
-    }
-
-    public String getSysmeta() {
-      return sysmeta;
-    }
-
-    public void setSysmeta(String sysmeta) {
-      this.sysmeta = sysmeta;
     }
 
     public LocalDateTime getCreatedAt() {

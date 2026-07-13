@@ -20,16 +20,16 @@ public interface OAuthLoginAttemptMapper {
 
   @Insert(
       "INSERT INTO oauth_login_attempts (state_hash, auth_method, provider_key, client_type, redirect_uri, code_challenge, "
-          + "code_challenge_method, expires_at, consumed_at, sysmeta, created_at, updated_at) VALUES "
+          + "code_challenge_method, expires_at, consumed_at, created_at, updated_at) VALUES "
           + "(#{stateHash}, #{authMethod, typeHandler=app.vagina.server.mapper.type.AuthMethodTypeHandler}, #{providerKey}, "
           + "#{clientType, typeHandler=app.vagina.server.mapper.type.ClientTypeHandler}, #{redirectUri}, #{codeChallenge}, "
-          + "#{codeChallengeMethod}, #{expiresAt}, #{consumedAt}, #{sysmeta}::jsonb, #{createdAt}, #{updatedAt})")
+          + "#{codeChallengeMethod}, #{expiresAt}, #{consumedAt}, #{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
   void insert(Row row);
 
   @Select(
       "SELECT id, state_hash, auth_method, provider_key, client_type, redirect_uri, code_challenge, code_challenge_method, "
-          + "expires_at, consumed_at, sysmeta::text as sysmeta, created_at, updated_at "
+          + "expires_at, consumed_at, created_at, updated_at "
           + "FROM oauth_login_attempts WHERE state_hash = #{stateHash}")
   @Results(
       id = "oauthLoginAttemptRowResultMap",
@@ -52,7 +52,6 @@ public interface OAuthLoginAttemptMapper {
         @Result(property = "codeChallengeMethod", column = "code_challenge_method"),
         @Result(property = "expiresAt", column = "expires_at"),
         @Result(property = "consumedAt", column = "consumed_at"),
-        @Result(property = "sysmeta", column = "sysmeta"),
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
@@ -63,7 +62,7 @@ public interface OAuthLoginAttemptMapper {
           + "#{authMethod, typeHandler=app.vagina.server.mapper.type.AuthMethodTypeHandler}, provider_key = #{providerKey}, "
           + "client_type = #{clientType, typeHandler=app.vagina.server.mapper.type.ClientTypeHandler}, redirect_uri = #{redirectUri}, "
           + "code_challenge = #{codeChallenge}, code_challenge_method = #{codeChallengeMethod}, expires_at = #{expiresAt}, "
-          + "consumed_at = #{consumedAt}, sysmeta = #{sysmeta}::jsonb, updated_at = #{updatedAt} WHERE id = #{id}")
+          + "consumed_at = #{consumedAt}, updated_at = #{updatedAt} WHERE id = #{id}")
   void update(Row row);
 
   @Update(
@@ -85,7 +84,6 @@ public interface OAuthLoginAttemptMapper {
     private String codeChallengeMethod;
     private LocalDateTime expiresAt;
     private LocalDateTime consumedAt;
-    private String sysmeta;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -109,8 +107,6 @@ public interface OAuthLoginAttemptMapper {
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
     public LocalDateTime getConsumedAt() { return consumedAt; }
     public void setConsumedAt(LocalDateTime consumedAt) { this.consumedAt = consumedAt; }
-    public String getSysmeta() { return sysmeta; }
-    public void setSysmeta(String sysmeta) { this.sysmeta = sysmeta; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

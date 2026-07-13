@@ -16,8 +16,6 @@ public class AuthnProvider {
   private String avatarUrl;
   private String email;
   private Boolean emailVerified;
-  private String usermeta;
-  private String sysmeta;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 
@@ -33,8 +31,6 @@ public class AuthnProvider {
       String avatarUrl,
       String email,
       Boolean emailVerified,
-      String usermeta,
-      String sysmeta,
       LocalDateTime createdAt,
       LocalDateTime updatedAt) {
     this.id = id;
@@ -48,8 +44,6 @@ public class AuthnProvider {
     this.avatarUrl = avatarUrl;
     this.email = email;
     this.emailVerified = emailVerified;
-    this.usermeta = usermeta;
-    this.sysmeta = sysmeta;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -67,14 +61,12 @@ public class AuthnProvider {
       String avatarUrl,
       String email,
       Boolean emailVerified,
-      String rawProfileJson,
       LocalDateTime updatedAt) {
     this.providerLogin = providerLogin;
     this.displayName = displayName;
     this.avatarUrl = avatarUrl;
     this.email = email;
     this.emailVerified = emailVerified;
-    this.sysmeta = rawProfileJson;
     this.updatedAt = updatedAt;
   }
 
@@ -124,14 +116,6 @@ public class AuthnProvider {
 
   public Boolean getEmailVerified() {
     return emailVerified;
-  }
-
-  public String getUsermeta() {
-    return usermeta;
-  }
-
-  public String getSysmeta() {
-    return sysmeta;
   }
 
   public LocalDateTime getCreatedAt() {

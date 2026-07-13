@@ -14,7 +14,6 @@ public class RefreshToken {
   private LocalDateTime rotatedAt;
   private LocalDateTime revokedAt;
   private LocalDateTime lastUsedAt;
-  private String sysmeta;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 
@@ -28,7 +27,6 @@ public class RefreshToken {
       LocalDateTime rotatedAt,
       LocalDateTime revokedAt,
       LocalDateTime lastUsedAt,
-      String sysmeta,
       LocalDateTime createdAt,
       LocalDateTime updatedAt) {
     this.id = id;
@@ -40,7 +38,6 @@ public class RefreshToken {
     this.rotatedAt = rotatedAt;
     this.revokedAt = revokedAt;
     this.lastUsedAt = lastUsedAt;
-    this.sysmeta = sysmeta;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -75,17 +72,10 @@ public class RefreshToken {
     this.updatedAt = revokedAt;
   }
 
-  public void revokeWithReason(LocalDateTime revokedAt, String reason) {
-    revoke(revokedAt);
-    if (sysmeta == null || sysmeta.isBlank()) {
-      sysmeta = "{\"reason\":\"" + reason + "\"}";
-    }
-  }
-
   public RefreshToken createReplacement(
       String tokenHash, LocalDateTime expiresAt, LocalDateTime now) {
     return new RefreshToken(
-        null, userId, tokenHash, tokenFamily, now, expiresAt, null, null, null, sysmeta, now, now);
+        null, userId, tokenHash, tokenFamily, now, expiresAt, null, null, null, now, now);
   }
 
   public Long getId() {
@@ -122,10 +112,6 @@ public class RefreshToken {
 
   public LocalDateTime getLastUsedAt() {
     return lastUsedAt;
-  }
-
-  public String getSysmeta() {
-    return sysmeta;
   }
 
   public LocalDateTime getCreatedAt() {

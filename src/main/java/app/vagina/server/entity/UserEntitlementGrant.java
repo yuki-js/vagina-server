@@ -14,7 +14,6 @@ public class UserEntitlementGrant {
   private final LocalDateTime revokedAt;
   private final String grantReason;
   private final String revokeReason;
-  private final String sysmeta;
   private final LocalDateTime createdAt;
   private final LocalDateTime updatedAt;
 
@@ -28,7 +27,6 @@ public class UserEntitlementGrant {
       LocalDateTime revokedAt,
       String grantReason,
       String revokeReason,
-      String sysmeta,
       LocalDateTime createdAt,
       LocalDateTime updatedAt) {
     this.id = id;
@@ -40,7 +38,6 @@ public class UserEntitlementGrant {
     this.revokedAt = revokedAt;
     this.grantReason = grantReason;
     this.revokeReason = revokeReason;
-    this.sysmeta = sysmeta;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -94,10 +91,6 @@ public class UserEntitlementGrant {
 
   public String getRevokeReason() {
     return revokeReason;
-  }
-
-  public String getSysmeta() {
-    return sysmeta;
   }
 
   public LocalDateTime getCreatedAt() {

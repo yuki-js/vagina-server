@@ -10,7 +10,6 @@ public class EntitlementDefinition {
   private final String displayName;
   private final String description;
   private final boolean enabled;
-  private final String sysmeta;
   private final LocalDateTime createdAt;
   private final LocalDateTime updatedAt;
 
@@ -20,7 +19,6 @@ public class EntitlementDefinition {
       String displayName,
       String description,
       boolean enabled,
-      String sysmeta,
       LocalDateTime createdAt,
       LocalDateTime updatedAt) {
     this.id = id;
@@ -28,7 +26,6 @@ public class EntitlementDefinition {
     this.displayName = displayName;
     this.description = description;
     this.enabled = enabled;
-    this.sysmeta = sysmeta;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -58,10 +55,6 @@ public class EntitlementDefinition {
 
   public boolean isEnabled() {
     return enabled;
-  }
-
-  public String getSysmeta() {
-    return sysmeta;
   }
 
   public LocalDateTime getCreatedAt() {

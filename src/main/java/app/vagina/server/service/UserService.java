@@ -49,8 +49,6 @@ public class UserService {
               oidcUserInfo.avatarUrl(),
               oidcUserInfo.email(),
               oidcUserInfo.emailVerified(),
-              null,
-              oidcUserInfo.rawProfileJson(),
               now,
               now);
       AuthnProviderMapper.Row authnProviderRow = toAuthnProviderRow(authnProvider);
@@ -83,7 +81,7 @@ public class UserService {
   }
 
   private User createUser(LocalDateTime now) {
-    User user = new User(null, AccountLifecycle.ACTIVE, null, null, now, now);
+    User user = new User(null, AccountLifecycle.ACTIVE, now, now);
     UserMapper.Row row = toUserRow(user);
     userMapper.insert(row);
     user.setGeneratedId(row.getId());
@@ -98,28 +96,19 @@ public class UserService {
         oidcUserInfo.avatarUrl(),
         oidcUserInfo.email(),
         oidcUserInfo.emailVerified(),
-        oidcUserInfo.rawProfileJson(),
         now);
     authnProviderMapper.update(toAuthnProviderRow(authnProvider));
     return userMapper.findById(authnProvider.getUserId()).map(this::toUserDomain).orElseThrow();
   }
 
   private User toUserDomain(UserMapper.Row row) {
-    return new User(
-        row.getId(),
-        row.getAccountLifecycle(),
-        row.getUsermeta(),
-        row.getSysmeta(),
-        row.getCreatedAt(),
-        row.getUpdatedAt());
+    return new User(row.getId(), row.getAccountLifecycle(), row.getCreatedAt(), row.getUpdatedAt());
   }
 
   private UserMapper.Row toUserRow(User user) {
     UserMapper.Row row = new UserMapper.Row();
     row.setId(user.getId());
     row.setAccountLifecycle(user.getAccountLifecycle());
-    row.setUsermeta(user.getUsermeta());
-    row.setSysmeta(user.getSysmeta());
     row.setCreatedAt(user.getCreatedAt());
     row.setUpdatedAt(user.getUpdatedAt());
     return row;
@@ -138,8 +127,6 @@ public class UserService {
         row.getAvatarUrl(),
         row.getEmail(),
         row.getEmailVerified(),
-        row.getUsermeta(),
-        row.getSysmeta(),
         row.getCreatedAt(),
         row.getUpdatedAt());
   }
@@ -157,8 +144,6 @@ public class UserService {
     row.setAvatarUrl(authnProvider.getAvatarUrl());
     row.setEmail(authnProvider.getEmail());
     row.setEmailVerified(authnProvider.getEmailVerified());
-    row.setUsermeta(authnProvider.getUsermeta());
-    row.setSysmeta(authnProvider.getSysmeta());
     row.setCreatedAt(authnProvider.getCreatedAt());
     row.setUpdatedAt(authnProvider.getUpdatedAt());
     return row;

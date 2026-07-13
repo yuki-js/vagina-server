@@ -18,14 +18,14 @@ public interface RefreshTokenMapper {
 
   @Insert(
       "INSERT INTO refresh_tokens (user_id, token_hash, token_family, issued_at, expires_at, rotated_at, revoked_at, "
-          + "last_used_at, sysmeta, created_at, updated_at) VALUES (#{userId}, #{tokenHash}, #{tokenFamily}, "
-          + "#{issuedAt}, #{expiresAt}, #{rotatedAt}, #{revokedAt}, #{lastUsedAt}, #{sysmeta}::jsonb, #{createdAt}, #{updatedAt})")
+          + "last_used_at, created_at, updated_at) VALUES (#{userId}, #{tokenHash}, #{tokenFamily}, "
+          + "#{issuedAt}, #{expiresAt}, #{rotatedAt}, #{revokedAt}, #{lastUsedAt}, #{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
   void insert(Row row);
 
   @Select(
       "SELECT id, user_id, token_hash, token_family, issued_at, expires_at, rotated_at, revoked_at, "
-          + "last_used_at, sysmeta::text as sysmeta, created_at, updated_at "
+          + "last_used_at, created_at, updated_at "
           + "FROM refresh_tokens WHERE id = #{id}")
   @Results(
       id = "refreshTokenRowResultMap",
@@ -39,7 +39,6 @@ public interface RefreshTokenMapper {
         @Result(property = "rotatedAt", column = "rotated_at"),
         @Result(property = "revokedAt", column = "revoked_at"),
         @Result(property = "lastUsedAt", column = "last_used_at"),
-        @Result(property = "sysmeta", column = "sysmeta"),
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
@@ -47,21 +46,21 @@ public interface RefreshTokenMapper {
 
   @Select(
       "SELECT id, user_id, token_hash, token_family, issued_at, expires_at, rotated_at, revoked_at, "
-          + "last_used_at, sysmeta::text as sysmeta, created_at, updated_at "
+          + "last_used_at, created_at, updated_at "
           + "FROM refresh_tokens WHERE token_hash = #{tokenHash}")
   @ResultMap("refreshTokenRowResultMap")
   Optional<Row> findByTokenHash(@Param("tokenHash") String tokenHash);
 
   @Select(
       "SELECT id, user_id, token_hash, token_family, issued_at, expires_at, rotated_at, revoked_at, "
-          + "last_used_at, sysmeta::text as sysmeta, created_at, updated_at "
+          + "last_used_at, created_at, updated_at "
           + "FROM refresh_tokens WHERE user_id = #{userId} ORDER BY created_at DESC")
   @ResultMap("refreshTokenRowResultMap")
   List<Row> findByUserId(@Param("userId") Long userId);
 
   @Select(
       "SELECT id, user_id, token_hash, token_family, issued_at, expires_at, rotated_at, revoked_at, "
-          + "last_used_at, sysmeta::text as sysmeta, created_at, updated_at "
+          + "last_used_at, created_at, updated_at "
           + "FROM refresh_tokens WHERE token_family = #{tokenFamily} ORDER BY created_at DESC")
   @ResultMap("refreshTokenRowResultMap")
   List<Row> findByTokenFamily(@Param("tokenFamily") String tokenFamily);
@@ -69,7 +68,7 @@ public interface RefreshTokenMapper {
   @Update(
       "UPDATE refresh_tokens SET user_id = #{userId}, token_hash = #{tokenHash}, token_family = #{tokenFamily}, "
           + "issued_at = #{issuedAt}, expires_at = #{expiresAt}, rotated_at = #{rotatedAt}, revoked_at = #{revokedAt}, "
-          + "last_used_at = #{lastUsedAt}, sysmeta = #{sysmeta}::jsonb, updated_at = #{updatedAt} WHERE id = #{id}")
+          + "last_used_at = #{lastUsedAt}, updated_at = #{updatedAt} WHERE id = #{id}")
   void update(Row row);
 
   @Update(
@@ -91,7 +90,6 @@ public interface RefreshTokenMapper {
     private LocalDateTime rotatedAt;
     private LocalDateTime revokedAt;
     private LocalDateTime lastUsedAt;
-    private String sysmeta;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -113,8 +111,6 @@ public interface RefreshTokenMapper {
     public void setRevokedAt(LocalDateTime revokedAt) { this.revokedAt = revokedAt; }
     public LocalDateTime getLastUsedAt() { return lastUsedAt; }
     public void setLastUsedAt(LocalDateTime lastUsedAt) { this.lastUsedAt = lastUsedAt; }
-    public String getSysmeta() { return sysmeta; }
-    public void setSysmeta(String sysmeta) { this.sysmeta = sysmeta; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

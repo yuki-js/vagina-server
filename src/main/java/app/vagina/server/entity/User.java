@@ -7,22 +7,16 @@ import java.time.LocalDateTime;
 public class User {
   private Long id;
   private AccountLifecycle accountLifecycle;
-  private String usermeta;
-  private String sysmeta;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 
   public User(
       Long id,
       AccountLifecycle accountLifecycle,
-      String usermeta,
-      String sysmeta,
       LocalDateTime createdAt,
       LocalDateTime updatedAt) {
     this.id = id;
     this.accountLifecycle = accountLifecycle;
-    this.usermeta = usermeta;
-    this.sysmeta = sysmeta;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
@@ -49,14 +43,6 @@ public class User {
 
   public AccountLifecycle getAccountLifecycle() {
     return accountLifecycle;
-  }
-
-  public String getUsermeta() {
-    return usermeta;
-  }
-
-  public String getSysmeta() {
-    return sysmeta;
   }
 
   public LocalDateTime getCreatedAt() {

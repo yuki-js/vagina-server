@@ -19,14 +19,14 @@ public interface EntitlementMapper {
 
   @Insert(
       "INSERT INTO entitlement_definitions "
-          + "(entitlement_key, display_name, description, enabled, sysmeta, created_at, updated_at) "
+          + "(entitlement_key, display_name, description, enabled, created_at, updated_at) "
           + "VALUES (#{entitlementKey}, #{displayName}, #{description}, #{enabled}, "
-          + "#{sysmeta}::jsonb, #{createdAt}, #{updatedAt})")
+          + "#{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
   void insertDefinition(DefinitionRow row);
 
   @Select(
-      "SELECT id, entitlement_key, display_name, description, enabled, sysmeta::text as sysmeta, "
+      "SELECT id, entitlement_key, display_name, description, enabled, "
           + "created_at, updated_at FROM entitlement_definitions WHERE entitlement_key = #{key}")
   @Results(
       id = "entitlementDefinitionResultMap",
@@ -36,14 +36,13 @@ public interface EntitlementMapper {
         @Result(property = "displayName", column = "display_name"),
         @Result(property = "description", column = "description"),
         @Result(property = "enabled", column = "enabled"),
-        @Result(property = "sysmeta", column = "sysmeta"),
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
   Optional<DefinitionRow> findDefinitionByKey(@Param("key") String key);
 
   @Select(
-      "SELECT id, entitlement_key, display_name, description, enabled, sysmeta::text as sysmeta, "
+      "SELECT id, entitlement_key, display_name, description, enabled, "
           + "created_at, updated_at FROM entitlement_definitions WHERE id = #{id}")
   @Results(
       id = "entitlementDefinitionByIdResultMap",
@@ -53,7 +52,6 @@ public interface EntitlementMapper {
         @Result(property = "displayName", column = "display_name"),
         @Result(property = "description", column = "description"),
         @Result(property = "enabled", column = "enabled"),
-        @Result(property = "sysmeta", column = "sysmeta"),
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
@@ -62,17 +60,17 @@ public interface EntitlementMapper {
   @Insert(
       "INSERT INTO user_entitlement_grants "
           + "(user_id, entitlement_id, grant_source, valid_from, expires_at, revoked_at, "
-          + "grant_reason, revoke_reason, sysmeta, created_at, updated_at) "
+          + "grant_reason, revoke_reason, created_at, updated_at) "
           + "VALUES (#{userId}, #{entitlementId}, "
           + "#{grantSource, typeHandler=app.vagina.server.mapper.type.EntitlementGrantSourceTypeHandler}, "
           + "#{validFrom}, #{expiresAt}, #{revokedAt}, #{grantReason}, #{revokeReason}, "
-          + "#{sysmeta}::jsonb, #{createdAt}, #{updatedAt})")
+          + "#{createdAt}, #{updatedAt})")
   @Options(useGeneratedKeys = true, keyProperty = "id")
   void insertGrant(GrantRow row);
 
   @Select(
       "SELECT id, user_id, entitlement_id, grant_source, valid_from, expires_at, revoked_at, "
-          + "grant_reason, revoke_reason, sysmeta::text as sysmeta, created_at, updated_at "
+          + "grant_reason, revoke_reason, created_at, updated_at "
           + "FROM user_entitlement_grants WHERE id = #{id}")
   @Results(
       id = "entitlementGrantResultMap",
@@ -90,7 +88,6 @@ public interface EntitlementMapper {
         @Result(property = "revokedAt", column = "revoked_at"),
         @Result(property = "grantReason", column = "grant_reason"),
         @Result(property = "revokeReason", column = "revoke_reason"),
-        @Result(property = "sysmeta", column = "sysmeta"),
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
@@ -98,8 +95,7 @@ public interface EntitlementMapper {
 
   @Select(
       "SELECT g.id, g.user_id, g.entitlement_id, g.grant_source, g.valid_from, g.expires_at, "
-          + "g.revoked_at, g.grant_reason, g.revoke_reason, g.sysmeta::text as sysmeta, "
-          + "g.created_at, g.updated_at "
+          + "g.revoked_at, g.grant_reason, g.revoke_reason, g.created_at, g.updated_at "
           + "FROM user_entitlement_grants g "
           + "JOIN entitlement_definitions d ON d.id = g.entitlement_id "
           + "WHERE g.user_id = #{userId} AND d.entitlement_key = #{entitlementKey} "
@@ -121,7 +117,6 @@ public interface EntitlementMapper {
         @Result(property = "revokedAt", column = "revoked_at"),
         @Result(property = "grantReason", column = "grant_reason"),
         @Result(property = "revokeReason", column = "revoke_reason"),
-        @Result(property = "sysmeta", column = "sysmeta"),
         @Result(property = "createdAt", column = "created_at"),
         @Result(property = "updatedAt", column = "updated_at")
       })
@@ -156,7 +151,6 @@ public interface EntitlementMapper {
     private String displayName;
     private String description;
     private boolean enabled;
-    private String sysmeta;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -200,14 +194,6 @@ public interface EntitlementMapper {
       this.enabled = enabled;
     }
 
-    public String getSysmeta() {
-      return sysmeta;
-    }
-
-    public void setSysmeta(String sysmeta) {
-      this.sysmeta = sysmeta;
-    }
-
     public LocalDateTime getCreatedAt() {
       return createdAt;
     }
@@ -235,7 +221,6 @@ public interface EntitlementMapper {
     private LocalDateTime revokedAt;
     private String grantReason;
     private String revokeReason;
-    private String sysmeta;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -309,14 +294,6 @@ public interface EntitlementMapper {
 
     public void setRevokeReason(String revokeReason) {
       this.revokeReason = revokeReason;
-    }
-
-    public String getSysmeta() {
-      return sysmeta;
-    }
-
-    public void setSysmeta(String sysmeta) {
-      this.sysmeta = sysmeta;
     }
 
     public LocalDateTime getCreatedAt() {

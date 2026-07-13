@@ -57,6 +57,7 @@ CREATE TABLE user_entitlement_grants (
     revoked_at TIMESTAMP,
     grant_reason TEXT,
     revoke_reason TEXT,
+    usermeta JSONB,
     sysmeta JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -73,6 +74,7 @@ COMMENT ON COLUMN user_entitlement_grants.grant_source IS 'Grant source: manual,
 COMMENT ON COLUMN user_entitlement_grants.valid_from IS 'First timestamp when this grant can become effective';
 COMMENT ON COLUMN user_entitlement_grants.expires_at IS 'Timestamp after which this grant is no longer effective';
 COMMENT ON COLUMN user_entitlement_grants.revoked_at IS 'Revocation timestamp; non-null grants are no longer effective';
+COMMENT ON COLUMN user_entitlement_grants.usermeta IS 'User-editable arbitrary metadata for this entitlement grant';
 COMMENT ON COLUMN user_entitlement_grants.sysmeta IS 'System/admin-only auxiliary metadata such as external billing identifiers';
 
 CREATE INDEX idx_user_entitlement_grants_user_id
@@ -144,6 +146,7 @@ CREATE TABLE refresh_tokens (
     rotated_at TIMESTAMP,
     revoked_at TIMESTAMP,
     last_used_at TIMESTAMP,
+    usermeta JSONB,
     sysmeta JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -154,6 +157,7 @@ CREATE TABLE refresh_tokens (
 COMMENT ON TABLE refresh_tokens IS 'Opaque refresh token lifecycle records. Raw tokens are never stored.';
 COMMENT ON COLUMN refresh_tokens.token_hash IS 'SHA-256 hash of the raw opaque refresh token';
 COMMENT ON COLUMN refresh_tokens.token_family IS 'Logical family identifier used to revoke rotated-token replay chains';
+COMMENT ON COLUMN refresh_tokens.usermeta IS 'User-editable arbitrary metadata for this refresh token record';
 COMMENT ON COLUMN refresh_tokens.sysmeta IS 'System/admin-only auxiliary metadata such as user agent, IP address, or revoke reason';
 
 CREATE UNIQUE INDEX idx_refresh_tokens_token_hash ON refresh_tokens(token_hash);
@@ -208,6 +212,8 @@ CREATE TABLE speed_dials (
     reasoning_effort VARCHAR(16) NOT NULL DEFAULT 'off',
     tool_choice_required BOOLEAN NOT NULL DEFAULT FALSE,
     enabled_tools JSONB NOT NULL DEFAULT '{}'::jsonb,
+    usermeta JSONB,
+    sysmeta JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_speed_dials_user
@@ -220,6 +226,8 @@ COMMENT ON COLUMN speed_dials.voice_agent_id IS 'Server registry voice-agent id 
 COMMENT ON COLUMN speed_dials.reasoning_effort IS 'Per-speed-dial reasoning effort level: off, minimal, low, medium, high, xhigh';
 COMMENT ON COLUMN speed_dials.tool_choice_required IS 'Whether model tool choice should require a tool call when tools are available';
 COMMENT ON COLUMN speed_dials.enabled_tools IS 'Per-tool enable/disable overrides keyed by tool name';
+COMMENT ON COLUMN speed_dials.usermeta IS 'User-editable arbitrary metadata for this speed dial';
+COMMENT ON COLUMN speed_dials.sysmeta IS 'System/admin-only auxiliary metadata for this speed dial';
 
 CREATE UNIQUE INDEX idx_speed_dials_unique_user_speed_dial_id
     ON speed_dials(user_id, speed_dial_id);
@@ -241,6 +249,8 @@ CREATE TABLE text_agents (
     description TEXT,
     text_model_id VARCHAR(128) NOT NULL DEFAULT 'text-agent-prod',
     enabled_tools JSONB NOT NULL DEFAULT '{}'::jsonb,
+    usermeta JSONB,
+    sysmeta JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_text_agents_user
@@ -251,6 +261,8 @@ COMMENT ON TABLE text_agents IS 'User-owned text agent definitions';
 COMMENT ON COLUMN text_agents.text_agent_id IS 'Stable per-user text agent identifier used by the client API';
 COMMENT ON COLUMN text_agents.text_model_id IS 'Server registry text-agent model preset id selected for this text agent';
 COMMENT ON COLUMN text_agents.enabled_tools IS 'Per-tool enable/disable overrides keyed by tool name';
+COMMENT ON COLUMN text_agents.usermeta IS 'User-editable arbitrary metadata for this text agent';
+COMMENT ON COLUMN text_agents.sysmeta IS 'System/admin-only auxiliary metadata for this text agent';
 
 CREATE UNIQUE INDEX idx_text_agents_unique_user_text_agent_id
     ON text_agents(user_id, text_agent_id);
@@ -277,6 +289,8 @@ CREATE TABLE call_sessions (
     ended_at TIMESTAMP,
     thread_blob_key VARCHAR(512) NOT NULL,
     deleted_at TIMESTAMP,
+    usermeta JSONB,
+    sysmeta JSONB,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_call_sessions_user
@@ -293,6 +307,8 @@ COMMENT ON COLUMN call_sessions.started_at IS 'Call start timestamp used for ses
 COMMENT ON COLUMN call_sessions.ended_at IS 'Call end timestamp recorded when the terminal session is saved';
 COMMENT ON COLUMN call_sessions.thread_blob_key IS 'Object-storage key for the saved realtime thread JSON. Raw audio chunks are not persisted.';
 COMMENT ON COLUMN call_sessions.deleted_at IS 'Soft-delete timestamp. Non-null rows are hidden from user session-history APIs.';
+COMMENT ON COLUMN call_sessions.usermeta IS 'User-editable arbitrary metadata for this call session';
+COMMENT ON COLUMN call_sessions.sysmeta IS 'System/admin-only auxiliary metadata for this call session';
 
 CREATE UNIQUE INDEX idx_call_sessions_call_session_id
     ON call_sessions(call_session_id);
