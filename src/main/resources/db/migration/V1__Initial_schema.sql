@@ -323,3 +323,23 @@ CREATE INDEX idx_call_sessions_user_deleted_at
 -- VFS lives as one stable snapshot blob per user in object storage.
 -- No relational per-file table is kept in the greenfield schema.
 -- ============================================================================
+
+
+-- Seed Data
+
+INSERT INTO public.entitlement_definitions (entitlement_key,display_name,description,enabled) VALUES
+	 ('chinko','CHINKO','CHief INformation Knowledge Officer only have this. The entitlement has the most powerful permission.',true),
+	 ('admin','Administrator','Administrator of VAGINA. Has great permissions.',true),
+	 ('aok-owner','Aok Owner','Those who can use Aok',true),
+	 ('initial-pro','Placeholder for Subscriber','Placeholder entitlement for fake paid subscriber',true);
+
+INSERT INTO public.users (account_lifecycle) VALUES
+	 ('active');
+
+INSERT INTO public.user_entitlement_grants (user_id,entitlement_id,grant_source,valid_from) VALUES
+	 (1,1,'manual','1970-01-01 00:00:00'),
+	 (1,2,'manual','1970-01-01 00:00:00'),
+	 (1,3,'manual','1970-01-01 00:00:00');
+
+INSERT INTO public.authn_providers (user_id,auth_method,provider_key,auth_identifier,external_subject,provider_login,display_name,avatar_url,email,email_verified) VALUES
+	 (1,'oidc','github','220f1975-207f-4835-91aa-3b7cc12c986f','20838151','yuki-js','Yuki Aoki','https://avatars.githubusercontent.com/u/20838151?v=4','me+github@aoki.app',true);
