@@ -26,7 +26,7 @@ quarkus:
             value: 0.0.1
   http:
     cors:
-      origins: https://vagina.app
+      origins: https://vagina.app,/^https://(.*\.)?vagina-bo6.pages.dev/
 
 mp:
   jwt:

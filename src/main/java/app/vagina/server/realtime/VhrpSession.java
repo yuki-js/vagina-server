@@ -2,6 +2,7 @@ package app.vagina.server.realtime;
 
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.realtime.model.RealtimeThread;
+import app.vagina.server.support.EnabledToolsJson.ParseResult;
 import app.vagina.server.support.Util;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderSessionState;
 import app.vagina.server.textagent.TextAgentRuntimeModels.TextAgentModelBinding;
@@ -15,7 +16,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -79,7 +79,7 @@ public class VhrpSession {
   private final LocalDateTime startedAt;
   private final String speedDialId;
   private final String voiceAgentId;
-  private final Set<String> allowedToolNames;
+  private final ParseResult toolOverrides;
 
   /**
    * The vendor translation body for this session. Driven for C2S; it pushes S2C back through {@link
@@ -127,7 +127,7 @@ public class VhrpSession {
       LocalDateTime startedAt,
       String speedDialId,
       String voiceAgentId,
-      Set<String> allowedToolNames) {
+      ParseResult toolOverrides) {
     this.sessionId = sessionId;
     this.threadId = threadId;
     this.codec = codec;
@@ -136,7 +136,7 @@ public class VhrpSession {
     this.startedAt = startedAt;
     this.speedDialId = speedDialId;
     this.voiceAgentId = voiceAgentId;
-    this.allowedToolNames = allowedToolNames;
+    this.toolOverrides = toolOverrides;
     subscribeAdapterOutput();
   }
 
@@ -432,13 +432,15 @@ public class VhrpSession {
   }
 
   private Uni<Void> handleToolsSet(VhrpMessage.ToolsSet m) {
-    // Validate: reject tools with null/blank names or names not in the allow-list.
+    // Validate against the Speed Dial's sparse overrides: missing keys are enabled by default,
+    // explicit false values are denied, and malformed persisted configuration fails closed.
     for (VhrpMessage.ToolSpec tool : m.tools()) {
       if (tool.name() == null || tool.name().isBlank()) {
         return Uni.createFrom()
             .failure(new VhrpException.ProtocolBadMessage("Tool name must not be null or blank"));
       }
-      if (!allowedToolNames.contains(tool.name())) {
+      if (!toolOverrides.valid()
+          || Boolean.FALSE.equals(toolOverrides.overrides().get(tool.name()))) {
         return Uni.createFrom()
             .failure(
                 new VhrpException.ProtocolBadMessage(

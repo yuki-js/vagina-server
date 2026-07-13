@@ -25,7 +25,6 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -137,7 +136,7 @@ public class VhrpSessionRegistry {
     String sessionId = newSessionId();
     String threadId = newThreadId();
     LocalDateTime startedAt = LocalDateTime.now();
-    Set<String> allowedToolNames = parseAllowedToolNames(runtimeConfig.enabledTools());
+    ParseResult toolOverrides = parseToolOverrides(runtimeConfig.enabledTools());
     VhrpSession session =
         new VhrpSession(
             sessionId,
@@ -148,7 +147,7 @@ public class VhrpSessionRegistry {
             startedAt,
             runtimeConfig.speedDialId(),
             voiceAgentId,
-            allowedToolNames);
+            toolOverrides);
     return adapter
         .setAudioTurnMode(RealtimeAdapterModels.AudioTurnMode.fromWire(open.audioTurnMode()))
         .chain(() -> applyServerOwnedExtensions(adapter, runtimeConfig))
@@ -344,14 +343,13 @@ public class VhrpSessionRegistry {
     return "t_" + UUID.randomUUID();
   }
 
-  private Set<String> parseAllowedToolNames(String enabledToolsJson) {
+  private ParseResult parseToolOverrides(String enabledToolsJson) {
     ParseResult enabledTools = EnabledToolsJson.parse(objectMapper, enabledToolsJson);
     if (!enabledTools.valid()) {
       Log.warnf(
           enabledTools.error(),
-          "Failed to parse enabled_tools JSON, failing closed with empty allow-list");
-      return Set.of();
+          "Failed to parse Speed Dial enabled_tools JSON, denying all Voice Agent tools");
     }
-    return EnabledToolsJson.enabledToolNames(enabledTools.overrides());
+    return enabledTools;
   }
 }

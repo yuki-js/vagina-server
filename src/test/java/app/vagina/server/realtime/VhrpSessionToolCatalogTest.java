@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import app.vagina.server.realtime.model.RealtimeThread;
+import app.vagina.server.support.EnabledToolsJson.ParseResult;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import java.time.LocalDateTime;
@@ -18,9 +19,9 @@ import org.junit.jupiter.api.Test;
 class VhrpSessionToolCatalogTest {
 
   @Test
-  void toolsSetRetainsValidatedCatalogSnapshotForTextAgents() {
+  void toolsSetRetainsCatalogAllowedBySparseSpeedDialOverrides() {
     CapturingAdapter adapter = new CapturingAdapter();
-    VhrpSession session = session(adapter, Set.of("document_read", "calculator"));
+    VhrpSession session = session(adapter, Map.of("calculator", true));
 
     session
         .dispatch(
@@ -43,9 +44,42 @@ class VhrpSessionToolCatalogTest {
   }
 
   @Test
+  void emptySpeedDialOverridesAllowCalculator() {
+    CapturingAdapter adapter = new CapturingAdapter();
+    VhrpSession session = session(adapter, Map.of());
+
+    session
+        .dispatch(
+            new VhrpMessage.ToolsSet(
+                "msg_tools",
+                List.of(new VhrpMessage.ToolSpec("calculator", "Calculate.", Map.of()))))
+        .await()
+        .indefinitely();
+
+    assertEquals(List.of("calculator"), adapter.registeredToolNames());
+  }
+
+  @Test
+  void malformedSpeedDialOverridesDenyAllTools() {
+    CapturingAdapter adapter = new CapturingAdapter();
+    VhrpSession session = session(adapter, ParseResult.invalid(new IllegalArgumentException()));
+
+    assertThrows(
+        VhrpException.ProtocolBadMessage.class,
+        () ->
+            session
+                .dispatch(
+                    new VhrpMessage.ToolsSet(
+                        "msg_tools",
+                        List.of(new VhrpMessage.ToolSpec("calculator", "Calculate.", Map.of()))))
+                .await()
+                .indefinitely());
+  }
+
+  @Test
   void emptyToolsSetClearsTextAgentCatalogSnapshot() {
     CapturingAdapter adapter = new CapturingAdapter();
-    VhrpSession session = session(adapter, Set.of("document_read"));
+    VhrpSession session = session(adapter, Map.of());
     session
         .dispatch(
             new VhrpMessage.ToolsSet(
@@ -61,9 +95,9 @@ class VhrpSessionToolCatalogTest {
   }
 
   @Test
-  void rejectedToolsSetDoesNotReplaceTextAgentCatalogSnapshot() {
+  void explicitlyDisabledToolDoesNotReplaceTextAgentCatalogSnapshot() {
     CapturingAdapter adapter = new CapturingAdapter();
-    VhrpSession session = session(adapter, Set.of("document_read"));
+    VhrpSession session = session(adapter, Map.of("forbidden", false));
     session
         .dispatch(
             new VhrpMessage.ToolsSet(
@@ -92,7 +126,7 @@ class VhrpSessionToolCatalogTest {
   @Test
   void rejectsOversizedTurnImageBeforeAdapterReceivesIt() {
     CapturingAdapter adapter = new CapturingAdapter();
-    VhrpSession session = session(adapter, Set.of());
+    VhrpSession session = session(adapter, Map.of());
     byte[] oversizedPng = new byte[1024 * 1024 + 1];
     oversizedPng[0] = (byte) 0x89;
     oversizedPng[1] = 0x50;
@@ -116,7 +150,7 @@ class VhrpSessionToolCatalogTest {
   @Test
   void rejectsMismatchedManualAudioFormatBeforeAdapterReceivesIt() {
     CapturingAdapter adapter = new CapturingAdapter();
-    VhrpSession session = session(adapter, Set.of());
+    VhrpSession session = session(adapter, Map.of());
 
     assertThrows(
         VhrpException.MediaAudioFormatMismatch.class,
@@ -133,7 +167,7 @@ class VhrpSessionToolCatalogTest {
   @Test
   void rejectsUnsupportedImageBytesBeforeAdapterReceivesIt() {
     CapturingAdapter adapter = new CapturingAdapter();
-    VhrpSession session = session(adapter, Set.of());
+    VhrpSession session = session(adapter, Map.of());
 
     assertThrows(
         VhrpException.MediaUnsupportedImage.class,
@@ -146,7 +180,11 @@ class VhrpSessionToolCatalogTest {
     assertTrue(adapter.sentImages.isEmpty());
   }
 
-  private VhrpSession session(CapturingAdapter adapter, Set<String> allowedToolNames) {
+  private VhrpSession session(CapturingAdapter adapter, Map<String, Boolean> toolOverrides) {
+    return session(adapter, ParseResult.valid(toolOverrides));
+  }
+
+  private VhrpSession session(CapturingAdapter adapter, ParseResult toolOverrides) {
     return new VhrpSession(
         "s_test",
         "t_test",
@@ -156,7 +194,7 @@ class VhrpSessionToolCatalogTest {
         LocalDateTime.now(),
         "speed_dial",
         "voice_agent",
-        allowedToolNames);
+        toolOverrides);
   }
 
   private static final class CapturingAdapter implements RealtimeAdapter {
