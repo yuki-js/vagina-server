@@ -36,7 +36,9 @@ public class AuthUsecase {
       String refreshToken,
       String tokenType,
       long expiresIn,
-      AuthUserView user) {}
+      AuthUserView user,
+      Long auditUserId,
+      String tokenFamily) {}
 
   public record OidcProviderView(String id, String displayName) {}
 
@@ -100,7 +102,9 @@ public class AuthUsecase {
         issuedRefreshToken.rawToken(),
         "Bearer",
         accessTokenLifespan,
-        toAuthUserView(user, primaryAuthnProvider));
+        toAuthUserView(user, primaryAuthnProvider),
+        user.getId(),
+        issuedRefreshToken.persistedToken().getTokenFamily());
   }
 
   @Transactional
@@ -131,7 +135,9 @@ public class AuthUsecase {
         rotatedRefreshToken.rawToken(),
         "Bearer",
         accessTokenLifespan,
-        toAuthUserView(user, primaryAuthnProvider));
+        toAuthUserView(user, primaryAuthnProvider),
+        user.getId(),
+        rotatedRefreshToken.persistedToken().getTokenFamily());
   }
 
   @Transactional

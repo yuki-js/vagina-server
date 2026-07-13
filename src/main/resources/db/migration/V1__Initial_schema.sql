@@ -166,6 +166,28 @@ CREATE INDEX idx_refresh_tokens_family ON refresh_tokens(token_family);
 CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
 
 -- ============================================================================
+-- Authentication Events
+-- Append-only successful authentication records. This table intentionally has no
+-- user foreign key so records survive user deletion.
+-- ============================================================================
+CREATE TABLE authentication_events (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    token_family VARCHAR(64) NOT NULL,
+    event_type VARCHAR(50) NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(1024),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE authentication_events IS 'Append-only records of successful OIDC exchanges and refreshes';
+COMMENT ON COLUMN authentication_events.user_id IS 'User id at authentication time; intentionally not a foreign key';
+COMMENT ON COLUMN authentication_events.token_family IS 'Refresh-token family used to correlate one login session';
+COMMENT ON COLUMN authentication_events.event_type IS 'Successful authentication event: oidc_exchange or refresh';
+COMMENT ON COLUMN authentication_events.ip_address IS 'First public IP literal in X-Forwarded-For, when available';
+COMMENT ON COLUMN authentication_events.user_agent IS 'Request User-Agent truncated to 1024 characters';
+
+-- ============================================================================
 -- OAuth Login Attempts
 -- Persisted short-lived OIDC transaction state. This is not a classic server session.
 -- ============================================================================

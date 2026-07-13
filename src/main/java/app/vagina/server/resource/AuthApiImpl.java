@@ -10,6 +10,8 @@ import app.vagina.server.generated.model.RefreshSessionRequest;
 import app.vagina.server.generated.model.StartOidcLogin200Response;
 import app.vagina.server.generated.model.StartOidcLoginRequest;
 import app.vagina.server.generated.model.User;
+import app.vagina.server.service.AuthenticationEventRecorder;
+import app.vagina.server.support.AuthRequestMetadata;
 import app.vagina.server.support.Authenticated;
 import app.vagina.server.support.AuthenticatedUser;
 import app.vagina.server.usecase.AuthUsecase;
@@ -20,6 +22,8 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
@@ -30,6 +34,8 @@ public class AuthApiImpl implements AuthApi {
 
   @Inject AuthUsecase authUsecase;
   @Inject AuthenticatedUser authenticatedUser;
+  @Inject AuthenticationEventRecorder authenticationEventRecorder;
+  @Context HttpHeaders httpHeaders;
 
   @Override
   @GET
@@ -53,6 +59,11 @@ public class AuthApiImpl implements AuthApi {
             exchangeOidcLoginRequest.getCode(),
             exchangeOidcLoginRequest.getState(),
             exchangeOidcLoginRequest.getCodeVerifier());
+    authenticationEventRecorder.record(
+        result.auditUserId(),
+        result.tokenFamily(),
+        "oidc_exchange",
+        AuthRequestMetadata.from(httpHeaders));
     return Response.ok(toAuthTokenResponse(result)).build();
   }
 
@@ -84,6 +95,11 @@ public class AuthApiImpl implements AuthApi {
   public Response refreshSession(RefreshSessionRequest refreshSessionRequest) {
     AuthUsecase.AuthSessionResult result =
         authUsecase.refreshSession(refreshSessionRequest.getRefreshToken());
+    authenticationEventRecorder.record(
+        result.auditUserId(),
+        result.tokenFamily(),
+        "refresh",
+        AuthRequestMetadata.from(httpHeaders));
     return Response.ok(toAuthTokenResponse(result)).build();
   }
 

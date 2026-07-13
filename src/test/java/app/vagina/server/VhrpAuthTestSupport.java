@@ -21,6 +21,10 @@ final class VhrpAuthTestSupport {
   private VhrpAuthTestSupport() {}
 
   static String obtainValidJwt() {
+    return obtainValidAuthSession().jsonPath().getString("accessToken");
+  }
+
+  static Response obtainValidAuthSession() {
     PkcePair pkce = issuePkcePair();
 
     Response startResp =
@@ -76,7 +80,7 @@ final class VhrpAuthTestSupport {
 
     String accessToken = exchangeResp.jsonPath().getString("accessToken");
     assertNotNull(accessToken, "Access token must not be null after OIDC exchange");
-    return accessToken;
+    return exchangeResp;
   }
 
   private static PkcePair issuePkcePair() {
