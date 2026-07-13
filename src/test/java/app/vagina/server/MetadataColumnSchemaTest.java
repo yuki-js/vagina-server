@@ -34,6 +34,8 @@ class MetadataColumnSchemaTest {
           "call_sessions");
   private static final List<String> SYSTEM_METADATA_ONLY_TABLES =
       List.of("entitlement_definitions", "oauth_login_attempts");
+  private static final List<String> METADATA_FREE_AUDIT_TABLES =
+      List.of("authentication_events");
 
   @Test
   void metadataColumnsFollowTableOwnership() throws IOException {
@@ -44,6 +46,11 @@ class MetadataColumnSchemaTest {
         classifiedTables.size(),
         "User-bound metadata table classification contains duplicates");
     for (String table : SYSTEM_METADATA_ONLY_TABLES) {
+      assertTrue(
+          classifiedTables.add(table),
+          table + " must belong to exactly one metadata ownership classification");
+    }
+    for (String table : METADATA_FREE_AUDIT_TABLES) {
       assertTrue(
           classifiedTables.add(table),
           table + " must belong to exactly one metadata ownership classification");
@@ -66,6 +73,12 @@ class MetadataColumnSchemaTest {
           0,
           countColumn(tableBody, "usermeta"),
           table + " is not bound to or owned by a concrete user");
+    }
+
+    for (String table : METADATA_FREE_AUDIT_TABLES) {
+      String tableBody = tableBody(migration, table);
+      assertEquals(0, countColumn(tableBody, "usermeta"), table + " must remain metadata-free");
+      assertEquals(0, countColumn(tableBody, "sysmeta"), table + " must remain metadata-free");
     }
   }
 
