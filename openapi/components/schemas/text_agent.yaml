@@ -21,6 +21,7 @@ TextAgent:
     prompt:
       type: string
       nullable: true
+      maxLength: 65536
       example: You are a careful research assistant.
     description:
       type: string
@@ -35,6 +36,7 @@ TextAgent:
       example: text-agent-prod
     enabledTools:
       type: object
+      maxProperties: 256
       description: |
         Map from tool name to enabled flag. Values must be booleans.
         Provider, base URL, API key, self-hosted, and hosted transport details are
@@ -63,6 +65,7 @@ TextAgentWriteRequest:
       example: Research Assistant
     prompt:
       type: string
+      maxLength: 65536
       example: You are a careful research assistant.
     description:
       type: string
@@ -77,6 +80,7 @@ TextAgentWriteRequest:
       example: text-agent-prod
     enabledTools:
       type: object
+      maxProperties: 256
       description: |
         Map from tool name to enabled flag. Values must be booleans.
         Provider, base URL, API key, self-hosted, and hosted transport details are

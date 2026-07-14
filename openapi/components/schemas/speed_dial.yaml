@@ -23,6 +23,7 @@ SpeedDial:
     systemPrompt:
       type: string
       minLength: 1
+      maxLength: 65536
       example: You are a helpful AI assistant.
     description:
       type: string
@@ -52,6 +53,7 @@ SpeedDial:
       example: false
     enabledTools:
       type: object
+      maxProperties: 256
       description: |
         Map from tool name to enabled flag. Values must be booleans.
         Intentionally omit typed additionalProperties here because florval 0.3.12
@@ -84,6 +86,7 @@ SpeedDialCreateRequest:
     systemPrompt:
       type: string
       minLength: 1
+      maxLength: 65536
       example: You are a helpful AI assistant.
     description:
       type: string
@@ -113,6 +116,7 @@ SpeedDialCreateRequest:
       example: false
     enabledTools:
       type: object
+      maxProperties: 256
       description: |
         Map from tool name to enabled flag. Values must be booleans.
         Intentionally omit typed additionalProperties here because florval 0.3.12
@@ -141,6 +145,7 @@ SpeedDialUpdateRequest:
     systemPrompt:
       type: string
       minLength: 1
+      maxLength: 65536
       example: You are a helpful AI assistant.
     description:
       type: string
@@ -170,6 +175,7 @@ SpeedDialUpdateRequest:
       example: false
     enabledTools:
       type: object
+      maxProperties: 256
       description: |
         Map from tool name to enabled flag. Values must be booleans.
         Intentionally omit typed additionalProperties here because florval 0.3.12

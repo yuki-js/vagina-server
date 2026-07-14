@@ -245,6 +245,7 @@ paths:
                 prompt:
                   type: string
                   minLength: 1
+                  maxLength: 65536
                   description: >-
                     New user prompt for this step. Exactly one of `prompt` or
                     `toolResult` must be present. Prompt steps may include
@@ -272,6 +273,7 @@ paths:
                       dataUri:
                         type: string
                         minLength: 1
+                        maxLength: 11184839
                         description: RFC 2397 data URI containing a PNG or JPEG image, for example `data:image/png;base64,...`.
                         example: data:image/png;base64,iVBORw0KGgo=
                       detail:
@@ -289,6 +291,7 @@ paths:
                         example: whiteboard.png
                 toolSchemas:
                   type: array
+                  maxItems: 64
                   description: >-
                     Client-supplied schemas for Text Agent client-executable
                     tools. Tool execution is client-side, so these schemas come
@@ -313,10 +316,12 @@ paths:
                         example: document_read
                       description:
                         type: string
+                        maxLength: 4096
                         description: AI-facing tool description supplied by the client runtime registry.
                         example: Read the content of an active filesystem file by path.
                       parameters:
                         type: object
+                        maxProperties: 256
                         description: JSON Schema object for tool parameters supplied by the client runtime registry.
                         example:
                           type: object
@@ -346,6 +351,7 @@ paths:
                       example: tc_0123456789abcdef
                     output:
                       type: string
+                      maxLength: 262144
                       description: >-
                         JSON string tool output returned by the client runtime.
                         `{"success":false,...}` may appear for compatibility,
