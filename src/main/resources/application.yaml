@@ -88,6 +88,7 @@ vagina:
     oauth:
       state:
         lifespan: 600
+        replay-cache-capacity: 10000
       pkce:
         secret: null
     oidc:

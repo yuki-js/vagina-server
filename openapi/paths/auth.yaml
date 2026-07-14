@@ -139,6 +139,7 @@ paths:
                 state:
                   type: string
                   minLength: 1
+                  maxLength: 256
                 codeVerifier:
                   type: string
                   minLength: 1

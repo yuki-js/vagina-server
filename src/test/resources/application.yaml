@@ -39,6 +39,8 @@ smallrye:
       issuer: http://localhost:8081
 
 vagina:
+  # Test-only deterministic 256-bit root key.
+  secret: 0000000000000000000000000000000000000000000000000000000000000000
   test:
     oai-cc:
       base-url: http://localhost:${quarkus.wiremock.devservices.port}/v1

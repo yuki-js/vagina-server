@@ -80,7 +80,7 @@ public class AuthUsecase {
 
     var tokenSet =
         authService.exchangeAuthorizationCode(
-            provider, code, consumedState.getRedirectUri(), codeVerifier);
+            provider, code, consumedState.redirectUri(), codeVerifier);
     OidcUserInfo oidcUserInfo = authService.fetchUserInfo(provider, tokenSet.accessToken());
 
     User user = userService.getOrCreateOidcUser(provider, oidcUserInfo);

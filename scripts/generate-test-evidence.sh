@@ -62,7 +62,7 @@ if command -v psql &> /dev/null; then
     DB_NAME="${POSTGRES_DB:-vagina_server}"
     
     # Check tables
-    TABLES=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -t -c "\dt" 2>/dev/null | grep -E "users|authn_providers|refresh_tokens|oauth_login_attempts|flyway" | wc -l || echo "0")
+    TABLES=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -t -c "\dt" 2>/dev/null | grep -E "users|authn_providers|refresh_tokens|flyway" | wc -l || echo "0")
     
     if [ "$TABLES" -ge 4 ]; then
         echo "✅ Database tables created successfully" >> "$OUTPUT_FILE"

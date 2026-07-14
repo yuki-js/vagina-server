@@ -76,6 +76,8 @@ smallrye:
       issuer: http://localhost:8080
 
 vagina:
+  # Development-only deterministic 256-bit root key. Production supplies a random key via Secret.
+  secret: 0000000000000000000000000000000000000000000000000000000000000000
   auth:
     oidc:
       providers:

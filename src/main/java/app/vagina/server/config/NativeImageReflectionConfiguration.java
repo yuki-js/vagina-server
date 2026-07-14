@@ -2,7 +2,6 @@ package app.vagina.server.config;
 
 import app.vagina.server.mapper.AuthnProviderMapper;
 import app.vagina.server.mapper.CallSessionMapper;
-import app.vagina.server.mapper.OAuthLoginAttemptMapper;
 import app.vagina.server.mapper.RefreshTokenMapper;
 import app.vagina.server.mapper.SpeedDialMapper;
 import app.vagina.server.mapper.TextAgentMapper;
@@ -54,7 +53,6 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
       app.vagina.server.generated.model.VoiceAgent.class,
       AuthnProviderMapper.Row.class,
       CallSessionMapper.Row.class,
-      OAuthLoginAttemptMapper.Row.class,
       RefreshTokenMapper.Row.class,
       SpeedDialMapper.Row.class,
       TextAgentMapper.Row.class,

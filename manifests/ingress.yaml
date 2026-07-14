@@ -8,6 +8,11 @@ metadata:
     environment: production
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/affinity-mode: persistent
+    nginx.ingress.kubernetes.io/session-cookie-name: vagina-server-affinity
+    nginx.ingress.kubernetes.io/session-cookie-secure: "true"
+    nginx.ingress.kubernetes.io/session-cookie-samesite: None
     cert-manager.io/cluster-issuer: letsencrypt-cloudflare
 spec:
   tls:

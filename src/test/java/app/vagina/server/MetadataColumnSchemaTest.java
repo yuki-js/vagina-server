@@ -33,9 +33,8 @@ class MetadataColumnSchemaTest {
           "text_agents",
           "call_sessions");
   private static final List<String> SYSTEM_METADATA_ONLY_TABLES =
-      List.of("entitlement_definitions", "oauth_login_attempts");
-  private static final List<String> METADATA_FREE_AUDIT_TABLES =
-      List.of("authentication_events");
+      List.of("entitlement_definitions");
+  private static final List<String> METADATA_FREE_AUDIT_TABLES = List.of("authentication_events");
 
   @Test
   void metadataColumnsFollowTableOwnership() throws IOException {

@@ -4,14 +4,11 @@ import app.vagina.server.config.OidcConfig;
 import app.vagina.server.domain.error.AuthenticationException;
 import app.vagina.server.domain.error.ProviderNotImplementedException;
 import app.vagina.server.domain.error.ValidationException;
-import app.vagina.server.entity.AuthMethod;
 import app.vagina.server.entity.AuthnProvider;
 import app.vagina.server.entity.ClientType;
-import app.vagina.server.entity.OAuthLoginAttempt;
 import app.vagina.server.entity.RefreshToken;
 import app.vagina.server.entity.User;
 import app.vagina.server.mapper.AuthnProviderMapper;
-import app.vagina.server.mapper.OAuthLoginAttemptMapper;
 import app.vagina.server.mapper.RefreshTokenMapper;
 import app.vagina.server.service.oidcprovider.OidcProviderBase;
 import app.vagina.server.service.oidcprovider.OidcProviderBase.OidcTokenSet;
@@ -28,12 +25,15 @@ import jakarta.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
@@ -41,7 +41,8 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 public class AuthService {
   private static final Set<String> DECLARED_BUT_NOT_IMPLEMENTED_PROVIDERS =
       Set.of("apple", "twitter");
-  private static final char OIDC_STATE_SEPARATOR = '.';
+  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+  private static final int OIDC_STATE_NONCE_BYTES = 16;
 
   public record CreatedOidcState(
       String rawState,
@@ -49,6 +50,8 @@ public class AuthService {
       String codeChallenge,
       String codeChallengeMethod,
       long expiresIn) {}
+
+  public record ConsumedOidcState(String redirectUri) {}
 
   public record IssuedRefreshToken(String rawToken, RefreshToken persistedToken) {}
 
@@ -70,7 +73,7 @@ public class AuthService {
 
   @Inject OidcConfig oidcConfig;
   @Inject OidcProviderRegistry oidcProviderRegistry;
-  @Inject OAuthLoginAttemptMapper oauthLoginAttemptMapper;
+  @Inject OidcStateService oidcStateService;
   @Inject RefreshTokenMapper refreshTokenMapper;
   @Inject AuthnProviderMapper authnProviderMapper;
   @Inject UserService userService;
@@ -116,36 +119,23 @@ public class AuthService {
         .toList();
   }
 
-  @Transactional
   public CreatedOidcState createState(
       String providerKey, ClientType clientType, String codeChallenge, String codeChallengeMethod) {
     ClientType effectiveClientType = clientType == null ? ClientType.WEB : clientType;
-    String rawState =
-        statePrefix(effectiveClientType)
-            + String.valueOf(OIDC_STATE_SEPARATOR)
-            + Util.randomHexToken();
-    LocalDateTime now = LocalDateTime.now();
     String redirectUri = resolveRedirectUri(effectiveClientType);
     String normalizedCodeChallenge = validateCodeChallenge(codeChallenge);
     String normalizedCodeChallengeMethod = validateCodeChallengeMethod(codeChallengeMethod);
-
-    OAuthLoginAttempt attempt =
-        new OAuthLoginAttempt(
-            null,
-            Util.sha256Hex(rawState),
-            AuthMethod.OIDC,
+    byte[] challengeBytes =
+        decodeS256CodeChallenge(normalizedCodeChallenge, ValidationException::new);
+    byte[] nonce = new byte[OIDC_STATE_NONCE_BYTES];
+    SECURE_RANDOM.nextBytes(nonce);
+    String rawState =
+        oidcStateService.issue(
             providerKey,
             effectiveClientType,
-            redirectUri,
-            normalizedCodeChallenge,
-            normalizedCodeChallengeMethod,
-            now.plusSeconds(stateLifespan),
-            null,
-            now,
-            now);
-    OAuthLoginAttemptMapper.Row row = toOAuthLoginAttemptRow(attempt);
-    oauthLoginAttemptMapper.insert(row);
-    attempt.setGeneratedId(row.getId());
+            challengeBytes,
+            Instant.now().plusSeconds(stateLifespan),
+            nonce);
 
     return new CreatedOidcState(
         rawState,
@@ -155,45 +145,14 @@ public class AuthService {
         stateLifespan);
   }
 
-  @Transactional
-  public OAuthLoginAttempt consumeState(String providerKey, String rawState, String codeVerifier) {
-    char suppliedStatePrefix = validateStateShape(rawState);
-    OAuthLoginAttempt attempt =
-        oauthLoginAttemptMapper
-            .findByStateHash(Util.sha256Hex(rawState))
-            .map(this::toOAuthLoginAttemptDomain)
-            .orElseThrow(() -> new AuthenticationException("Unknown OIDC state"));
-
-    LocalDateTime now = LocalDateTime.now();
-
-    if (suppliedStatePrefix != statePrefix(attempt.getClientType())) {
-      throw new AuthenticationException("OIDC state client type mismatch");
-    }
-    if (!providerKey.equals(attempt.getProviderKey())) {
-      throw new AuthenticationException("OIDC provider mismatch");
-    }
-    if (attempt.isConsumed()) {
-      throw new AuthenticationException("OIDC state already consumed");
-    }
-    if (attempt.isExpiredAt(now)) {
-      throw new AuthenticationException("OIDC state expired");
-    }
+  public ConsumedOidcState consumeState(String providerKey, String rawState, String codeVerifier) {
     String normalizedCodeVerifier = validateCodeVerifier(codeVerifier);
-    if (!"S256".equals(attempt.getCodeChallengeMethod())) {
-      throw new AuthenticationException(
-          "Unsupported PKCE method: " + attempt.getCodeChallengeMethod());
-    }
-    if (!attempt.getCodeChallenge().equals(generateS256CodeChallenge(normalizedCodeVerifier))) {
-      throw new AuthenticationException("OIDC PKCE verification failed");
-    }
-
-    int updated = oauthLoginAttemptMapper.markConsumedIfUnused(attempt.getId(), now, now);
-    if (updated != 1) {
-      throw new AuthenticationException("OIDC state already consumed");
-    }
-
-    attempt.markConsumed(now);
-    return attempt;
+    byte[] challengeBytes =
+        decodeS256CodeChallenge(
+            generateS256CodeChallenge(normalizedCodeVerifier), AuthenticationException::new);
+    OidcStateService.ConsumedState consumedState =
+        oidcStateService.consume(providerKey, rawState, challengeBytes, Instant.now());
+    return new ConsumedOidcState(resolveRedirectUri(consumedState.clientType()));
   }
 
   public String resolveRedirectUri(ClientType clientType) {
@@ -209,28 +168,6 @@ public class AuthService {
           !redirectUri.desktop().isBlank()
               ? redirectUri.desktop()
               : requiredRedirectUri(redirectUri.web(), "web");
-    };
-  }
-
-  private char validateStateShape(String rawState) {
-    if (rawState == null || rawState.length() < 3 || rawState.charAt(1) != OIDC_STATE_SEPARATOR) {
-      throw new AuthenticationException("Invalid OIDC state format");
-    }
-    char prefix = rawState.charAt(0);
-    if (prefix != 'w' && prefix != 'm' && prefix != 'd') {
-      throw new AuthenticationException("Invalid OIDC state client type");
-    }
-    return prefix;
-  }
-
-  private char statePrefix(ClientType clientType) {
-    if (clientType == null) {
-      throw new AuthenticationException("OIDC state has no client type");
-    }
-    return switch (clientType) {
-      case WEB -> 'w';
-      case MOBILE -> 'm';
-      case DESKTOP -> 'd';
     };
   }
 
@@ -456,6 +393,21 @@ public class AuthService {
     return normalized;
   }
 
+  private byte[] decodeS256CodeChallenge(
+      String codeChallenge, Function<String, ? extends RuntimeException> exceptionFactory) {
+    byte[] decoded;
+    try {
+      decoded = Base64.getUrlDecoder().decode(codeChallenge);
+    } catch (IllegalArgumentException e) {
+      throw exceptionFactory.apply("codeChallenge must be unpadded Base64URL");
+    }
+    if (decoded.length != 32
+        || !Base64.getUrlEncoder().withoutPadding().encodeToString(decoded).equals(codeChallenge)) {
+      throw exceptionFactory.apply("codeChallenge must be an S256 SHA-256 digest");
+    }
+    return decoded;
+  }
+
   private AuthnProvider toAuthnProviderDomain(AuthnProviderMapper.Row row) {
     return new AuthnProvider(
         row.getId(),
@@ -501,39 +453,6 @@ public class AuthService {
     row.setLastUsedAt(refreshToken.getLastUsedAt());
     row.setCreatedAt(refreshToken.getCreatedAt());
     row.setUpdatedAt(refreshToken.getUpdatedAt());
-    return row;
-  }
-
-  private OAuthLoginAttempt toOAuthLoginAttemptDomain(OAuthLoginAttemptMapper.Row row) {
-    return new OAuthLoginAttempt(
-        row.getId(),
-        row.getStateHash(),
-        row.getAuthMethod(),
-        row.getProviderKey(),
-        row.getClientType(),
-        row.getRedirectUri(),
-        row.getCodeChallenge(),
-        row.getCodeChallengeMethod(),
-        row.getExpiresAt(),
-        row.getConsumedAt(),
-        row.getCreatedAt(),
-        row.getUpdatedAt());
-  }
-
-  private OAuthLoginAttemptMapper.Row toOAuthLoginAttemptRow(OAuthLoginAttempt attempt) {
-    OAuthLoginAttemptMapper.Row row = new OAuthLoginAttemptMapper.Row();
-    row.setId(attempt.getId());
-    row.setStateHash(attempt.getStateHash());
-    row.setAuthMethod(attempt.getAuthMethod());
-    row.setProviderKey(attempt.getProviderKey());
-    row.setClientType(attempt.getClientType());
-    row.setRedirectUri(attempt.getRedirectUri());
-    row.setCodeChallenge(attempt.getCodeChallenge());
-    row.setCodeChallengeMethod(attempt.getCodeChallengeMethod());
-    row.setExpiresAt(attempt.getExpiresAt());
-    row.setConsumedAt(attempt.getConsumedAt());
-    row.setCreatedAt(attempt.getCreatedAt());
-    row.setUpdatedAt(attempt.getUpdatedAt());
     return row;
   }
 }
