@@ -2,6 +2,7 @@ package app.vagina.server.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -33,6 +34,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class TextAgentUsecaseRequestCorrelationTest {
@@ -377,6 +381,84 @@ class TextAgentUsecaseRequestCorrelationTest {
   }
 
   @Test
+  void concurrentQueryFailsFastWithoutMutatingStateAndGateReopensAfterSuccess() throws Exception {
+    CountDownLatch entered = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    RecordingAdapter adapter =
+        new RecordingAdapter(QueryResult.completed("first"), QueryResult.completed("third"));
+    adapter.executeEntered = entered;
+    adapter.executeRelease = release;
+    Fixture fixture = fixture(adapter);
+    AtomicReference<QueryResult> firstResult = new AtomicReference<>();
+    AtomicReference<Throwable> firstFailure = new AtomicReference<>();
+    Thread first =
+        new Thread(
+            () -> {
+              try {
+                firstResult.set(
+                    fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_first")));
+              } catch (Throwable error) {
+                firstFailure.set(error);
+              }
+            });
+    first.start();
+    assertTrue(entered.await(2, TimeUnit.SECONDS));
+
+    ConflictException conflict =
+        assertThrows(
+            ConflictException.class,
+            () -> fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_conflict")));
+    assertTrue(conflict.getMessage().contains("already in progress"));
+    assertEquals(Optional.of("req_first"), fixture.sessionState.activeRequestId());
+    assertEquals(1, adapter.executionCount());
+
+    release.countDown();
+    first.join(2_000);
+    assertFalse(first.isAlive());
+    assertEquals(null, firstFailure.get());
+    assertEquals(QueryResult.completed("first"), firstResult.get());
+
+    QueryResult third =
+        fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_third"));
+    assertEquals(QueryResult.completed("third"), third);
+    assertEquals(2, adapter.executionCount());
+  }
+
+  @Test
+  void gateReopensAfterProviderException() throws Exception {
+    CountDownLatch entered = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    RecordingAdapter adapter =
+        new RecordingAdapter(new IllegalStateException("failed"), QueryResult.completed("retried"));
+    adapter.executeEntered = entered;
+    adapter.executeRelease = release;
+    Fixture fixture = fixture(adapter);
+    AtomicReference<Throwable> firstFailure = new AtomicReference<>();
+    Thread first =
+        new Thread(
+            () -> {
+              try {
+                fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_fail"));
+              } catch (Throwable error) {
+                firstFailure.set(error);
+              }
+            });
+    first.start();
+    assertTrue(entered.await(2, TimeUnit.SECONDS));
+    assertThrows(
+        ConflictException.class,
+        () -> fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_conflict")));
+    release.countDown();
+    first.join(2_000);
+    assertNotNull(firstFailure.get());
+    assertEquals(Optional.empty(), fixture.sessionState.activeRequestId());
+
+    QueryResult retried =
+        fixture.usecase.queryTextAgent(7L, "ta_contract", promptCommand("req_retry"));
+    assertEquals(QueryResult.completed("retried"), retried);
+  }
+
+  @Test
   void terminalToolFailureAttemptsRecoveryBeforeClearingRequestState() {
     RecordingAdapter adapter =
         new RecordingAdapter(
@@ -485,6 +567,8 @@ class TextAgentUsecaseRequestCorrelationTest {
     private boolean recoveryResult;
     private int recoveryCount;
     private List<String> acceptedToolResultIdsAtRecovery = List.of();
+    private CountDownLatch executeEntered;
+    private CountDownLatch executeRelease;
 
     RecordingAdapter(Object... results) {
       this.results.addAll(List.of(results));
@@ -503,6 +587,20 @@ class TextAgentUsecaseRequestCorrelationTest {
     @Override
     public QueryResult execute(ProviderContext context) {
       contexts.add(context);
+      if (executeEntered != null) {
+        executeEntered.countDown();
+        try {
+          if (!executeRelease.await(2, TimeUnit.SECONDS)) {
+            throw new AssertionError("Timed out waiting to release adapter execution");
+          }
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new AssertionError(e);
+        } finally {
+          executeEntered = null;
+          executeRelease = null;
+        }
+      }
       acceptedToolResultIdsByExecution.add(
           context.sessionState().acceptedToolResults().stream()
               .map(ToolResultSubmission::toolCallId)

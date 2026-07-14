@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class TextAgentRuntimeModels {
   private TextAgentRuntimeModels() {}
@@ -248,6 +249,7 @@ public final class TextAgentRuntimeModels {
     private final Map<String, Object> providerState = new LinkedHashMap<>();
     private final List<ToolCall> pendingToolCalls = new ArrayList<>();
     private final Map<String, ToolResultSubmission> acceptedToolResults = new LinkedHashMap<>();
+    private final AtomicBoolean requestInFlight = new AtomicBoolean();
     private String activeRequestId;
     private Instant activeRequestStartedAt;
 
@@ -269,6 +271,14 @@ public final class TextAgentRuntimeModels {
 
     public Map<String, Object> providerState() {
       return providerState;
+    }
+
+    public boolean tryBeginRequest() {
+      return requestInFlight.compareAndSet(false, true);
+    }
+
+    public void endRequest() {
+      requestInFlight.set(false);
     }
 
     public Optional<String> activeRequestId() {

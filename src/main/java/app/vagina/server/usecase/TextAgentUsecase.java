@@ -72,35 +72,42 @@ public class TextAgentUsecase {
         vhrpSessionRegistry.getOwnedActiveSession(command.voiceSessionId(), currentUserId);
     ProviderSessionState sessionState =
         session.textAgentProviderState(textAgentId, initialBinding(textAgent));
-    QueryResult pendingToolResult = validateAndApplyRequestState(command, sessionState);
-    if (pendingToolResult != null) {
-      return pendingToolResult;
+    if (!sessionState.tryBeginRequest()) {
+      throw new ConflictException("A text-agent request is already in progress");
     }
-    TextAgentAdapter adapter = textAgentAdapterFactory.create(sessionState.binding());
-    ProviderContext context =
-        new ProviderContext(
-            textAgent.toTextAgentProviderView(),
-            command,
-            sessionState,
-            allowedToolCatalog(textAgent, command));
     try {
-      QueryResult result = adapter.execute(context);
-      if (result.status() == QueryStatus.FAILED && command.isToolResultStep()) {
-        recoverOrResetConversation(adapter, context);
+      QueryResult pendingToolResult = validateAndApplyRequestState(command, sessionState);
+      if (pendingToolResult != null) {
+        return pendingToolResult;
       }
-      adapter.applyResultToSessionState(context, result);
-      return result;
-    } catch (RetryableTextAgentProviderException e) {
-      if (command.isPromptStep()) {
+      TextAgentAdapter adapter = textAgentAdapterFactory.create(sessionState.binding());
+      ProviderContext context =
+          new ProviderContext(
+              textAgent.toTextAgentProviderView(),
+              command,
+              sessionState,
+              allowedToolCatalog(textAgent, command));
+      try {
+        QueryResult result = adapter.execute(context);
+        if (result.status() == QueryStatus.FAILED && command.isToolResultStep()) {
+          recoverOrResetConversation(adapter, context);
+        }
+        adapter.applyResultToSessionState(context, result);
+        return result;
+      } catch (RetryableTextAgentProviderException e) {
+        if (command.isPromptStep()) {
+          sessionState.clearRequestState();
+        }
+        throw e;
+      } catch (RuntimeException | Error e) {
+        if (command.isToolResultStep()) {
+          recoverOrResetConversation(adapter, context);
+        }
         sessionState.clearRequestState();
+        throw e;
       }
-      throw e;
-    } catch (RuntimeException | Error e) {
-      if (command.isToolResultStep()) {
-        recoverOrResetConversation(adapter, context);
-      }
-      sessionState.clearRequestState();
-      throw e;
+    } finally {
+      sessionState.endRequest();
     }
   }
 
