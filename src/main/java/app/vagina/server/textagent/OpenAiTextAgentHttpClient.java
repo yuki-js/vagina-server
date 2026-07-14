@@ -1,6 +1,8 @@
 package app.vagina.server.textagent;
 
 import app.vagina.server.domain.error.ExternalServiceException;
+import app.vagina.server.support.BoundedBodyHandlers;
+import app.vagina.server.support.BoundedBodyHandlers.ResponseBodyTooLargeException;
 import app.vagina.server.support.Constants;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -9,16 +11,30 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import org.jboss.logging.Logger;
 
 final class OpenAiTextAgentHttpClient {
   private static final Logger LOG = Logger.getLogger(OpenAiTextAgentHttpClient.class);
   private final ObjectMapper objectMapper;
   private final HttpClient httpClient;
+  private final long maxResponseBytes;
+  private final Duration timeout;
 
   OpenAiTextAgentHttpClient(ObjectMapper objectMapper) {
+    this(
+        objectMapper,
+        HttpClient.newBuilder().connectTimeout(Constants.SERVER_COMMON_HTTP_TIMEOUT).build(),
+        Constants.AI_PROVIDER_MAX_RESPONSE_BYTES,
+        Constants.SERVER_COMMON_HTTP_TIMEOUT);
+  }
+
+  OpenAiTextAgentHttpClient(
+      ObjectMapper objectMapper, HttpClient httpClient, long maxResponseBytes, Duration timeout) {
     this.objectMapper = objectMapper;
-    this.httpClient = HttpClient.newHttpClient();
+    this.httpClient = httpClient;
+    this.maxResponseBytes = maxResponseBytes;
+    this.timeout = timeout;
   }
 
   String writeJson(Object body, String failureMessage) {
@@ -35,12 +51,15 @@ final class OpenAiTextAgentHttpClient {
     try {
       HttpRequest.Builder builder =
           HttpRequest.newBuilder(uri)
+              .timeout(timeout)
               .header("Content-Type", "application/json")
               .header("Accept", "application/json")
               .POST(HttpRequest.BodyPublishers.ofString(requestBody));
       applyApiKeyHeaders(context, builder);
       HttpResponse<String> response =
-          httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+          httpClient.send(
+              builder.build(),
+              BoundedBodyHandlers.bounded(HttpResponse.BodyHandlers.ofString(), maxResponseBytes));
       return classifyResponse(context, uri, response, responseType, failureMessage);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
@@ -57,6 +76,16 @@ final class OpenAiTextAgentHttpClient {
     } catch (ExternalServiceException e) {
       throw e;
     } catch (Exception e) {
+      if (causedByOversizedResponse(e)) {
+        LOG.warnf(
+            "Text agent upstream HTTP response exceeded limit: provider=%s textModelId=%s providerModel=%s uri=%s responseBodyLimit=%d",
+            context.binding().provider(),
+            context.binding().textModelId(),
+            context.binding().providerModelName(),
+            uri,
+            maxResponseBytes);
+        throw new ExternalServiceException(failureMessage, e);
+      }
       LOG.warnf(
           e,
           "Text agent upstream HTTP request failed: provider=%s textModelId=%s providerModel=%s uri=%s",
@@ -188,6 +217,17 @@ final class OpenAiTextAgentHttpClient {
 
   private int responseBodyLength(String responseBody) {
     return responseBody == null ? 0 : responseBody.length();
+  }
+
+  private boolean causedByOversizedResponse(Throwable error) {
+    Throwable current = error;
+    while (current != null) {
+      if (current instanceof ResponseBodyTooLargeException) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   private void applyApiKeyHeaders(ProviderContext context, HttpRequest.Builder builder) {

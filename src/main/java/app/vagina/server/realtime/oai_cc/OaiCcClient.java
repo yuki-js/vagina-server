@@ -1,5 +1,6 @@
 package app.vagina.server.realtime.oai_cc;
 
+import app.vagina.server.support.BoundedBodyHandlers;
 import app.vagina.server.support.Constants;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Multi;
@@ -8,6 +9,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
@@ -18,12 +20,24 @@ public final class OaiCcClient {
   private final HttpClient http;
   private final ObjectMapper json;
   private final OaiCcEvent.Parser parser;
+  private final long maxResponseBytes;
+  private final Duration timeout;
   private ActiveRequest activeRequest;
 
   public OaiCcClient(ObjectMapper json) {
-    this.http = HttpClient.newHttpClient();
+    this(
+        json,
+        HttpClient.newBuilder().connectTimeout(Constants.SERVER_COMMON_HTTP_TIMEOUT).build(),
+        Constants.AI_PROVIDER_MAX_RESPONSE_BYTES,
+        Constants.SERVER_COMMON_HTTP_TIMEOUT);
+  }
+
+  OaiCcClient(ObjectMapper json, HttpClient http, long maxResponseBytes, Duration timeout) {
+    this.http = http;
     this.json = json;
     this.parser = new OaiCcEvent.Parser(json);
+    this.maxResponseBytes = maxResponseBytes;
+    this.timeout = timeout;
   }
 
   public Multi<OaiCcEvent> streamCompletions(OaiCcConnectConfig config, OaiCcRequest request) {
@@ -39,13 +53,12 @@ public final class OaiCcClient {
               requestState.future =
                   future.whenComplete(
                       (response, error) -> {
-                        if (error != null) {
-                          if (!requestState.cancelled.get()) {
-                            emitter.emit(
-                                new OaiCcEvent.ErrorEvent(
-                                    "Chat Completions request failed: " + error.getMessage(),
-                                    error));
-                          }
+                        if (error != null
+                            && !requestState.cancelled.get()
+                            && requestState.errorEmitted.compareAndSet(false, true)) {
+                          emitter.emit(
+                              new OaiCcEvent.ErrorEvent(
+                                  "Chat Completions request failed: " + error.getMessage(), error));
                         }
                         emitter.complete();
                       });
@@ -82,24 +95,30 @@ public final class OaiCcClient {
       MultiEmitter<? super OaiCcEvent> emitter, LineSubscriber subscriber) {
     return responseInfo -> {
       int statusCode = responseInfo.statusCode();
+      HttpResponse.BodySubscriber<Void> bodySubscriber;
       if (statusCode >= 200 && statusCode < 300) {
-        return HttpResponse.BodySubscribers.fromLineSubscriber(subscriber);
+        bodySubscriber = HttpResponse.BodySubscribers.fromLineSubscriber(subscriber);
+      } else {
+        bodySubscriber =
+            HttpResponse.BodySubscribers.mapping(
+                HttpResponse.BodySubscribers.ofString(StandardCharsets.UTF_8),
+                body -> {
+                  emitter.emit(
+                      new OaiCcEvent.ErrorEvent(
+                          "Chat Completions API returned HTTP " + statusCode,
+                          OaiCcHttpError.parse(statusCode, body, json)));
+                  return null;
+                });
       }
-      return HttpResponse.BodySubscribers.mapping(
-          HttpResponse.BodySubscribers.ofString(StandardCharsets.UTF_8),
-          body -> {
-            emitter.emit(
-                new OaiCcEvent.ErrorEvent(
-                    "Chat Completions API returned HTTP " + statusCode,
-                    OaiCcHttpError.parse(statusCode, body, json)));
-            return null;
-          });
+      return BoundedBodyHandlers.bounded(ignored -> bodySubscriber, maxResponseBytes)
+          .apply(responseInfo);
     };
   }
 
   private HttpRequest buildRequest(OaiCcConnectConfig config, OaiCcRequest request) {
     HttpRequest.Builder builder =
         HttpRequest.newBuilder(config.chatCompletionsUri())
+            .timeout(timeout)
             .header("Content-Type", "application/json")
             .header("Accept", "text/event-stream")
             .POST(HttpRequest.BodyPublishers.ofString(request.toJson(json)));
@@ -116,6 +135,7 @@ public final class OaiCcClient {
 
   private static final class ActiveRequest {
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
+    private final AtomicBoolean errorEmitted = new AtomicBoolean(false);
     private CompletableFuture<?> future;
   }
 
@@ -153,7 +173,7 @@ public final class OaiCcClient {
 
     @Override
     public void onError(Throwable throwable) {
-      if (!request.cancelled.get()) {
+      if (!request.cancelled.get() && request.errorEmitted.compareAndSet(false, true)) {
         emitter.emit(
             new OaiCcEvent.ErrorEvent(
                 "Chat Completions stream failed: " + throwable.getMessage(), throwable));
