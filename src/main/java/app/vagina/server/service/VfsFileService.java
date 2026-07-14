@@ -24,6 +24,7 @@ public class VfsFileService {
   public static final int MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024;
   private static final int MAX_RAW_PATH_LENGTH = Constants.VFS_MAX_RAW_PATH_LENGTH;
   private static final int SNAPSHOT_SCHEMA_VERSION = 1;
+  private static final Object[] SNAPSHOT_LOCKS = createSnapshotLocks(64);
 
   public static final String ERROR_PATH_MUST_BE_ABSOLUTE = "Path must be absolute";
   public static final String ERROR_PATH_TOO_LONG = "Path too long";
@@ -58,11 +59,13 @@ public class VfsFileService {
 
   public VfsFileData write(Long userId, String path, String content) {
     String normalizedPath = validateFilePath(path);
-    VfsSnapshot snapshot = loadSnapshot(userId);
-    validateContentSize(snapshot, normalizedPath, content);
-    snapshot.files().put(normalizedPath, content);
-    saveSnapshot(userId, snapshot);
-    return new VfsFileData(normalizedPath, content);
+    synchronized (snapshotLock(userId)) {
+      VfsSnapshot snapshot = loadSnapshot(userId);
+      validateContentSize(snapshot, normalizedPath, content);
+      snapshot.files().put(normalizedPath, content);
+      saveSnapshot(userId, snapshot);
+      return new VfsFileData(normalizedPath, content);
+    }
   }
 
   public MoveResult move(Long userId, String fromPath, String toPath) {
@@ -73,30 +76,46 @@ public class VfsFileService {
       return new MoveResult(normalizedFromPath, normalizedToPath);
     }
 
-    VfsSnapshot snapshot = loadSnapshot(userId);
-    String sourceContent = snapshot.files().get(normalizedFromPath);
-    if (sourceContent == null) {
-      throw new IllegalStateException(ERROR_SOURCE_FILE_NOT_FOUND);
-    }
+    synchronized (snapshotLock(userId)) {
+      VfsSnapshot snapshot = loadSnapshot(userId);
+      String sourceContent = snapshot.files().get(normalizedFromPath);
+      if (sourceContent == null) {
+        throw new IllegalStateException(ERROR_SOURCE_FILE_NOT_FOUND);
+      }
 
-    if (snapshot.files().containsKey(normalizedToPath)) {
-      throw new IllegalStateException(ERROR_DESTINATION_ALREADY_EXISTS);
-    }
+      if (snapshot.files().containsKey(normalizedToPath)) {
+        throw new IllegalStateException(ERROR_DESTINATION_ALREADY_EXISTS);
+      }
 
-    snapshot.files().remove(normalizedFromPath);
-    snapshot.files().put(normalizedToPath, sourceContent);
-    saveSnapshot(userId, snapshot);
-    return new MoveResult(normalizedFromPath, normalizedToPath);
+      snapshot.files().remove(normalizedFromPath);
+      snapshot.files().put(normalizedToPath, sourceContent);
+      saveSnapshot(userId, snapshot);
+      return new MoveResult(normalizedFromPath, normalizedToPath);
+    }
   }
 
   public boolean delete(Long userId, String path) {
     String normalizedPath = validateFilePath(path);
-    VfsSnapshot snapshot = loadSnapshot(userId);
-    if (snapshot.files().remove(normalizedPath) == null) {
-      return false;
+    synchronized (snapshotLock(userId)) {
+      VfsSnapshot snapshot = loadSnapshot(userId);
+      if (snapshot.files().remove(normalizedPath) == null) {
+        return false;
+      }
+      saveSnapshot(userId, snapshot);
+      return true;
     }
-    saveSnapshot(userId, snapshot);
-    return true;
+  }
+
+  private static Object[] createSnapshotLocks(int count) {
+    Object[] locks = new Object[count];
+    for (int i = 0; i < count; i++) {
+      locks[i] = new Object();
+    }
+    return locks;
+  }
+
+  private Object snapshotLock(Long userId) {
+    return SNAPSHOT_LOCKS[Math.floorMod(userId.hashCode(), SNAPSHOT_LOCKS.length)];
   }
 
   private VfsSnapshot loadSnapshot(Long userId) {
