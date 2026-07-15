@@ -8,12 +8,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
+import app.vagina.server.support.Util;
 import io.vertx.core.buffer.Buffer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,9 +53,6 @@ class VhrpCrossCodecTest {
 
   /** CBOR mapper for ad-hoc C2S frames not covered by checked-in Dart fixtures yet. */
   private static final ObjectMapper CBOR = new ObjectMapper(new CBORFactory());
-
-  /** Hex formatter matching the Dart fixture convention (lower-case, no prefix). */
-  private static final HexFormat HEX = HexFormat.of();
 
   private static Path C2S_DIR;
   private static Path S2C_DIR;
@@ -243,7 +240,7 @@ class VhrpCrossCodecTest {
     assertInstanceOf(VhrpMessage.LiveAudioChunk.class, msg);
     VhrpMessage.LiveAudioChunk chunk = (VhrpMessage.LiveAudioChunk) msg;
 
-    byte[] expectedPcm = HEX.parseHex(expected.get("body").get("pcm").asText());
+    byte[] expectedPcm = Util.parseHex(expected.get("body").get("pcm").asText());
     assertArrayEquals(
         expectedPcm, chunk.pcm(), "PCM bytes from CBOR bstr must match hex fixture exactly");
     assertEquals(expected.get("body").get("sequence").asLong(), chunk.sequence());
@@ -289,7 +286,7 @@ class VhrpCrossCodecTest {
     assertEquals(expected.get("messageId").asText(), submit.messageId());
     assertEquals(body.get("clientItemId").asText(), submit.clientItemId());
 
-    byte[] expectedPcm = HEX.parseHex(body.get("pcm").asText());
+    byte[] expectedPcm = Util.parseHex(body.get("pcm").asText());
     assertArrayEquals(expectedPcm, submit.pcm(), "PCM bstr bytes must match");
   }
 
@@ -347,7 +344,7 @@ class VhrpCrossCodecTest {
     assertInstanceOf(VhrpMessage.TurnImageSubmit.class, msg);
     VhrpMessage.TurnImageSubmit submit = (VhrpMessage.TurnImageSubmit) msg;
 
-    byte[] expectedBytes = HEX.parseHex(expected.get("body").get("imageBytes").asText());
+    byte[] expectedBytes = Util.parseHex(expected.get("body").get("imageBytes").asText());
     assertArrayEquals(expectedBytes, submit.imageBytes(), "imageBytes bstr must match");
     // JPEG magic bytes check: FF D8
     assertTrue(submit.imageBytes().length >= 2, "imageBytes must not be empty");
@@ -812,7 +809,7 @@ class VhrpCrossCodecTest {
         new VhrpMessage.AssistantAudioChunk("item_aud01", 0, pcmBytes);
 
     byte[] cbor = encode(msg);
-    String pcmHex = HEX.formatHex(pcmBytes);
+    String pcmHex = Util.hex(pcmBytes);
 
     writeFixture(
         "assistant_audio_chunk__with_pcm",

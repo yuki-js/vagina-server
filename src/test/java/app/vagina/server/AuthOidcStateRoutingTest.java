@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.vagina.server.support.HarigataOidcTestConstants;
+import app.vagina.server.support.Util;
 import io.quarkiverse.wiremock.devservice.ConnectWireMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -13,8 +14,6 @@ import io.restassured.response.Response;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -123,13 +122,8 @@ class AuthOidcStateRoutingTest {
   }
 
   private static String s256(String verifier) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hash = digest.digest(verifier.getBytes(StandardCharsets.US_ASCII));
-      return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("SHA-256 unavailable", e);
-    }
+    byte[] hash = Util.sha256(verifier, StandardCharsets.US_ASCII);
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
   }
 
   private static Map<String, String> queryParameters(URI uri) {

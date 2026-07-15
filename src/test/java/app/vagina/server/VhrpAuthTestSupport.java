@@ -4,13 +4,12 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import app.vagina.server.support.Util;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -89,13 +88,8 @@ final class VhrpAuthTestSupport {
   }
 
   private static String s256(String verifier) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hash = digest.digest(verifier.getBytes(StandardCharsets.US_ASCII));
-      return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("SHA-256 unavailable", e);
-    }
+    byte[] hash = Util.sha256(verifier, StandardCharsets.US_ASCII);
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
   }
 
   private static Map<String, String> parseQueryParams(String rawQuery) {

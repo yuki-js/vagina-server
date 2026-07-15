@@ -3,6 +3,7 @@ package app.vagina.server.support;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.net.URI;
 import java.net.URLEncoder;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -51,21 +52,35 @@ public final class Util {
     return doc.get(field).asText();
   }
 
-  public static String sha256Hex(String value) {
+  public static byte[] sha256(String value) {
+    return sha256(value, StandardCharsets.UTF_8);
+  }
+
+  public static byte[] sha256(String value, Charset charset) {
+    return sha256(value.getBytes(charset));
+  }
+
+  public static byte[] sha256(byte[] value) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      return HEX_FORMAT.formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+      return digest.digest(value);
     } catch (NoSuchAlgorithmException e) {
       throw new IllegalStateException("SHA-256 is not available", e);
     }
   }
 
-  public static String randomHexToken() {
-    return randomHex(32);
+  public static String hex(byte[] value) {
+    return HEX_FORMAT.formatHex(value);
   }
 
-  public static String randomPublicId(String prefix) {
-    return prefix + randomHex(16);
+  public static byte[] parseHex(String value) {
+    return HEX_FORMAT.parseHex(value);
+  }
+
+  public static byte[] randomBytes(int byteLength) {
+    byte[] randomBytes = new byte[byteLength];
+    SECURE_RANDOM.get().nextBytes(randomBytes);
+    return randomBytes;
   }
 
   public static boolean hasPngMagic(byte[] bytes) {
@@ -106,12 +121,6 @@ public final class Util {
     String querySuffix =
         baseUri.getQuery() == null || baseUri.getQuery().isBlank() ? "" : "?" + baseUri.getQuery();
     return baseUri.resolve(normalizedPath + querySuffix);
-  }
-
-  private static String randomHex(int byteLength) {
-    byte[] randomBytes = new byte[byteLength];
-    SECURE_RANDOM.get().nextBytes(randomBytes);
-    return HEX_FORMAT.formatHex(randomBytes);
   }
 
   // ---------------------------------------------------------------------------

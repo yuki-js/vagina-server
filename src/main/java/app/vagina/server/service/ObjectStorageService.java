@@ -14,13 +14,11 @@ import jakarta.inject.Inject;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +35,6 @@ public class ObjectStorageService {
       DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC);
   private static final DateTimeFormatter DATE_STAMP =
       DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC);
-  private static final HexFormat HEX = HexFormat.of();
 
   @Inject Vertx vertx;
   @Inject ObjectStorageConfig config;
@@ -111,7 +108,7 @@ public class ObjectStorageService {
     Instant now = Instant.now();
     String amzDate = AMZ_DATE.format(now);
     String dateStamp = DATE_STAMP.format(now);
-    String payloadHash = sha256Hex(payload);
+    String payloadHash = Util.hex(Util.sha256(payload));
     String host = endpoint.getHost();
     int port = endpoint.getPort();
     String scheme = endpoint.getScheme();
@@ -152,8 +149,8 @@ public class ObjectStorageService {
             + "\n"
             + credentialScope
             + "\n"
-            + sha256Hex(canonicalRequest.getBytes(StandardCharsets.UTF_8));
-    String signature = HEX.formatHex(hmac(signingKey(dateStamp), stringToSign));
+            + Util.hex(Util.sha256(canonicalRequest.getBytes(StandardCharsets.UTF_8)));
+    String signature = Util.hex(hmac(signingKey(dateStamp), stringToSign));
     String authorization =
         SIGNING_ALGORITHM
             + " Credential="
@@ -184,15 +181,6 @@ public class ObjectStorageService {
       return mac.doFinal(value.getBytes(StandardCharsets.UTF_8));
     } catch (InvalidKeyException | NoSuchAlgorithmException e) {
       throw new IllegalStateException("S3 signature could not be calculated", e);
-    }
-  }
-
-  private String sha256Hex(byte[] value) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      return HEX.formatHex(digest.digest(value));
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("SHA-256 is not available", e);
     }
   }
 

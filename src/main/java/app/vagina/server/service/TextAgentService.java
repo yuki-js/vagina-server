@@ -102,7 +102,7 @@ public class TextAgentService {
   }
 
   private String generateTextAgentId() {
-    return Util.randomPublicId(TEXT_AGENT_ID_PREFIX);
+    return TEXT_AGENT_ID_PREFIX + Util.hex(Util.randomBytes(16));
   }
 
   public record CreateCommand(

@@ -23,9 +23,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -41,7 +38,6 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 public class AuthService {
   private static final Set<String> DECLARED_BUT_NOT_IMPLEMENTED_PROVIDERS =
       Set.of("apple", "twitter");
-  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
   private static final int OIDC_STATE_NONCE_BYTES = 16;
 
   public record CreatedOidcState(
@@ -127,8 +123,7 @@ public class AuthService {
     String normalizedCodeChallengeMethod = validateCodeChallengeMethod(codeChallengeMethod);
     byte[] challengeBytes =
         decodeS256CodeChallenge(normalizedCodeChallenge, ValidationException::new);
-    byte[] nonce = new byte[OIDC_STATE_NONCE_BYTES];
-    SECURE_RANDOM.nextBytes(nonce);
+    byte[] nonce = Util.randomBytes(OIDC_STATE_NONCE_BYTES);
     String rawState =
         oidcStateService.issue(
             providerKey,
@@ -172,13 +167,8 @@ public class AuthService {
   }
 
   public static String generateS256CodeChallenge(String codeVerifier) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hash = digest.digest(codeVerifier.getBytes(StandardCharsets.US_ASCII));
-      return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("SHA-256 is not available", e);
-    }
+    byte[] hash = Util.sha256(codeVerifier, StandardCharsets.US_ASCII);
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
   }
 
   public String generateAccessToken(User user) {
@@ -210,7 +200,7 @@ public class AuthService {
 
   @Transactional
   public IssuedRefreshToken issueRefreshToken(Long userId) {
-    String rawToken = Util.randomHexToken();
+    String rawToken = Util.hex(Util.randomBytes(32));
     String tokenFamily = UUID.randomUUID().toString();
     LocalDateTime now = LocalDateTime.now();
 
@@ -218,7 +208,7 @@ public class AuthService {
         new RefreshToken(
             null,
             userId,
-            Util.sha256Hex(rawToken),
+            Util.hex(Util.sha256(rawToken)),
             tokenFamily,
             now,
             now.plusSeconds(refreshTokenLifespan),
@@ -238,7 +228,7 @@ public class AuthService {
   public Optional<RotateResult> rotateRefreshToken(String rawToken) {
     Optional<RefreshToken> currentOpt =
         refreshTokenMapper
-            .findByTokenHash(Util.sha256Hex(rawToken))
+            .findByTokenHash(Util.hex(Util.sha256(rawToken)))
             .map(this::toRefreshTokenDomain);
     if (currentOpt.isEmpty()) {
       return Optional.empty();
@@ -268,10 +258,10 @@ public class AuthService {
     }
     current.markRotated(now);
 
-    String newRawToken = Util.randomHexToken();
+    String newRawToken = Util.hex(Util.randomBytes(32));
     RefreshToken replacement =
         current.createReplacement(
-            Util.sha256Hex(newRawToken), now.plusSeconds(refreshTokenLifespan), now);
+            Util.hex(Util.sha256(newRawToken)), now.plusSeconds(refreshTokenLifespan), now);
     RefreshTokenMapper.Row replacementRow = toRefreshTokenRow(replacement);
     refreshTokenMapper.insert(replacementRow);
     replacement.setGeneratedId(replacementRow.getId());
@@ -283,7 +273,7 @@ public class AuthService {
   public void revokeRefreshToken(String rawToken) {
     Optional<RefreshToken> refreshTokenOpt =
         refreshTokenMapper
-            .findByTokenHash(Util.sha256Hex(rawToken))
+            .findByTokenHash(Util.hex(Util.sha256(rawToken)))
             .map(this::toRefreshTokenDomain);
     if (refreshTokenOpt.isEmpty()) {
       return;

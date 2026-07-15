@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.vagina.server.domain.error.AuthenticationException;
 import app.vagina.server.entity.ClientType;
+import app.vagina.server.support.Util;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
@@ -134,11 +134,7 @@ class OidcStateServiceTest {
   }
 
   private static byte[] sha256(String value) {
-    try {
-      return MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.US_ASCII));
-    } catch (Exception e) {
-      throw new IllegalStateException(e);
-    }
+    return Util.sha256(value, StandardCharsets.US_ASCII);
   }
 
   private static byte[] nonce(byte value) {

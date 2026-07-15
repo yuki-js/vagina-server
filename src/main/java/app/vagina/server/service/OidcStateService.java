@@ -3,6 +3,7 @@ package app.vagina.server.service;
 import app.vagina.server.domain.error.AuthenticationException;
 import app.vagina.server.domain.error.ValidationException;
 import app.vagina.server.entity.ClientType;
+import app.vagina.server.support.Util;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
@@ -12,7 +13,6 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,7 +27,6 @@ public class OidcStateService {
   private static final int PKCE_CHALLENGE_BYTES = 32;
   private static final int TAG_BYTES = 32;
   private static final int PAYLOAD_BYTES = 1 + Long.BYTES + NONCE_BYTES + PKCE_CHALLENGE_BYTES;
-  private static final HexFormat HEX_FORMAT = HexFormat.of();
   private static final byte[] HKDF_SALT = "vagina/root-key/v1".getBytes(StandardCharsets.US_ASCII);
   private static final byte[] HKDF_INFO =
       "vagina/oidc-state/v1".getBytes(StandardCharsets.US_ASCII);
@@ -186,7 +185,7 @@ public class OidcStateService {
           "vagina.secret must contain exactly 64 hexadecimal digits");
     }
     try {
-      return HEX_FORMAT.parseHex(normalized);
+      return Util.parseHex(normalized);
     } catch (IllegalArgumentException e) {
       throw new IllegalArgumentException("vagina.secret must be hexadecimal", e);
     }
@@ -217,13 +216,7 @@ public class OidcStateService {
   }
 
   private static String sha256Base64Url(String value) {
-    try {
-      byte[] digest =
-          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
-      return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
-    } catch (GeneralSecurityException e) {
-      throw new IllegalStateException("SHA-256 is not available", e);
-    }
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(Util.sha256(value));
   }
 
   private static char prefix(ClientType clientType) {

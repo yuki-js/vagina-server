@@ -148,7 +148,7 @@ public class SpeedDialService {
   }
 
   private String generateSpeedDialId() {
-    return Util.randomPublicId(SPEED_DIAL_ID_PREFIX);
+    return SPEED_DIAL_ID_PREFIX + Util.hex(Util.randomBytes(16));
   }
 
   public record CreateCommand(
