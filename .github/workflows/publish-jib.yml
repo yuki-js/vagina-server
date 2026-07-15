@@ -266,6 +266,7 @@ jobs:
                 issuer: http://localhost:8080
 
           vagina:
+            secret: 0000000000000000000000000000000000000000000000000000000000000000
             auth:
               oidc:
                 redirect-uri:
