@@ -161,7 +161,6 @@ vagina:
         provider: oai_responses
         display-name: Aok (Hermes Agent)
         base-url: http://10.1.0.10:8642/v1
-        api-key: ${vagina.openai-default-apikey}
         model: aok
         required-entitlement: aok-owner
         is-stealth: true

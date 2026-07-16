@@ -52,7 +52,8 @@ spec:
             - containerPort: 8080
           env:
             - name: QUARKUS_CONFIG_LOCATIONS
-              value: /deployments/config/application.yaml,/deployments/config/application-secret.yaml
+              # For equal config ordinals, SmallRye Config gives the first location precedence.
+              value: /deployments/config/application-secret.yaml,/deployments/config/application.yaml
             # Observability environment variables
             - name: DEPLOYMENT_ENVIRONMENT
               value: production

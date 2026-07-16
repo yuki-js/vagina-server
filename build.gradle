@@ -572,8 +572,29 @@ task checkJavaFqcnUsage {
     }
 }
 
+def checkProductionConfigPrecedence = tasks.register('checkProductionConfigPrecedence') {
+    group = 'verification'
+    description = 'Verifies that production secrets override non-secret configuration'
+
+    def backendManifest = layout.projectDirectory.file('manifests/backend.yaml')
+    inputs.file backendManifest
+
+    doLast {
+        def manifest = backendManifest.asFile.getText('UTF-8')
+        def secretFirstLocations =
+            'value: /deployments/config/application-secret.yaml,/deployments/config/application.yaml'
+
+        if (!manifest.contains(secretFirstLocations)) {
+            throw new GradleException(
+                'manifests/backend.yaml must list application-secret.yaml before application.yaml in '
+                    + 'QUARKUS_CONFIG_LOCATIONS because SmallRye Config gives the first equal-ordinal location precedence')
+        }
+    }
+}
+
 check.dependsOn checkLayeredArchitecture
 check.dependsOn checkJavaFqcnUsage
+check.dependsOn checkProductionConfigPrecedence
 
 // Clean generated sources on clean
 clean {
