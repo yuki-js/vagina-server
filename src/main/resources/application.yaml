@@ -55,8 +55,8 @@ quarkus:
 
   websockets-next:
     server:
-      max-frame-size: 1048576
-      max-message-size: 1048576
+      max-frame-size: 6291456
+      max-message-size: 6291456
     
   micrometer:
     enabled: true
