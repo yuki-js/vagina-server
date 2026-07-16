@@ -1,6 +1,7 @@
 package app.vagina.server.realtime.oai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.vagina.server.realtime.model.RealtimeAdapterModels;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -158,6 +159,36 @@ class OaiRealtimeAdapterResponseCoordinationTest {
                 "response still active",
                 null,
                 retryEventId)));
+    assertEquals(2, transport.countSent("response.create"));
+  }
+
+  @Test
+  void emptyAudioCommitProviderErrorIsIgnored() {
+    TestTransport transport = new TestTransport();
+    OaiRealtimeAdapter adapter = adapter(transport);
+    AssertSubscriber<RealtimeAdapterModels.Error> errors =
+        adapter.errors().subscribe().withSubscriber(AssertSubscriber.create(1));
+
+    transport.emitError("input_audio_buffer_commit_empty", null, "empty audio buffer");
+
+    assertTrue(errors.getItems().isEmpty());
+  }
+
+  @Test
+  void cancelNotActiveCompletesCancellationAsIdempotentNoOpAndStartsQueuedTurn() {
+    TestTransport transport = new TestTransport();
+    OaiRealtimeAdapter adapter = adapter(transport);
+    AssertSubscriber<RealtimeAdapterModels.Error> errors =
+        adapter.errors().subscribe().withSubscriber(AssertSubscriber.create(1));
+
+    adapter.sendText("turn A").await().indefinitely();
+    transport.emitResponseCreated("response_A");
+    adapter.sendText("turn B").await().indefinitely();
+    String cancelEventId = transport.lastEventId("response.cancel");
+
+    transport.emitError("response_cancel_not_active", cancelEventId, "no active response");
+
+    assertTrue(errors.getItems().isEmpty());
     assertEquals(2, transport.countSent("response.create"));
   }
 

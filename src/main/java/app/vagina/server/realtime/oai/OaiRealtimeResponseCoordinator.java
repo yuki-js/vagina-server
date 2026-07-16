@@ -17,6 +17,7 @@ import java.util.Set;
  */
 final class OaiRealtimeResponseCoordinator {
   private static final String ACTIVE_RESPONSE_CONFLICT = "conversation_already_has_active_response";
+  private static final String RESPONSE_CANCEL_NOT_ACTIVE = "response_cancel_not_active";
 
   interface Commands {
     Uni<Void> createResponse(String eventId);
@@ -78,6 +79,7 @@ final class OaiRealtimeResponseCoordinator {
   private Generation inFlightGeneration;
   private Generation queuedGeneration;
   private String createEventId;
+  private String cancelEventId;
   private String activeResponseId;
   private boolean cancelRequested;
   private boolean waitForAnyTerminalAfterConflict;
@@ -134,6 +136,7 @@ final class OaiRealtimeResponseCoordinator {
     activeResponseId = null;
     inFlightGeneration = null;
     createEventId = null;
+    cancelEventId = null;
     cancelRequested = false;
     waitForAnyTerminalAfterConflict = false;
 
@@ -181,9 +184,15 @@ final class OaiRealtimeResponseCoordinator {
   }
 
   /**
-   * Consumes one correlated active-response conflict; a second conflict remains an explicit error.
+   * Consumes provider errors that are state-machine signals at this boundary: cancel-not-active means
+   * the idempotent cancel postcondition is already satisfied, while a correlated active-response
+   * conflict gets one retry after the provider's current response terminates.
    */
   synchronized boolean onProviderError(OaiRealtimeEvent.ErrorDetail detail) {
+    if (isCorrelatedCancelNotActive(detail)) {
+      completeCancellationLocked();
+      return true;
+    }
     if (!ACTIVE_RESPONSE_CONFLICT.equals(detail.code())
         || !Objects.equals(createEventId, detail.eventId())
         || inFlightGeneration == null) {
@@ -195,6 +204,7 @@ final class OaiRealtimeResponseCoordinator {
     queuedGeneration = inFlightGeneration.retry();
     inFlightGeneration = null;
     createEventId = null;
+    cancelEventId = null;
     activeResponseId = null;
     cancelRequested = false;
     phase = Phase.ACTIVE;
@@ -214,6 +224,7 @@ final class OaiRealtimeResponseCoordinator {
     phase = Phase.CREATE_PENDING;
     inFlightGeneration = generation;
     createEventId = nextCommandIdLocked("create", generation.number());
+    cancelEventId = null;
     cancelRequested = false;
     return commands.createResponse(createEventId);
   }
@@ -224,7 +235,8 @@ final class OaiRealtimeResponseCoordinator {
     }
     cancelRequested = true;
     phase = Phase.CANCEL_PENDING;
-    return commands.cancelResponse(nextCommandIdLocked("cancel", generationCounter));
+    cancelEventId = nextCommandIdLocked("cancel", generationCounter);
+    return commands.cancelResponse(cancelEventId);
   }
 
   private String nextCommandIdLocked(String operation, long generation) {
@@ -270,6 +282,23 @@ final class OaiRealtimeResponseCoordinator {
     if (batch != null) {
       batch.interrupted = true;
     }
+  }
+
+  private boolean isCorrelatedCancelNotActive(OaiRealtimeEvent.ErrorDetail detail) {
+    return RESPONSE_CANCEL_NOT_ACTIVE.equals(detail.code())
+        && cancelRequested
+        && Objects.equals(cancelEventId, detail.eventId());
+  }
+
+  private void completeCancellationLocked() {
+    phase = Phase.IDLE;
+    activeResponseId = null;
+    inFlightGeneration = null;
+    createEventId = null;
+    cancelEventId = null;
+    cancelRequested = false;
+    waitForAnyTerminalAfterConflict = false;
+    startQueuedGenerationLocked();
   }
 
   private static boolean isBlank(String value) {

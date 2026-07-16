@@ -23,6 +23,8 @@ import java.util.function.Consumer;
  * associated audio or state signal.
  */
 final class OaiRealtimeEventProjector {
+  private static final String INPUT_AUDIO_BUFFER_COMMIT_EMPTY = "input_audio_buffer_commit_empty";
+
   private final OaiRealtimeClient client;
   private final OaiRealtimeResponseCoordinator coordinator;
   private final Consumer<RealtimeAdapterModels.ConnectionState> connectionStateSink;
@@ -298,10 +300,14 @@ final class OaiRealtimeEventProjector {
 
   private void onErrorEvent(OaiRealtimeEvent.ErrorEvent event) {
     OaiRealtimeEvent.ErrorDetail detail = event.error();
-    if (coordinator.onProviderError(detail)) {
+    if (coordinator.onProviderError(detail) || isExpectedBenignProviderError(detail)) {
       return;
     }
     emitError(detail.code() != null ? detail.code() : detail.type(), detail.message(), detail);
+  }
+
+  private boolean isExpectedBenignProviderError(OaiRealtimeEvent.ErrorDetail detail) {
+    return INPUT_AUDIO_BUFFER_COMMIT_EMPTY.equals(detail.code());
   }
 
   private void onConversationCreated(OaiRealtimeEvent.ConversationCreated event) {
