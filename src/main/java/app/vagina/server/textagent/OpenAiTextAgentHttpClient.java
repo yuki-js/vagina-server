@@ -25,8 +25,12 @@ final class OpenAiTextAgentHttpClient {
     this(
         objectMapper,
         HttpClient.newBuilder().connectTimeout(Constants.SERVER_COMMON_HTTP_TIMEOUT).build(),
-        Constants.AI_PROVIDER_MAX_RESPONSE_BYTES,
-        Constants.SERVER_COMMON_HTTP_TIMEOUT);
+        Constants.AI_PROVIDER_MAX_RESPONSE_BYTES);
+  }
+
+  OpenAiTextAgentHttpClient(
+      ObjectMapper objectMapper, HttpClient httpClient, long maxResponseBytes) {
+    this(objectMapper, httpClient, maxResponseBytes, Constants.TEXT_AGENT_HTTP_REQUEST_TIMEOUT);
   }
 
   OpenAiTextAgentHttpClient(

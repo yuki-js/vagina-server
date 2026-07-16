@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.vagina.server.domain.error.ExternalServiceException;
 import app.vagina.server.entity.TextAgentDefinition;
+import app.vagina.server.support.Constants;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderContext;
 import app.vagina.server.textagent.TextAgentRuntimeModels.ProviderSessionState;
 import app.vagina.server.textagent.TextAgentRuntimeModels.QueryCommand;
@@ -38,6 +39,23 @@ import javax.net.ssl.SSLSession;
 import org.junit.jupiter.api.Test;
 
 class OpenAiTextAgentHttpClientTest {
+  @Test
+  void textAgentRequestTimeoutIsThirtyMinutes() {
+    RecordingHttpClient http = new RecordingHttpClient(200, "{\"value\":\"ok\"}");
+    OpenAiTextAgentHttpClient client =
+        new OpenAiTextAgentHttpClient(new ObjectMapper(), http, 1024);
+
+    client.postJson(
+        context(),
+        URI.create("https://provider.test/v1/responses"),
+        Map.of(),
+        TestResponse.class,
+        "failed");
+
+    assertEquals(Duration.ofMinutes(30), http.request.timeout().orElseThrow());
+    assertEquals(Duration.ofSeconds(10), Constants.SERVER_COMMON_HTTP_TIMEOUT);
+  }
+
   @Test
   void appliesRequestTimeoutAndParsesSuccess() {
     RecordingHttpClient http = new RecordingHttpClient(200, "{\"value\":\"ok\"}");
