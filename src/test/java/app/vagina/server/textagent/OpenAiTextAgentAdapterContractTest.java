@@ -237,6 +237,90 @@ class OpenAiTextAgentAdapterContractTest {
       }
       """;
 
+  private static final String RESPONSES_PROVIDER_EXECUTED_TOOL_RESPONSE =
+      """
+      {
+        "id": "resp_provider_executed",
+        "object": "response",
+        "status": "completed",
+        "output": [
+          {
+            "id": "fc_resolved",
+            "type": "function_call",
+            "status": "completed",
+            "arguments": "{\\\"path\\\":\\\"/remote.md\\\"}",
+            "call_id": "call_resolved",
+            "name": "document_read"
+          },
+          {
+            "id": "fco_resolved",
+            "type": "function_call_output",
+            "status": "completed",
+            "call_id": "call_resolved",
+            "output": "{\\\"content\\\":\\\"remote result\\\"}"
+          },
+          {
+            "id": "msg_provider_executed",
+            "type": "message",
+            "status": "completed",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "The remote tool completed successfully."
+              }
+            ],
+            "role": "assistant"
+          }
+        ]
+      }
+      """;
+
+  private static final String RESPONSES_MIXED_RESOLVED_AND_PENDING_TOOLS_RESPONSE =
+      """
+      {
+        "id": "resp_mixed_tools",
+        "object": "response",
+        "status": "completed",
+        "output": [
+          {
+            "id": "fc_resolved",
+            "type": "function_call",
+            "status": "completed",
+            "arguments": "{\\\"path\\\":\\\"/remote.md\\\"}",
+            "call_id": "call_resolved",
+            "name": "document_read"
+          },
+          {
+            "id": "fco_resolved",
+            "type": "function_call_output",
+            "status": "completed",
+            "call_id": "call_resolved",
+            "output": "{\\\"content\\\":\\\"remote result\\\"}"
+          },
+          {
+            "id": "fc_pending",
+            "type": "function_call",
+            "status": "completed",
+            "arguments": "{\\\"expression\\\":\\\"2+2\\\"}",
+            "call_id": "call_pending",
+            "name": "calculator"
+          },
+          {
+            "id": "msg_mixed_tools",
+            "type": "message",
+            "status": "completed",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "A partial answer that must not complete the request."
+              }
+            ],
+            "role": "assistant"
+          }
+        ]
+      }
+      """;
+
   private WireMock wireMock;
   private ObjectMapper objectMapper;
 
@@ -447,6 +531,51 @@ class OpenAiTextAgentAdapterContractTest {
     assertEquals(
         "resp_05c749160a4fb710006a44b38846d08193b4246c9d0b1a56ef",
         adapter.previousResponseId(continuationContext));
+  }
+
+  @Test
+  void responsesProviderExecutedToolHistoryCompletesWithoutClientContinuation() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/responses"))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(RESPONSES_PROVIDER_EXECUTED_TOOL_RESPONSE)));
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+    ProviderContext context =
+        promptContext(
+            TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES,
+            "Use a provider-executed remote tool.");
+
+    QueryResult result = adapter.execute(context);
+
+    assertEquals(QueryStatus.COMPLETED, result.status());
+    assertEquals("The remote tool completed successfully.", result.text());
+    assertTrue(result.toolCalls().isEmpty());
+    assertEquals("resp_provider_executed", adapter.previousResponseId(context));
+    wireMock.verifyThat(1, postRequestedFor(urlPathEqualTo("/v1/responses")));
+  }
+
+  @Test
+  void responsesMixedResolvedAndPendingToolsReturnsOnlyPendingCalls() {
+    wireMock.register(
+        post(urlPathEqualTo("/v1/responses"))
+            .willReturn(
+                aResponse()
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(RESPONSES_MIXED_RESOLVED_AND_PENDING_TOOLS_RESPONSE)));
+    OpenAiResponsesTextAgentAdapter adapter = new OpenAiResponsesTextAgentAdapter(objectMapper);
+    ProviderContext context =
+        promptContext(
+            TextAgentAdapterFactory.PROVIDER_OPENAI_RESPONSES, "Use remote and client tools.");
+
+    QueryResult result = adapter.execute(context);
+
+    assertEquals(QueryStatus.REQUIRES_TOOL, result.status());
+    assertEquals(1, result.toolCalls().size());
+    assertEquals("call_pending", result.toolCalls().get(0).id());
+    assertEquals("calculator", result.toolCalls().get(0).name());
+    assertEquals("{\"expression\":\"2+2\"}", result.toolCalls().get(0).arguments());
   }
 
   @Test

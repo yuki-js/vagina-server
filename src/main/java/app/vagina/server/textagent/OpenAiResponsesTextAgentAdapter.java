@@ -16,8 +16,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   static final String PROVIDER_STATE_PREVIOUS_RESPONSE_ID = "previous_response_id";
@@ -140,25 +142,33 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
               .orElse("provider_error"),
           response.error().message());
     }
-    List<ToolCall> toolCalls = new ArrayList<>();
-    List<String> textParts = new ArrayList<>();
-    if (response.output() != null) {
-      for (ResponsesOutputItem item : response.output()) {
-        if ("function_call".equals(item.type())) {
-          toolCalls.add(
-              new ToolCall(
-                  item.callId(),
-                  item.name(),
-                  Optional.ofNullable(item.arguments())
-                      .filter(arguments -> !arguments.isBlank())
-                      .orElse("{}")));
-        } else if ("message".equals(item.type())) {
-          appendOutputText(textParts, item.content());
-        }
+    List<ResponsesOutputItem> output = response.output() == null ? List.of() : response.output();
+    Set<String> resolvedCallIds = new HashSet<>();
+    for (ResponsesOutputItem item : output) {
+      if ("function_call_output".equals(item.type())
+          && item.callId() != null
+          && !item.callId().isBlank()) {
+        resolvedCallIds.add(item.callId());
       }
     }
-    if (!toolCalls.isEmpty()) {
-      return QueryResult.requiresTool(toolCalls);
+
+    List<ToolCall> pendingToolCalls = new ArrayList<>();
+    List<String> textParts = new ArrayList<>();
+    for (ResponsesOutputItem item : output) {
+      if ("function_call".equals(item.type()) && !resolvedCallIds.contains(item.callId())) {
+        pendingToolCalls.add(
+            new ToolCall(
+                item.callId(),
+                item.name(),
+                Optional.ofNullable(item.arguments())
+                    .filter(arguments -> !arguments.isBlank())
+                    .orElse("{}")));
+      } else if ("message".equals(item.type())) {
+        appendOutputText(textParts, item.content());
+      }
+    }
+    if (!pendingToolCalls.isEmpty()) {
+      return QueryResult.requiresTool(pendingToolCalls);
     }
     if (!textParts.isEmpty()) {
       return QueryResult.completed(String.join("", textParts));
@@ -246,7 +256,7 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
   @RegisterForReflection
   @JsonIgnoreProperties(ignoreUnknown = true)
   private record ResponsesResponse(
-      String id, List<ResponsesOutputItem> output, ProviderError error) {}
+      String id, String status, List<ResponsesOutputItem> output, ProviderError error) {}
 
   @RegisterForReflection
   private record ResponsesOutputItem(
@@ -256,6 +266,7 @@ public final class OpenAiResponsesTextAgentAdapter implements TextAgentAdapter {
       String name,
       String arguments,
       @JsonProperty("call_id") String callId,
+      String output,
       String role,
       String phase,
       List<?> summary,
