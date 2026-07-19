@@ -55,8 +55,9 @@ quarkus:
 
   websockets-next:
     server:
-      max-frame-size: 6291456
-      max-message-size: 6291456
+      # VHRP accepts image payloads up to 8 MiB; the extra 1 MiB bounds CBOR envelope overhead.
+      max-frame-size: 9437184
+      max-message-size: 9437184
     
   micrometer:
     enabled: true

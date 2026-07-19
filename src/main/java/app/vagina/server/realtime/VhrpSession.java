@@ -65,7 +65,7 @@ public class VhrpSession {
   private static final int EXPECTED_AUDIO_BIT_DEPTH = 16;
   private static final int MAX_LIVE_AUDIO_CHUNK_BYTES = 64 * 1024;
   private static final int MAX_TURN_AUDIO_BYTES = 6 * 1024 * 1024;
-  private static final int MAX_IMAGE_BYTES = 1024 * 1024;
+  private static final int MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
   /** Stable resume handle; constant across the connections this session serves. */
   private final String sessionId;

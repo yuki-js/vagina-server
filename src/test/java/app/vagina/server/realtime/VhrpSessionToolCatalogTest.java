@@ -124,18 +124,24 @@ class VhrpSessionToolCatalogTest {
   }
 
   @Test
-  void rejectsOversizedTurnImageBeforeAdapterReceivesIt() {
+  void acceptsTurnImageAtEightMibLimit() {
     CapturingAdapter adapter = new CapturingAdapter();
     VhrpSession session = session(adapter, Map.of());
-    byte[] oversizedPng = new byte[1024 * 1024 + 1];
-    oversizedPng[0] = (byte) 0x89;
-    oversizedPng[1] = 0x50;
-    oversizedPng[2] = 0x4E;
-    oversizedPng[3] = 0x47;
-    oversizedPng[4] = 0x0D;
-    oversizedPng[5] = 0x0A;
-    oversizedPng[6] = 0x1A;
-    oversizedPng[7] = 0x0A;
+    byte[] maximumSizePng = pngBytes(8 * 1024 * 1024);
+
+    session
+        .dispatch(new VhrpMessage.TurnImageSubmit("msg_img", "ci_img", maximumSizePng))
+        .await()
+        .indefinitely();
+
+    assertEquals(List.of(maximumSizePng), adapter.sentImages);
+  }
+
+  @Test
+  void rejectsTurnImageAboveEightMibBeforeAdapterReceivesIt() {
+    CapturingAdapter adapter = new CapturingAdapter();
+    VhrpSession session = session(adapter, Map.of());
+    byte[] oversizedPng = pngBytes(8 * 1024 * 1024 + 1);
 
     assertThrows(
         VhrpException.MediaUnsupportedImage.class,
@@ -178,6 +184,19 @@ class VhrpSessionToolCatalogTest {
                 .await()
                 .indefinitely());
     assertTrue(adapter.sentImages.isEmpty());
+  }
+
+  private static byte[] pngBytes(int size) {
+    byte[] bytes = new byte[size];
+    bytes[0] = (byte) 0x89;
+    bytes[1] = 0x50;
+    bytes[2] = 0x4E;
+    bytes[3] = 0x47;
+    bytes[4] = 0x0D;
+    bytes[5] = 0x0A;
+    bytes[6] = 0x1A;
+    bytes[7] = 0x0A;
+    return bytes;
   }
 
   private VhrpSession session(CapturingAdapter adapter, Map<String, Boolean> toolOverrides) {
