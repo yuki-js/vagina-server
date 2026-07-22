@@ -82,6 +82,7 @@ vagina:
         api-key: ${vagina.openai-default-apikey}
         model: gpt-realtime-2.1
         reasoning-effort: none
+        required-entitlement: tier01
       realtime-2.1-high:
         provider: oai
         display-name: Realtime 2.1 (Reasoning High)
@@ -90,6 +91,7 @@ vagina:
         api-key: ${vagina.openai-default-apikey}
         model: gpt-realtime-2.1
         reasoning-effort: high
+        required-entitlement: tier01
       realtime-1.5:
         provider: oai
         display-name: Realtime 1.5
@@ -97,12 +99,14 @@ vagina:
         transcription-model: gpt-4o-transcribe
         api-key: ${vagina.openai-default-apikey}
         model: gpt-realtime-1.5
+        required-entitlement: tier01
       audio-1.5:
         provider: oai_cc
         display-name: Audio 1.5
         base-url: "${vagina.openai-base}"
         api-key: ${vagina.openai-default-apikey}
         model: gpt-audio-1.5
+        required-entitlement: tier01
       placeholder-paid:
         provider: oai_cc
         display-name: Coming Soon... (有料アーリーアクセス)
@@ -133,6 +137,7 @@ vagina:
         model: gpt-5.6-sol
         reasoning-effort: max
         reasoning-mode: pro
+        required-entitlement: tier01
       gpt-5.6-sol-xhigh:
         provider: oai_responses
         display-name: GPT-5.6 Sol Extra High
@@ -141,6 +146,7 @@ vagina:
         model: gpt-5.6-sol
         reasoning-effort: xhigh
         reasoning-mode: standard
+        required-entitlement: tier01
       gpt-5.6-sol-high:
         provider: oai_responses
         display-name: GPT-5.6 Sol High
@@ -149,6 +155,7 @@ vagina:
         model: gpt-5.6-sol
         reasoning-effort: high
         reasoning-mode: standard
+        required-entitlement: tier01
       gpt-5.6-sol-low:
         provider: oai_responses
         display-name: GPT-5.6 Sol Low
@@ -157,6 +164,7 @@ vagina:
         model: gpt-5.6-sol
         reasoning-effort: low
         reasoning-mode: standard
+        required-entitlement: tier01
       aok:
         provider: oai_responses
         display-name: Aok (Hermes Agent)
